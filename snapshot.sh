@@ -34,6 +34,7 @@ cd $LOC
 # temporarily copy embedded data over
 cp -R $COCKROACHDB_LOC/pkg/geo/geoprojbase/data $LOC/pkg/geo/geoprojbase/data
 # delete tests and testfiles
+rm pkg/sql/lexbase/.gitignore
 find pkg -type f -name '*_test.go' | xargs rm
 # sed replace any instances of cockroachdb
 find pkg -type f -name '*.go' | xargs sed -i '' -e 's_github\.com/cockroachdb/cockroach/_github.com/cockroachdb/cockroachdb-parser/_g'
