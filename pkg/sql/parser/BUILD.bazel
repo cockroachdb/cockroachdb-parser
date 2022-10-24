@@ -1,3 +1,4 @@
+load("//build/bazelutil/unused_checker:unused.bzl", "get_x_data")
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 load("//pkg/testutils/buildutil:buildutil.bzl", "disallowed_imports_test")
 
@@ -29,6 +30,7 @@ go_library(
         "//pkg/sql/pgwire/pgerror",
         "//pkg/sql/privilege",  # keep
         "//pkg/sql/scanner",
+        "//pkg/sql/sem/builtins/builtinsregistry",
         "//pkg/sql/sem/tree",
         "//pkg/sql/sem/tree/treebin",  # keep
         "//pkg/sql/sem/tree/treecmp",  # keep
@@ -37,6 +39,8 @@ go_library(
         "//pkg/util/errorutil/unimplemented",
         "@com_github_cockroachdb_errors//:errors",
         "@com_github_lib_pq//oid",  # keep
+        "@org_golang_x_text//cases",
+        "@org_golang_x_text//language",
     ],
 )
 
@@ -51,6 +55,7 @@ go_test(
         "scanner_test.go",
         ":gen-helpmap-test",  # keep
     ],
+    args = ["-test.timeout=55s"],
     data = glob(["testdata/**"]),
     embed = [":parser"],
     deps = [
@@ -162,3 +167,5 @@ disallowed_imports_test(
         "pkg/sql/catalog",
     ],
 )
+
+get_x_data(name = "get_x_data")

@@ -17,6 +17,7 @@ import (
 	"strings"
 
 	"github.com/cockroachdb/cockroachdb-parser/pkg/sql/lexbase"
+	"github.com/cockroachdb/cockroachdb-parser/pkg/sql/sem/catid"
 	"github.com/cockroachdb/errors"
 	"github.com/cockroachdb/redact"
 )
@@ -48,22 +49,24 @@ import (
 // considered pre-normalized and can be used directly for comparisons,
 // lookup etc.
 //
-// - The constructor MakeSQLUsernameFromUserInput() creates
-//   a username from "external input".
+//   - The constructor MakeSQLUsernameFromUserInput() creates
+//     a username from "external input".
 //
-// - The constructor MakeSQLUsernameFromPreNormalizedString()
-//   creates a username when the caller can guarantee that
-//   the input is already pre-normalized.
+//   - The constructor MakeSQLUsernameFromPreNormalizedString()
+//     creates a username when the caller can guarantee that
+//     the input is already pre-normalized.
 //
 // For convenience, the SQLIdentifier() method also represents a
 // username in the form suitable for input back by the SQL parser.
-//
 type SQLUsername struct {
 	u string
 }
 
 // NodeUser is used by nodes for intra-cluster traffic.
 const NodeUser = "node"
+
+// NodeUserID is the ID for NodeUser.
+const NodeUserID = 3
 
 // NodeUserName is the SQLUsername for NodeUser.
 func NodeUserName() SQLUsername { return SQLUsername{NodeUser} }
@@ -74,6 +77,9 @@ func (s SQLUsername) IsNodeUser() bool { return s.u == NodeUser }
 // RootUser is the default cluster administrator.
 const RootUser = "root"
 
+// RootUserID is the ID for RootUser.
+const RootUserID = 1
+
 // RootUserName is the SQLUsername for RootUser.
 func RootUserName() SQLUsername { return SQLUsername{RootUser} }
 
@@ -82,6 +88,9 @@ func (s SQLUsername) IsRootUser() bool { return s.u == RootUser }
 
 // AdminRole is the default (and non-droppable) role with superuser privileges.
 const AdminRole = "admin"
+
+// AdminRoleID is the ID for admin.
+const AdminRoleID = 2
 
 // AdminRoleName is the SQLUsername for AdminRole.
 func AdminRoleName() SQLUsername { return SQLUsername{AdminRole} }
@@ -94,6 +103,25 @@ func (s SQLUsername) IsAdminRole() bool { return s.u == AdminRole }
 // dropped, assigned to another role, and is generally not listed.
 // It can be granted privileges, implicitly granting them to all users (current and future).
 const PublicRole = "public"
+
+// PublicRoleID is the ID for public role.
+const PublicRoleID = 4
+
+// This map is immutable and should always hold.
+// Right now this should always hold as we cannot rename any of the
+// roles defined in this map.
+// TODO(richardjcai): Add checks to ensure that this mapping always holds.
+var roleNameToID = map[SQLUsername]catid.RoleID{
+	RootUserName():   RootUserID,
+	AdminRoleName():  AdminRoleID,
+	NodeUserName():   NodeUserID,
+	PublicRoleName(): PublicRoleID,
+}
+
+// GetDefaultRoleNameToID returns a role id for default roles.
+func GetDefaultRoleNameToID(username SQLUsername) catid.RoleID {
+	return roleNameToID[username]
+}
 
 // NoneRole is a special role.
 // It is primarily used in SET ROLE, where "none" symbolizes a reset.

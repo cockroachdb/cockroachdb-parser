@@ -26,7 +26,7 @@ const InternalAppNamePrefix = ReportableAppNamePrefix + "internal"
 // DelegatedAppNamePrefix is added to a regular client application
 // name for SQL queries that are ran internally on behalf of other SQL
 // queries inside that application. This is not the same as
-// RepotableAppNamePrefix; in particular the application name with
+// ReportableAppNamePrefix; in particular the application name with
 // DelegatedAppNamePrefix should be scrubbed in reporting.
 const DelegatedAppNamePrefix = "$$ "
 
@@ -81,6 +81,9 @@ const (
 	SpanConfigurationsTableName            SystemTableName = "span_configurations"
 	TenantSettingsTableName                SystemTableName = "tenant_settings"
 	SpanCountTableName                     SystemTableName = "span_count"
+	SystemPrivilegeTableName               SystemTableName = "privileges"
+	SystemExternalConnectionsTableName     SystemTableName = "external_connections"
+	RoleIDSequenceName                     SystemTableName = "role_id_seq"
 )
 
 // Oid for virtual database and table.
@@ -94,6 +97,7 @@ const (
 	CrdbInternalClusterContendedTablesViewID
 	CrdbInternalClusterContentionEventsTableID
 	CrdbInternalClusterDistSQLFlowsTableID
+	CrdbInternalClusterExecutionInsightsTableID
 	CrdbInternalClusterLocksTableID
 	CrdbInternalClusterQueriesTableID
 	CrdbInternalClusterTransactionsTableID
@@ -101,6 +105,7 @@ const (
 	CrdbInternalClusterSettingsTableID
 	CrdbInternalClusterStmtStatsTableID
 	CrdbInternalClusterTxnStatsTableID
+	CrdbInternalCreateFunctionStmtsTableID
 	CrdbInternalCreateSchemaStmtsTableID
 	CrdbInternalCreateStmtsTableID
 	CrdbInternalCreateTypeStmtsTableID
@@ -122,7 +127,7 @@ const (
 	CrdbInternalLeasesTableID
 	CrdbInternalLocalContentionEventsTableID
 	CrdbInternalLocalDistSQLFlowsTableID
-	CrdbInternalNodeExecutionOutliersTableID
+	CrdbInternalNodeExecutionInsightsTableID
 	CrdbInternalLocalQueriesTableID
 	CrdbInternalLocalTransactionsTableID
 	CrdbInternalLocalSessionsTableID

@@ -1,3 +1,4 @@
+load("//build/bazelutil/unused_checker:unused.bzl", "get_x_data")
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 load("//pkg/testutils/buildutil:buildutil.bzl", "disallowed_imports_test")
 
@@ -52,6 +53,7 @@ go_test(
         "latlng_test.go",
         "parse_test.go",
     ],
+    args = ["-test.timeout=55s"],
     embed = [":geo"],
     deps = [
         "//pkg/geo/geographiclib",
@@ -72,3 +74,5 @@ disallowed_imports_test(
         "//pkg/geo/geoproj",
     ],
 )
+
+get_x_data(name = "get_x_data")

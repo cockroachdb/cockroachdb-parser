@@ -36,10 +36,11 @@ type SelectStatement interface {
 	selectStatement()
 }
 
-func (*ParenSelect) selectStatement()  {}
-func (*SelectClause) selectStatement() {}
-func (*UnionClause) selectStatement()  {}
-func (*ValuesClause) selectStatement() {}
+func (*ParenSelect) selectStatement()         {}
+func (*SelectClause) selectStatement()        {}
+func (*UnionClause) selectStatement()         {}
+func (*ValuesClause) selectStatement()        {}
+func (*LiteralValuesClause) selectStatement() {}
 
 // Select represents a SelectStatement with an ORDER and/or LIMIT.
 type Select struct {
@@ -187,21 +188,52 @@ func (node *SelectExpr) Format(ctx *FmtCtx) {
 	}
 }
 
-// AliasClause represents an alias, optionally with a column list:
-// "AS name" or "AS name(col1, col2)".
+// AliasClause represents an alias, optionally with a column def list:
+// "AS name", "AS name(col1, col2)", or "AS name(col1 INT, col2 STRING)".
+// Note that the last form is only valid in the context of record-returning
+// functions, which also require the last form to define their output types.
 type AliasClause struct {
 	Alias Name
-	Cols  NameList
+	Cols  ColumnDefList
 }
 
 // Format implements the NodeFormatter interface.
-func (a *AliasClause) Format(ctx *FmtCtx) {
-	ctx.FormatNode(&a.Alias)
-	if len(a.Cols) != 0 {
+func (f *AliasClause) Format(ctx *FmtCtx) {
+	ctx.FormatNode(&f.Alias)
+	if len(f.Cols) != 0 {
 		// Format as "alias (col1, col2, ...)".
 		ctx.WriteString(" (")
-		ctx.FormatNode(&a.Cols)
+		ctx.FormatNode(&f.Cols)
 		ctx.WriteByte(')')
+	}
+}
+
+// ColumnDef represents a column definition in the context of a record type
+// alias, like in select * from json_to_record(...) AS foo(a INT, b INT).
+type ColumnDef struct {
+	Name Name
+	Type ResolvableTypeReference
+}
+
+// Format implements the NodeFormatter interface.
+func (c *ColumnDef) Format(ctx *FmtCtx) {
+	ctx.FormatNode(&c.Name)
+	if c.Type != nil {
+		ctx.WriteByte(' ')
+		ctx.WriteString(c.Type.SQLString())
+	}
+}
+
+// ColumnDefList represents a list of ColumnDefs.
+type ColumnDefList []ColumnDef
+
+// Format implements the NodeFormatter interface.
+func (c *ColumnDefList) Format(ctx *FmtCtx) {
+	for i := range *c {
+		if i > 0 {
+			ctx.WriteString(", ")
+		}
+		ctx.FormatNode(&(*c)[i])
 	}
 }
 
@@ -276,14 +308,15 @@ type IndexID = catid.IndexID
 
 // IndexFlags represents "@<index_name|index_id>" or "@{param[,param]}" where
 // param is one of:
-//  - FORCE_INDEX=<index_name|index_id>
-//  - ASC / DESC
-//  - NO_INDEX_JOIN
-//  - NO_ZIGZAG_JOIN
-//  - NO_FULL_SCAN
-//  - IGNORE_FOREIGN_KEYS
-//  - FORCE_ZIGZAG
-//  - FORCE_ZIGZAG=<index_name|index_id>*
+//   - FORCE_INDEX=<index_name|index_id>
+//   - ASC / DESC
+//   - NO_INDEX_JOIN
+//   - NO_ZIGZAG_JOIN
+//   - NO_FULL_SCAN
+//   - IGNORE_FOREIGN_KEYS
+//   - FORCE_ZIGZAG
+//   - FORCE_ZIGZAG=<index_name|index_id>*
+//
 // It is used optionally after a table name in SELECT statements.
 type IndexFlags struct {
 	Index   UnrestrictedName
@@ -391,8 +424,8 @@ func (ih *IndexFlags) CombineWith(other *IndexFlags) error {
 }
 
 // Check verifies if the flags are valid:
-//  - ascending/descending is not specified without an index;
-//  - no_index_join isn't specified with an index.
+//   - ascending/descending is not specified without an index;
+//   - no_index_join isn't specified with an index.
 func (ih *IndexFlags) Check() error {
 	if ih.NoIndexJoin && ih.ForceIndex() {
 		return errors.New("FORCE_INDEX cannot be specified in conjunction with NO_INDEX_JOIN")
@@ -1108,17 +1141,17 @@ const (
 	// LockWaitBlock represents the default - wait for the lock to become
 	// available.
 	LockWaitBlock LockingWaitPolicy = iota
-	// LockWaitSkip represents SKIP LOCKED - skip rows that can't be locked.
-	LockWaitSkip
+	// LockWaitSkipLocked represents SKIP LOCKED - skip rows that can't be locked.
+	LockWaitSkipLocked
 	// LockWaitError represents NOWAIT - raise an error if a row cannot be
 	// locked.
 	LockWaitError
 )
 
 var lockingWaitPolicyName = [...]string{
-	LockWaitBlock: "",
-	LockWaitSkip:  "SKIP LOCKED",
-	LockWaitError: "NOWAIT",
+	LockWaitBlock:      "",
+	LockWaitSkipLocked: "SKIP LOCKED",
+	LockWaitError:      "NOWAIT",
 }
 
 func (p LockingWaitPolicy) String() string {

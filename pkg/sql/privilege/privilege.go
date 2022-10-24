@@ -20,7 +20,7 @@ import (
 	"github.com/cockroachdb/errors"
 )
 
-//go:generate stringer -type=Kind
+//go:generate stringer -type=Kind -linecomment
 
 // Kind defines a privilege. This is output by the parser,
 // and used to generate the privilege bitfields in the PrivilegeDescriptor.
@@ -31,18 +31,34 @@ type Kind uint32
 // Do not change values of privileges. These correspond to the position
 // of the privilege in a bit field and are expected to stay constant.
 const (
-	ALL        Kind = 1
-	CREATE     Kind = 2
-	DROP       Kind = 3
-	GRANT      Kind = 4
-	SELECT     Kind = 5
-	INSERT     Kind = 6
-	DELETE     Kind = 7
-	UPDATE     Kind = 8
-	USAGE      Kind = 9
-	ZONECONFIG Kind = 10
-	CONNECT    Kind = 11
-	RULE       Kind = 12
+	ALL    Kind = 1
+	CREATE Kind = 2
+	DROP   Kind = 3
+	// DEPRECATEDGRANT is a placeholder to make sure that 4 is not reused.
+	// It was previously used for the GRANT privilege that has been replaced with the more granular Privilege.GrantOption.
+	DEPRECATEDGRANT          Kind = 4 // GRANT
+	SELECT                   Kind = 5
+	INSERT                   Kind = 6
+	DELETE                   Kind = 7
+	UPDATE                   Kind = 8
+	USAGE                    Kind = 9
+	ZONECONFIG               Kind = 10
+	CONNECT                  Kind = 11
+	RULE                     Kind = 12
+	MODIFYCLUSTERSETTING     Kind = 13
+	EXTERNALCONNECTION       Kind = 14
+	VIEWACTIVITY             Kind = 15
+	VIEWACTIVITYREDACTED     Kind = 16
+	VIEWCLUSTERSETTING       Kind = 17
+	CANCELQUERY              Kind = 18
+	NOSQLLOGIN               Kind = 19
+	EXECUTE                  Kind = 20
+	VIEWCLUSTERMETADATA      Kind = 21
+	VIEWDEBUG                Kind = 22
+	BACKUP                   Kind = 23
+	RESTORE                  Kind = 24
+	EXTERNALIOIMPLICITACCESS Kind = 25
+	CHANGEFEED               Kind = 26
 )
 
 // Privilege represents a privilege parsed from an Access Privilege Inquiry
@@ -52,7 +68,7 @@ type Privilege struct {
 	// Each privilege Kind has an optional "grant option" flag associated with
 	// it. A role can only grant a privilege on an object to others if it is the
 	// owner of the object or if it itself holds that privilege WITH GRANT OPTION
-	// on the object. This replaces the CockroachDB-specific GRANT privilege.
+	// on the object. This replaced the CockroachDB-specific GRANT privilege.
 	GrantOption bool
 }
 
@@ -72,22 +88,47 @@ const (
 	Type ObjectType = "type"
 	// Sequence represents a sequence object.
 	Sequence ObjectType = "sequence"
+	// Function represent a function object.
+	Function ObjectType = "function"
+	// Global represents global privileges.
+	Global ObjectType = "global"
+	// VirtualTable represents a virtual table object.
+	VirtualTable ObjectType = "virtual_table"
+	// ExternalConnection represents an external connection object.
+	ExternalConnection ObjectType = "external_connection"
 )
+
+var isDescriptorBacked = map[ObjectType]bool{
+	Database:           true,
+	Schema:             true,
+	Table:              true,
+	Type:               true,
+	Sequence:           true,
+	Function:           true,
+	Global:             false,
+	VirtualTable:       false,
+	ExternalConnection: false,
+}
 
 // Predefined sets of privileges.
 var (
-	AllPrivileges    = List{ALL, CONNECT, CREATE, DROP, GRANT, SELECT, INSERT, DELETE, UPDATE, USAGE, ZONECONFIG}
-	ReadData         = List{GRANT, SELECT}
-	ReadWriteData    = List{GRANT, SELECT, INSERT, DELETE, UPDATE}
-	DBPrivileges     = List{ALL, CONNECT, CREATE, DROP, GRANT, ZONECONFIG}
-	TablePrivileges  = List{ALL, CREATE, DROP, GRANT, SELECT, INSERT, DELETE, UPDATE, ZONECONFIG}
-	SchemaPrivileges = List{ALL, GRANT, CREATE, USAGE}
-	TypePrivileges   = List{ALL, GRANT, USAGE}
+	AllPrivileges         = List{ALL, CHANGEFEED, CONNECT, CREATE, DROP, SELECT, INSERT, DELETE, UPDATE, USAGE, ZONECONFIG, EXECUTE, BACKUP, RESTORE, EXTERNALIOIMPLICITACCESS}
+	ReadData              = List{SELECT}
+	ReadWriteData         = List{SELECT, INSERT, DELETE, UPDATE}
+	ReadWriteSequenceData = List{SELECT, UPDATE, USAGE}
+	DBPrivileges          = List{ALL, BACKUP, CONNECT, CREATE, DROP, RESTORE, ZONECONFIG}
+	TablePrivileges       = List{ALL, BACKUP, CHANGEFEED, CREATE, DROP, SELECT, INSERT, DELETE, UPDATE, ZONECONFIG}
+	SchemaPrivileges      = List{ALL, CREATE, USAGE}
+	TypePrivileges        = List{ALL, USAGE}
+	FunctionPrivileges    = List{ALL, EXECUTE}
 	// SequencePrivileges is appended with TablePrivileges as well. This is because
 	// before v22.2 we treated Sequences the same as Tables. This is to avoid making
 	// certain privileges unavailable after upgrade migration.
-	// Note that "CREATE, INSERT, DELETE, ZONECONFIG" are no-op privileges on sequences.
-	SequencePrivileges = List{ALL, USAGE, SELECT, UPDATE, CREATE, DROP, GRANT, INSERT, DELETE, ZONECONFIG}
+	// Note that "CREATE, CHANGEFEED, INSERT, DELETE, ZONECONFIG" are no-op privileges on sequences.
+	SequencePrivileges           = List{ALL, USAGE, SELECT, UPDATE, CREATE, CHANGEFEED, DROP, INSERT, DELETE, ZONECONFIG}
+	GlobalPrivileges             = List{ALL, BACKUP, RESTORE, MODIFYCLUSTERSETTING, EXTERNALCONNECTION, VIEWACTIVITY, VIEWACTIVITYREDACTED, VIEWCLUSTERSETTING, CANCELQUERY, NOSQLLOGIN, VIEWCLUSTERMETADATA, VIEWDEBUG, EXTERNALIOIMPLICITACCESS}
+	VirtualTablePrivileges       = List{ALL, SELECT}
+	ExternalConnectionPrivileges = List{ALL, USAGE, DROP}
 )
 
 // Mask returns the bitmask for a given privilege.
@@ -102,23 +143,38 @@ func (k Kind) IsSetIn(bits uint32) bool {
 
 // ByValue is just an array of privilege kinds sorted by value.
 var ByValue = [...]Kind{
-	ALL, CREATE, DROP, GRANT, SELECT, INSERT, DELETE, UPDATE, USAGE, ZONECONFIG, CONNECT, RULE,
+	ALL, CREATE, DROP, SELECT, INSERT, DELETE, UPDATE, USAGE, ZONECONFIG, CONNECT, RULE,
+	MODIFYCLUSTERSETTING, EXTERNALCONNECTION, VIEWACTIVITY, VIEWACTIVITYREDACTED, VIEWCLUSTERSETTING,
+	CANCELQUERY, NOSQLLOGIN, EXECUTE, VIEWCLUSTERMETADATA, VIEWDEBUG, BACKUP,
 }
 
 // ByName is a map of string -> kind value.
 var ByName = map[string]Kind{
-	"ALL":        ALL,
-	"CONNECT":    CONNECT,
-	"CREATE":     CREATE,
-	"DROP":       DROP,
-	"GRANT":      GRANT,
-	"SELECT":     SELECT,
-	"INSERT":     INSERT,
-	"DELETE":     DELETE,
-	"UPDATE":     UPDATE,
-	"ZONECONFIG": ZONECONFIG,
-	"USAGE":      USAGE,
-	"RULE":       RULE,
+	"ALL":                      ALL,
+	"CHANGEFEED":               CHANGEFEED,
+	"CONNECT":                  CONNECT,
+	"CREATE":                   CREATE,
+	"DROP":                     DROP,
+	"SELECT":                   SELECT,
+	"INSERT":                   INSERT,
+	"DELETE":                   DELETE,
+	"UPDATE":                   UPDATE,
+	"ZONECONFIG":               ZONECONFIG,
+	"USAGE":                    USAGE,
+	"RULE":                     RULE,
+	"MODIFYCLUSTERSETTING":     MODIFYCLUSTERSETTING,
+	"EXTERNALCONNECTION":       EXTERNALCONNECTION,
+	"VIEWACTIVITY":             VIEWACTIVITY,
+	"VIEWACTIVITYREDACTED":     VIEWACTIVITYREDACTED,
+	"VIEWCLUSTERSETTING":       VIEWCLUSTERSETTING,
+	"CANCELQUERY":              CANCELQUERY,
+	"NOSQLLOGIN":               NOSQLLOGIN,
+	"EXECUTE":                  EXECUTE,
+	"VIEWCLUSTERMETADATA":      VIEWCLUSTERMETADATA,
+	"VIEWDEBUG":                VIEWDEBUG,
+	"BACKUP":                   BACKUP,
+	"RESTORE":                  RESTORE,
+	"EXTERNALIOIMPLICITACCESS": EXTERNALIOIMPLICITACCESS,
 }
 
 // List is a list of privileges.
@@ -279,6 +335,14 @@ func GetValidPrivilegesForObject(objectType ObjectType) List {
 		return SequencePrivileges
 	case Any:
 		return AllPrivileges
+	case Function:
+		return FunctionPrivileges
+	case Global:
+		return GlobalPrivileges
+	case VirtualTable:
+		return VirtualTablePrivileges
+	case ExternalConnection:
+		return ExternalConnectionPrivileges
 	default:
 		panic(errors.AssertionFailedf("unknown object type %s", objectType))
 	}
@@ -293,15 +357,17 @@ var privToACL = map[Kind]string{
 	UPDATE:  "w",
 	USAGE:   "U",
 	CONNECT: "c",
+	EXECUTE: "X",
 }
 
-// orderedPrivs is the list of privileges sorted in alphanumeric order based on the ACL character -> CUacdrw
-var orderedPrivs = List{CREATE, USAGE, INSERT, CONNECT, DELETE, SELECT, UPDATE}
+// orderedPrivs is the list of privileges sorted in alphanumeric order based on the ACL character -> CUacdrwX
+var orderedPrivs = List{CREATE, USAGE, INSERT, CONNECT, DELETE, SELECT, UPDATE, EXECUTE}
 
 // ListToACL converts a list of privileges to a list of Postgres
 // ACL items.
 // See: https://www.postgresql.org/docs/13/ddl-priv.html#PRIVILEGE-ABBREVS-TABLE
-//     for privileges and their ACL abbreviations.
+//
+//	for privileges and their ACL abbreviations.
 func (pl List) ListToACL(grantOptions List, objectType ObjectType) string {
 	privileges := pl
 	// If ALL is present, explode ALL into the underlying privileges.
@@ -326,4 +392,11 @@ func (pl List) ListToACL(grantOptions List, objectType ObjectType) string {
 
 	return strings.Join(chars, "")
 
+}
+
+// IsDescriptorBacked returns whether o is a descriptor backed object.
+// If o is not a descriptor backed object, then privileges are stored to
+// system.privileges.
+func (o ObjectType) IsDescriptorBacked() bool {
+	return isDescriptorBacked[o]
 }

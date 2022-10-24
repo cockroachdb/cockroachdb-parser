@@ -1,3 +1,4 @@
+load("//build/bazelutil/unused_checker:unused.bzl", "get_x_data")
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
@@ -26,6 +27,7 @@ go_test(
         "btree_based_interval_test.go",
         "range_group_test.go",
     ],
+    args = ["-test.timeout=55s"],
     embed = [":interval"],
     deps = [
         "//pkg/util/log",
@@ -34,3 +36,5 @@ go_test(
         "@org_golang_x_sync//errgroup",
     ],
 )
+
+get_x_data(name = "get_x_data")

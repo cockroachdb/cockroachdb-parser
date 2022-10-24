@@ -414,25 +414,24 @@ func (node *Exprs) doc(p *PrettyCfg) pretty.Doc {
 // peelBinaryOperand conditionally (p.Simplify) removes the
 // parentheses around an expression. The parentheses are always
 // removed in the following conditions:
-// - if the operand is a unary operator (these are always
-//   of higher precedence): "(-a) * b" -> "-a * b"
-// - if the operand is a binary operator and its precedence
-//   is guaranteed to be higher: "(a * b) + c" -> "a * b + c"
+//   - if the operand is a unary operator (these are always
+//     of higher precedence): "(-a) * b" -> "-a * b"
+//   - if the operand is a binary operator and its precedence
+//     is guaranteed to be higher: "(a * b) + c" -> "a * b + c"
 //
 // Additionally, iff sameLevel is set, then parentheses are removed
 // around any binary operator that has the same precedence level as
 // the parent.
 // sameLevel can be set:
 //
-// - for the left operand of all binary expressions, because
-//   (in pg SQL) all binary expressions are left-associative.
-//   This rewrites e.g. "(a + b) - c" -> "a + b - c"
-//   and "(a - b) + c" -> "a - b + c"
-// - for the right operand when the parent operator is known
-//   to be fully associative, e.g.
-//   "a + (b - c)" -> "a + b - c" because "+" is fully assoc,
-//   but "a - (b + c)" cannot be simplified because "-" is not fully associative.
-//
+//   - for the left operand of all binary expressions, because
+//     (in pg SQL) all binary expressions are left-associative.
+//     This rewrites e.g. "(a + b) - c" -> "a + b - c"
+//     and "(a - b) + c" -> "a - b + c"
+//   - for the right operand when the parent operator is known
+//     to be fully associative, e.g.
+//     "a + (b - c)" -> "a + b - c" because "+" is fully assoc,
+//     but "a - (b + c)" cannot be simplified because "-" is not fully associative.
 func (p *PrettyCfg) peelBinaryOperand(e Expr, sameLevel bool, parenPrio int) Expr {
 	if !p.Simplify {
 		return e
@@ -1316,10 +1315,16 @@ func (node *CreateView) doc(p *PrettyCfg) pretty.Doc {
 			p.bracket("(", p.Doc(&node.ColumnNames), ")"),
 		)
 	}
-	return p.nestUnder(
+	d = p.nestUnder(
 		pretty.ConcatSpace(d, pretty.Keyword("AS")),
 		p.Doc(node.AsSource),
 	)
+	if node.Materialized && node.WithData {
+		d = pretty.ConcatSpace(d, pretty.Keyword("WITH DATA"))
+	} else if node.Materialized && !node.WithData {
+		d = pretty.ConcatSpace(d, pretty.Keyword("WITH NO DATA"))
+	}
+	return d
 }
 
 func (node *TableDefs) doc(p *PrettyCfg) pretty.Doc {
@@ -1603,6 +1608,7 @@ func (node *CreateIndex) doc(p *PrettyCfg) pretty.Doc {
 	//    [PARTITION BY ...]
 	//    [WITH ...]
 	//    [WHERE ...]
+	//    [NOT VISIBLE]
 	//
 	title := make([]pretty.Doc, 0, 6)
 	title = append(title, pretty.Keyword("CREATE"))
@@ -1652,6 +1658,9 @@ func (node *CreateIndex) doc(p *PrettyCfg) pretty.Doc {
 	if node.Predicate != nil {
 		clauses = append(clauses, p.nestUnder(pretty.Keyword("WHERE"), p.Doc(node.Predicate)))
 	}
+	if node.NotVisible {
+		clauses = append(clauses, pretty.Keyword(" NOT VISIBLE"))
+	}
 	return p.nestUnder(
 		pretty.Fold(pretty.ConcatSpace, title...),
 		pretty.Group(pretty.Stack(clauses...)))
@@ -1689,6 +1698,7 @@ func (node *IndexTableDef) doc(p *PrettyCfg) pretty.Doc {
 	//    [INTERLEAVE ...]
 	//    [PARTITION BY ...]
 	//    [WHERE ...]
+	//    [NOT VISIBLE]
 	//
 	title := pretty.Keyword("INDEX")
 	if node.Name != "" {
@@ -1721,6 +1731,9 @@ func (node *IndexTableDef) doc(p *PrettyCfg) pretty.Doc {
 	if node.Predicate != nil {
 		clauses = append(clauses, p.nestUnder(pretty.Keyword("WHERE"), p.Doc(node.Predicate)))
 	}
+	if node.NotVisible {
+		clauses = append(clauses, pretty.Keyword(" NOT VISIBLE"))
+	}
 
 	if len(clauses) == 0 {
 		return title
@@ -1736,6 +1749,7 @@ func (node *UniqueConstraintTableDef) doc(p *PrettyCfg) pretty.Doc {
 	//    [INTERLEAVE ...]
 	//    [PARTITION BY ...]
 	//    [WHERE ...]
+	//    [NOT VISIBLE]
 	//
 	// or (no constraint name):
 	//
@@ -1744,6 +1758,7 @@ func (node *UniqueConstraintTableDef) doc(p *PrettyCfg) pretty.Doc {
 	//    [INTERLEAVE ...]
 	//    [PARTITION BY ...]
 	//    [WHERE ...]
+	//    [NOT VISIBLE]
 	//
 	clauses := make([]pretty.Doc, 0, 5)
 	var title pretty.Doc
@@ -1775,6 +1790,9 @@ func (node *UniqueConstraintTableDef) doc(p *PrettyCfg) pretty.Doc {
 	}
 	if node.Predicate != nil {
 		clauses = append(clauses, p.nestUnder(pretty.Keyword("WHERE"), p.Doc(node.Predicate)))
+	}
+	if node.NotVisible {
+		clauses = append(clauses, pretty.Keyword(" NOT VISIBLE"))
 	}
 
 	if len(clauses) == 0 {
@@ -2134,19 +2152,36 @@ func (node *Restore) doc(p *PrettyCfg) pretty.Doc {
 	return p.rlTable(items...)
 }
 
-func (node *TargetList) doc(p *PrettyCfg) pretty.Doc {
+func (node *BackupTargetList) doc(p *PrettyCfg) pretty.Doc {
 	return p.unrow(node.docRow(p))
 }
 
-func (node *TargetList) docRow(p *PrettyCfg) pretty.TableRow {
+func (node *BackupTargetList) docRow(p *PrettyCfg) pretty.TableRow {
 	if node.Databases != nil {
 		return p.row("DATABASE", p.Doc(&node.Databases))
 	}
 	if node.TenantID.Specified {
 		return p.row("TENANT", p.Doc(&node.TenantID))
 	}
-	if node.Tables.IsSequence {
+	if node.Tables.SequenceOnly {
 		return p.row("SEQUENCE", p.Doc(&node.Tables.TablePatterns))
+	}
+	return p.row("TABLE", p.Doc(&node.Tables.TablePatterns))
+}
+
+func (node *GrantTargetList) doc(p *PrettyCfg) pretty.Doc {
+	return p.unrow(node.docRow(p))
+}
+
+func (node *GrantTargetList) docRow(p *PrettyCfg) pretty.TableRow {
+	if node.Databases != nil {
+		return p.row("DATABASE", p.Doc(&node.Databases))
+	}
+	if node.Tables.SequenceOnly {
+		return p.row("SEQUENCE", p.Doc(&node.Tables.TablePatterns))
+	}
+	if node.ExternalConnections != nil {
+		return p.row("EXTERNAL CONNECTION", p.Doc(&node.ExternalConnections))
 	}
 	return p.row("TABLE", p.Doc(&node.Tables.TablePatterns))
 }

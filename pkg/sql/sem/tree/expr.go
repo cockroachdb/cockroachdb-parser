@@ -346,8 +346,10 @@ func (node *ParenExpr) TypedInnerExpr() TypedExpr {
 
 // StripParens strips any parentheses surrounding an expression and
 // returns the inner expression. For instance:
-//   1   -> 1
-//  (1)  -> 1
+//
+//	 1   -> 1
+//	(1)  -> 1
+//
 // ((1)) -> 1
 func StripParens(expr Expr) Expr {
 	if p, ok := expr.(*ParenExpr); ok {
@@ -722,6 +724,28 @@ func (node *CoalesceExpr) Format(ctx *FmtCtx) {
 	ctx.WriteByte(')')
 }
 
+// GetWhenCondition builds the WHEN condition to use for the ith expression
+// inside the Coalesce.
+func (node *CoalesceExpr) GetWhenCondition(i int) (whenCond Expr) {
+	leftExpr := node.Exprs[i].(TypedExpr)
+	rightExpr := DNull
+	// IsDistinctFrom is listed as IsNotDistinctFrom in CmpOps.
+	_, ok :=
+		CmpOps[treecmp.IsNotDistinctFrom].LookupImpl(leftExpr.ResolvedType(), rightExpr.ResolvedType())
+	// If the comparison is legal, use IS NOT DISTINCT FROM NULL.
+	// Otherwise, use IS NOT NULL.
+	if ok {
+		whenCond = NewTypedComparisonExpr(
+			treecmp.MakeComparisonOperator(treecmp.IsDistinctFrom),
+			leftExpr,
+			rightExpr,
+		)
+		return whenCond
+	}
+	whenCond = NewTypedIsNotNullExpr(leftExpr)
+	return whenCond
+}
+
 // DefaultVal represents the DEFAULT expression.
 type DefaultVal struct{}
 
@@ -926,6 +950,14 @@ type Subquery struct {
 	Idx int
 
 	typeAnnotation
+}
+
+// ResolvedType implements the TypedExpr interface.
+func (node *Subquery) ResolvedType() *types.T {
+	if node.typ == nil {
+		return types.Any
+	}
+	return node.typ
 }
 
 // SetType forces the type annotation on the Subquery node.
@@ -1273,10 +1305,10 @@ func (node *FuncExpr) IsDistSQLBlocklist() bool {
 	return (node.fn != nil && node.fn.DistsqlBlocklist) || (node.fnProps != nil && node.fnProps.DistsqlBlocklist)
 }
 
-// CanHandleNulls returns whether or not the function can handle null
-// arguments.
-func (node *FuncExpr) CanHandleNulls() bool {
-	return node.fnProps != nil && node.fnProps.NullableArgs
+// IsVectorizeStreaming returns whether the function is of "streaming" nature
+// from the perspective of the vectorized execution engine.
+func (node *FuncExpr) IsVectorizeStreaming() bool {
+	return node.fnProps != nil && node.fnProps.VectorizeStreaming
 }
 
 type funcType int
@@ -1703,6 +1735,7 @@ func (node *ParenExpr) String() string        { return AsString(node) }
 func (node *RangeCond) String() string        { return AsString(node) }
 func (node *StrVal) String() string           { return AsString(node) }
 func (node *Subquery) String() string         { return AsString(node) }
+func (node *RoutineExpr) String() string      { return AsString(node) }
 func (node *Tuple) String() string            { return AsString(node) }
 func (node *TupleStar) String() string        { return AsString(node) }
 func (node *AnnotateTypeExpr) String() string { return AsString(node) }

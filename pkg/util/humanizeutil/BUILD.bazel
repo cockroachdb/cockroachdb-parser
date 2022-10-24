@@ -1,3 +1,4 @@
+load("//build/bazelutil/unused_checker:unused.bzl", "get_x_data")
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
@@ -24,9 +25,12 @@ go_test(
         "duration_test.go",
         "humanize_test.go",
     ],
+    args = ["-test.timeout=55s"],
     embed = [":humanizeutil"],
     deps = [
         "//pkg/util/leaktest",
         "@com_github_cockroachdb_redact//:redact",
     ],
 )
+
+get_x_data(name = "get_x_data")

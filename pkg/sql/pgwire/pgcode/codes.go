@@ -386,4 +386,15 @@ var (
 	// UnsatisfiableBoundedStaleness signals that the bounded staleness query
 	// cannot be satisfied.
 	UnsatisfiableBoundedStaleness = MakeCode("XCUBS")
+
+	// QueryNotRunningInHomeRegion signals that a query is not running in its
+	// home region.
+	QueryNotRunningInHomeRegion = MakeCode("XCHR1")
+
+	// QueryHasNoHomeRegion signals that a query has no home region.
+	QueryHasNoHomeRegion = MakeCode("XCHR2")
+
+	// ExperimentalFeature signals that a feature we supported experimentally is being
+	// used without the session variable being enabled.
+	ExperimentalFeature = MakeCode("XCEXF")
 )

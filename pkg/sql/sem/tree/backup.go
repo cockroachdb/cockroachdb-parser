@@ -15,9 +15,8 @@ import (
 	"github.com/google/go-cmp/cmp"
 )
 
-// DescriptorCoverage specifies whether or not a subset of descriptors were
-// requested or if all the descriptors were requested, so all the descriptors
-// are covered in a given backup.
+// DescriptorCoverage specifies the subset of descriptors that are requested during a backup
+// or a restore.
 type DescriptorCoverage int32
 
 const (
@@ -28,17 +27,22 @@ const (
 	// backup is not said to have complete table coverage unless it was created
 	// by a `BACKUP TO` command.
 	RequestedDescriptors DescriptorCoverage = iota
+
 	// AllDescriptors table coverage means that backup is guaranteed to have all the
 	// relevant data in the cluster. These can only be created by running a
 	// full cluster backup with `BACKUP TO`.
 	AllDescriptors
+
+	// SystemUsers coverage indicates that only the system.users
+	// table will be restored from the backup.
+	SystemUsers
 )
 
 // BackupOptions describes options for the BACKUP execution.
 type BackupOptions struct {
-	CaptureRevisionHistory bool
+	CaptureRevisionHistory Expr
 	EncryptionPassphrase   Expr
-	Detached               bool
+	Detached               *DBool
 	EncryptionKMSURI       StringOrPlaceholderOptList
 	IncrementalStorage     StringOrPlaceholderOptList
 }
@@ -47,7 +51,7 @@ var _ NodeFormatter = &BackupOptions{}
 
 // Backup represents a BACKUP statement.
 type Backup struct {
-	Targets *TargetList
+	Targets *BackupTargetList
 
 	// To is set to the root directory of the backup (called the <destination> in
 	// the docs).
@@ -133,15 +137,15 @@ type RestoreOptions struct {
 	NewDBName                 Expr
 	IncrementalStorage        StringOrPlaceholderOptList
 	AsTenant                  Expr
+	SchemaOnly                bool
+	VerifyData                bool
 }
 
 var _ NodeFormatter = &RestoreOptions{}
 
 // Restore represents a RESTORE statement.
 type Restore struct {
-	Targets TargetList
-	// Whether this is the RESTORE SYSTEM USERS variant of RESTORE statement.
-	SystemUsers        bool
+	Targets            BackupTargetList
 	DescriptorCoverage DescriptorCoverage
 
 	// From contains the URIs for the backup(s) we seek to restore.
@@ -200,6 +204,16 @@ type KVOption struct {
 // KVOptions is a list of KVOptions.
 type KVOptions []KVOption
 
+// HasKey searches the set of options to discover if it has key.
+func (o *KVOptions) HasKey(key Name) bool {
+	for _, kv := range *o {
+		if kv.Key == key {
+			return true
+		}
+	}
+	return false
+}
+
 // Format implements the NodeFormatter interface.
 func (o *KVOptions) Format(ctx *FmtCtx) {
 	for i := range *o {
@@ -242,8 +256,9 @@ func (o *BackupOptions) Format(ctx *FmtCtx) {
 		}
 		addSep = true
 	}
-	if o.CaptureRevisionHistory {
-		ctx.WriteString("revision_history")
+	if o.CaptureRevisionHistory != nil {
+		ctx.WriteString("revision_history = ")
+		ctx.FormatNode(o.CaptureRevisionHistory)
 		addSep = true
 	}
 
@@ -257,7 +272,7 @@ func (o *BackupOptions) Format(ctx *FmtCtx) {
 		}
 	}
 
-	if o.Detached {
+	if o.Detached == DBoolTrue {
 		maybeAddSep()
 		ctx.WriteString("detached")
 	}
@@ -278,8 +293,8 @@ func (o *BackupOptions) Format(ctx *FmtCtx) {
 // CombineWith merges other backup options into this backup options struct.
 // An error is returned if the same option merged multiple times.
 func (o *BackupOptions) CombineWith(other *BackupOptions) error {
-	if o.CaptureRevisionHistory {
-		if other.CaptureRevisionHistory {
+	if o.CaptureRevisionHistory != nil {
+		if other.CaptureRevisionHistory != nil {
 			return errors.New("revision_history option specified multiple times")
 		}
 	} else {
@@ -292,8 +307,8 @@ func (o *BackupOptions) CombineWith(other *BackupOptions) error {
 		return errors.New("encryption_passphrase specified multiple times")
 	}
 
-	if o.Detached {
-		if other.Detached {
+	if o.Detached != nil {
+		if other.Detached != nil {
 			return errors.New("detached option specified multiple times")
 		}
 	} else {
@@ -404,6 +419,14 @@ func (o *RestoreOptions) Format(ctx *FmtCtx) {
 		ctx.WriteString("tenant = ")
 		ctx.FormatNode(o.AsTenant)
 	}
+	if o.SchemaOnly {
+		maybeAddSep()
+		ctx.WriteString("schema_only")
+	}
+	if o.VerifyData {
+		maybeAddSep()
+		ctx.WriteString("verify_backup_table_data")
+	}
 }
 
 // CombineWith merges other backup options into this backup options struct.
@@ -499,6 +522,20 @@ func (o *RestoreOptions) CombineWith(other *RestoreOptions) error {
 		return errors.New("tenant option specified multiple times")
 	}
 
+	if o.SchemaOnly {
+		if other.SchemaOnly {
+			return errors.New("schema_only option specified multiple times")
+		}
+	} else {
+		o.SchemaOnly = other.SchemaOnly
+	}
+	if o.VerifyData {
+		if other.VerifyData {
+			return errors.New("verify_backup_table_data option specified multiple times")
+		}
+	} else {
+		o.VerifyData = other.VerifyData
+	}
 	return nil
 }
 
@@ -517,5 +554,37 @@ func (o RestoreOptions) IsDefault() bool {
 		o.DebugPauseOn == options.DebugPauseOn &&
 		o.NewDBName == options.NewDBName &&
 		cmp.Equal(o.IncrementalStorage, options.IncrementalStorage) &&
-		o.AsTenant == options.AsTenant
+		o.AsTenant == options.AsTenant &&
+		o.SchemaOnly == options.SchemaOnly &&
+		o.VerifyData == options.VerifyData
+}
+
+// BackupTargetList represents a list of targets.
+// Only one field may be non-nil.
+type BackupTargetList struct {
+	Databases NameList
+	Schemas   ObjectNamePrefixList
+	Tables    TableAttrs
+	TenantID  TenantID
+}
+
+// Format implements the NodeFormatter interface.
+func (tl *BackupTargetList) Format(ctx *FmtCtx) {
+	if tl.Databases != nil {
+		ctx.WriteString("DATABASE ")
+		ctx.FormatNode(&tl.Databases)
+	} else if tl.Schemas != nil {
+		ctx.WriteString("SCHEMA ")
+		ctx.FormatNode(&tl.Schemas)
+	} else if tl.TenantID.Specified {
+		ctx.WriteString("TENANT ")
+		ctx.FormatNode(&tl.TenantID)
+	} else {
+		if tl.Tables.SequenceOnly {
+			ctx.WriteString("SEQUENCE ")
+		} else {
+			ctx.WriteString("TABLE ")
+		}
+		ctx.FormatNode(&tl.Tables.TablePatterns)
+	}
 }

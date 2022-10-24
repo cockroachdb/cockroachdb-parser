@@ -214,7 +214,7 @@ type BinOp struct {
 	LeftType          *types.T
 	RightType         *types.T
 	ReturnType        *types.T
-	NullableArgs      bool
+	CalledOnNullInput bool
 	EvalOp            BinaryEvalOp
 	Volatility        volatility.V
 	PreferredOverload bool
@@ -283,21 +283,21 @@ func initArrayElementConcatenation() {
 	for _, t := range types.Scalar {
 		typ := t
 		BinOps[treebin.Concat] = append(BinOps[treebin.Concat], &BinOp{
-			LeftType:     types.MakeArray(typ),
-			RightType:    typ,
-			ReturnType:   types.MakeArray(typ),
-			NullableArgs: true,
-			EvalOp:       &AppendToMaybeNullArrayOp{Typ: typ},
-			Volatility:   volatility.Immutable,
+			LeftType:          types.MakeArray(typ),
+			RightType:         typ,
+			ReturnType:        types.MakeArray(typ),
+			CalledOnNullInput: true,
+			EvalOp:            &AppendToMaybeNullArrayOp{Typ: typ},
+			Volatility:        volatility.Immutable,
 		})
 
 		BinOps[treebin.Concat] = append(BinOps[treebin.Concat], &BinOp{
-			LeftType:     typ,
-			RightType:    types.MakeArray(typ),
-			ReturnType:   types.MakeArray(typ),
-			NullableArgs: true,
-			EvalOp:       &PrependToMaybeNullArrayOp{Typ: typ},
-			Volatility:   volatility.Immutable,
+			LeftType:          typ,
+			RightType:         types.MakeArray(typ),
+			ReturnType:        types.MakeArray(typ),
+			CalledOnNullInput: true,
+			EvalOp:            &PrependToMaybeNullArrayOp{Typ: typ},
+			Volatility:        volatility.Immutable,
 		})
 	}
 }
@@ -392,12 +392,12 @@ func initArrayToArrayConcatenation() {
 		typ := t
 		at := types.MakeArray(typ)
 		BinOps[treebin.Concat] = append(BinOps[treebin.Concat], &BinOp{
-			LeftType:     at,
-			RightType:    at,
-			ReturnType:   at,
-			NullableArgs: true,
-			EvalOp:       &ConcatArraysOp{Typ: typ},
-			Volatility:   volatility.Immutable,
+			LeftType:          at,
+			RightType:         at,
+			ReturnType:        at,
+			CalledOnNullInput: true,
+			EvalOp:            &ConcatArraysOp{Typ: typ},
+			Volatility:        volatility.Immutable,
 		})
 	}
 }
@@ -407,10 +407,10 @@ func initArrayToArrayConcatenation() {
 func initNonArrayToNonArrayConcatenation() {
 	addConcat := func(leftType, rightType *types.T, volatility volatility.V) {
 		BinOps[treebin.Concat] = append(BinOps[treebin.Concat], &BinOp{
-			LeftType:     leftType,
-			RightType:    rightType,
-			ReturnType:   types.String,
-			NullableArgs: false,
+			LeftType:          leftType,
+			RightType:         rightType,
+			ReturnType:        types.String,
+			CalledOnNullInput: false,
 			EvalOp: &ConcatOp{
 				Left:  leftType,
 				Right: rightType,
@@ -1296,9 +1296,9 @@ type CmpOp struct {
 
 	OnTypeCheck func()
 
-	// If NullableArgs is false, the operator returns NULL
+	// If CalledOnNullInput is false, the operator returns NULL
 	// whenever either argument is NULL.
-	NullableArgs bool
+	CalledOnNullInput bool
 
 	Volatility volatility.V
 
@@ -1358,11 +1358,11 @@ func cmpOpFixups(
 		})
 
 		cmpOps[treecmp.IsNotDistinctFrom] = append(cmpOps[treecmp.IsNotDistinctFrom], &CmpOp{
-			LeftType:     types.MakeArray(t),
-			RightType:    types.MakeArray(t),
-			EvalOp:       &CompareScalarOp{treecmp.MakeComparisonOperator(treecmp.IsNotDistinctFrom)},
-			NullableArgs: true,
-			Volatility:   findVolatility(treecmp.IsNotDistinctFrom, t),
+			LeftType:          types.MakeArray(t),
+			RightType:         types.MakeArray(t),
+			EvalOp:            &CompareScalarOp{treecmp.MakeComparisonOperator(treecmp.IsNotDistinctFrom)},
+			CalledOnNullInput: true,
+			Volatility:        findVolatility(treecmp.IsNotDistinctFrom, t),
 		})
 	}
 
@@ -1391,14 +1391,14 @@ func (o cmpOpOverload) LookupImpl(left, right *types.T) (*CmpOp, bool) {
 }
 
 func makeCmpOpOverload(
-	op treecmp.ComparisonOperatorSymbol, a, b *types.T, nullableArgs bool, v volatility.V,
+	op treecmp.ComparisonOperatorSymbol, a, b *types.T, calledOnNullInput bool, v volatility.V,
 ) *CmpOp {
 	return &CmpOp{
-		LeftType:     a,
-		RightType:    b,
-		EvalOp:       &CompareScalarOp{ComparisonOperator: treecmp.MakeComparisonOperator(op)},
-		NullableArgs: nullableArgs,
-		Volatility:   v,
+		LeftType:          a,
+		RightType:         b,
+		EvalOp:            &CompareScalarOp{ComparisonOperator: treecmp.MakeComparisonOperator(op)},
+		CalledOnNullInput: calledOnNullInput,
+		Volatility:        v,
 	}
 }
 
@@ -1420,42 +1420,42 @@ var CmpOps = cmpOpFixups(map[treecmp.ComparisonOperatorSymbol]cmpOpOverload{
 	treecmp.EQ: {
 		// Single-type comparisons.
 		makeEqFn(types.AnyEnum, types.AnyEnum, volatility.Immutable),
-		makeEqFn(types.Bool, types.Bool, volatility.LeakProof),
-		makeEqFn(types.Bytes, types.Bytes, volatility.LeakProof),
-		makeEqFn(types.Date, types.Date, volatility.LeakProof),
+		makeEqFn(types.Bool, types.Bool, volatility.Leakproof),
+		makeEqFn(types.Bytes, types.Bytes, volatility.Leakproof),
+		makeEqFn(types.Date, types.Date, volatility.Leakproof),
 		makeEqFn(types.Decimal, types.Decimal, volatility.Immutable),
 		// Note: it is an error to compare two strings with different collations;
-		// the operator is leak proof under the assumption that these cases will be
+		// the operator is leakproof under the assumption that these cases will be
 		// detected during type checking.
-		makeEqFn(types.AnyCollatedString, types.AnyCollatedString, volatility.LeakProof),
-		makeEqFn(types.Float, types.Float, volatility.LeakProof),
-		makeEqFn(types.Box2D, types.Box2D, volatility.LeakProof),
-		makeEqFn(types.Geography, types.Geography, volatility.LeakProof),
-		makeEqFn(types.Geometry, types.Geometry, volatility.LeakProof),
-		makeEqFn(types.INet, types.INet, volatility.LeakProof),
-		makeEqFn(types.Int, types.Int, volatility.LeakProof),
-		makeEqFn(types.Interval, types.Interval, volatility.LeakProof),
+		makeEqFn(types.AnyCollatedString, types.AnyCollatedString, volatility.Leakproof),
+		makeEqFn(types.Float, types.Float, volatility.Leakproof),
+		makeEqFn(types.Box2D, types.Box2D, volatility.Leakproof),
+		makeEqFn(types.Geography, types.Geography, volatility.Leakproof),
+		makeEqFn(types.Geometry, types.Geometry, volatility.Leakproof),
+		makeEqFn(types.INet, types.INet, volatility.Leakproof),
+		makeEqFn(types.Int, types.Int, volatility.Leakproof),
+		makeEqFn(types.Interval, types.Interval, volatility.Leakproof),
 		makeEqFn(types.Jsonb, types.Jsonb, volatility.Immutable),
-		makeEqFn(types.Oid, types.Oid, volatility.LeakProof),
-		makeEqFn(types.String, types.String, volatility.LeakProof),
-		makeEqFn(types.Time, types.Time, volatility.LeakProof),
-		makeEqFn(types.TimeTZ, types.TimeTZ, volatility.LeakProof),
-		makeEqFn(types.Timestamp, types.Timestamp, volatility.LeakProof),
-		makeEqFn(types.TimestampTZ, types.TimestampTZ, volatility.LeakProof),
-		makeEqFn(types.Uuid, types.Uuid, volatility.LeakProof),
-		makeEqFn(types.VarBit, types.VarBit, volatility.LeakProof),
+		makeEqFn(types.Oid, types.Oid, volatility.Leakproof),
+		makeEqFn(types.String, types.String, volatility.Leakproof),
+		makeEqFn(types.Time, types.Time, volatility.Leakproof),
+		makeEqFn(types.TimeTZ, types.TimeTZ, volatility.Leakproof),
+		makeEqFn(types.Timestamp, types.Timestamp, volatility.Leakproof),
+		makeEqFn(types.TimestampTZ, types.TimestampTZ, volatility.Leakproof),
+		makeEqFn(types.Uuid, types.Uuid, volatility.Leakproof),
+		makeEqFn(types.VarBit, types.VarBit, volatility.Leakproof),
 
 		// Mixed-type comparisons.
 		makeEqFn(types.Date, types.Timestamp, volatility.Immutable),
 		makeEqFn(types.Date, types.TimestampTZ, volatility.Stable),
-		makeEqFn(types.Decimal, types.Float, volatility.LeakProof),
-		makeEqFn(types.Decimal, types.Int, volatility.LeakProof),
-		makeEqFn(types.Float, types.Decimal, volatility.LeakProof),
-		makeEqFn(types.Float, types.Int, volatility.LeakProof),
-		makeEqFn(types.Int, types.Decimal, volatility.LeakProof),
-		makeEqFn(types.Int, types.Float, volatility.LeakProof),
-		makeEqFn(types.Int, types.Oid, volatility.LeakProof),
-		makeEqFn(types.Oid, types.Int, volatility.LeakProof),
+		makeEqFn(types.Decimal, types.Float, volatility.Leakproof),
+		makeEqFn(types.Decimal, types.Int, volatility.Leakproof),
+		makeEqFn(types.Float, types.Decimal, volatility.Leakproof),
+		makeEqFn(types.Float, types.Int, volatility.Leakproof),
+		makeEqFn(types.Int, types.Decimal, volatility.Leakproof),
+		makeEqFn(types.Int, types.Float, volatility.Leakproof),
+		makeEqFn(types.Int, types.Oid, volatility.Leakproof),
+		makeEqFn(types.Oid, types.Int, volatility.Leakproof),
 		makeEqFn(types.Timestamp, types.Date, volatility.Immutable),
 		makeEqFn(types.Timestamp, types.TimestampTZ, volatility.Stable),
 		makeEqFn(types.TimestampTZ, types.Date, volatility.Stable),
@@ -1477,41 +1477,41 @@ var CmpOps = cmpOpFixups(map[treecmp.ComparisonOperatorSymbol]cmpOpOverload{
 	treecmp.LT: {
 		// Single-type comparisons.
 		makeLtFn(types.AnyEnum, types.AnyEnum, volatility.Immutable),
-		makeLtFn(types.Bool, types.Bool, volatility.LeakProof),
-		makeLtFn(types.Bytes, types.Bytes, volatility.LeakProof),
-		makeLtFn(types.Date, types.Date, volatility.LeakProof),
+		makeLtFn(types.Bool, types.Bool, volatility.Leakproof),
+		makeLtFn(types.Bytes, types.Bytes, volatility.Leakproof),
+		makeLtFn(types.Date, types.Date, volatility.Leakproof),
 		makeLtFn(types.Decimal, types.Decimal, volatility.Immutable),
 		// Note: it is an error to compare two strings with different collations;
-		// the operator is leak proof under the assumption that these cases will be
+		// the operator is leakproof under the assumption that these cases will be
 		// detected during type checking.
-		makeLtFn(types.AnyCollatedString, types.AnyCollatedString, volatility.LeakProof),
-		makeLtFn(types.Float, types.Float, volatility.LeakProof),
-		makeLtFn(types.Box2D, types.Box2D, volatility.LeakProof),
-		makeLtFn(types.Geography, types.Geography, volatility.LeakProof),
-		makeLtFn(types.Geometry, types.Geometry, volatility.LeakProof),
-		makeLtFn(types.INet, types.INet, volatility.LeakProof),
-		makeLtFn(types.Int, types.Int, volatility.LeakProof),
-		makeLtFn(types.Interval, types.Interval, volatility.LeakProof),
-		makeLtFn(types.Oid, types.Oid, volatility.LeakProof),
-		makeLtFn(types.String, types.String, volatility.LeakProof),
-		makeLtFn(types.Time, types.Time, volatility.LeakProof),
-		makeLtFn(types.TimeTZ, types.TimeTZ, volatility.LeakProof),
-		makeLtFn(types.Timestamp, types.Timestamp, volatility.LeakProof),
-		makeLtFn(types.TimestampTZ, types.TimestampTZ, volatility.LeakProof),
-		makeLtFn(types.Uuid, types.Uuid, volatility.LeakProof),
-		makeLtFn(types.VarBit, types.VarBit, volatility.LeakProof),
+		makeLtFn(types.AnyCollatedString, types.AnyCollatedString, volatility.Leakproof),
+		makeLtFn(types.Float, types.Float, volatility.Leakproof),
+		makeLtFn(types.Box2D, types.Box2D, volatility.Leakproof),
+		makeLtFn(types.Geography, types.Geography, volatility.Leakproof),
+		makeLtFn(types.Geometry, types.Geometry, volatility.Leakproof),
+		makeLtFn(types.INet, types.INet, volatility.Leakproof),
+		makeLtFn(types.Int, types.Int, volatility.Leakproof),
+		makeLtFn(types.Interval, types.Interval, volatility.Leakproof),
+		makeLtFn(types.Oid, types.Oid, volatility.Leakproof),
+		makeLtFn(types.String, types.String, volatility.Leakproof),
+		makeLtFn(types.Time, types.Time, volatility.Leakproof),
+		makeLtFn(types.TimeTZ, types.TimeTZ, volatility.Leakproof),
+		makeLtFn(types.Timestamp, types.Timestamp, volatility.Leakproof),
+		makeLtFn(types.TimestampTZ, types.TimestampTZ, volatility.Leakproof),
+		makeLtFn(types.Uuid, types.Uuid, volatility.Leakproof),
+		makeLtFn(types.VarBit, types.VarBit, volatility.Leakproof),
 
 		// Mixed-type comparisons.
 		makeLtFn(types.Date, types.Timestamp, volatility.Immutable),
 		makeLtFn(types.Date, types.TimestampTZ, volatility.Stable),
-		makeLtFn(types.Decimal, types.Float, volatility.LeakProof),
-		makeLtFn(types.Decimal, types.Int, volatility.LeakProof),
-		makeLtFn(types.Float, types.Decimal, volatility.LeakProof),
-		makeLtFn(types.Float, types.Int, volatility.LeakProof),
-		makeLtFn(types.Int, types.Decimal, volatility.LeakProof),
-		makeLtFn(types.Int, types.Float, volatility.LeakProof),
-		makeLtFn(types.Int, types.Oid, volatility.LeakProof),
-		makeLtFn(types.Oid, types.Int, volatility.LeakProof),
+		makeLtFn(types.Decimal, types.Float, volatility.Leakproof),
+		makeLtFn(types.Decimal, types.Int, volatility.Leakproof),
+		makeLtFn(types.Float, types.Decimal, volatility.Leakproof),
+		makeLtFn(types.Float, types.Int, volatility.Leakproof),
+		makeLtFn(types.Int, types.Decimal, volatility.Leakproof),
+		makeLtFn(types.Int, types.Float, volatility.Leakproof),
+		makeLtFn(types.Int, types.Oid, volatility.Leakproof),
+		makeLtFn(types.Oid, types.Int, volatility.Leakproof),
 		makeLtFn(types.Timestamp, types.Date, volatility.Immutable),
 		makeLtFn(types.Timestamp, types.TimestampTZ, volatility.Stable),
 		makeLtFn(types.TimestampTZ, types.Date, volatility.Stable),
@@ -1533,41 +1533,41 @@ var CmpOps = cmpOpFixups(map[treecmp.ComparisonOperatorSymbol]cmpOpOverload{
 	treecmp.LE: {
 		// Single-type comparisons.
 		makeLeFn(types.AnyEnum, types.AnyEnum, volatility.Immutable),
-		makeLeFn(types.Bool, types.Bool, volatility.LeakProof),
-		makeLeFn(types.Bytes, types.Bytes, volatility.LeakProof),
-		makeLeFn(types.Date, types.Date, volatility.LeakProof),
+		makeLeFn(types.Bool, types.Bool, volatility.Leakproof),
+		makeLeFn(types.Bytes, types.Bytes, volatility.Leakproof),
+		makeLeFn(types.Date, types.Date, volatility.Leakproof),
 		makeLeFn(types.Decimal, types.Decimal, volatility.Immutable),
 		// Note: it is an error to compare two strings with different collations;
-		// the operator is leak proof under the assumption that these cases will be
+		// the operator is leakproof under the assumption that these cases will be
 		// detected during type checking.
-		makeLeFn(types.AnyCollatedString, types.AnyCollatedString, volatility.LeakProof),
-		makeLeFn(types.Float, types.Float, volatility.LeakProof),
-		makeLeFn(types.Box2D, types.Box2D, volatility.LeakProof),
-		makeLeFn(types.Geography, types.Geography, volatility.LeakProof),
-		makeLeFn(types.Geometry, types.Geometry, volatility.LeakProof),
-		makeLeFn(types.INet, types.INet, volatility.LeakProof),
-		makeLeFn(types.Int, types.Int, volatility.LeakProof),
-		makeLeFn(types.Interval, types.Interval, volatility.LeakProof),
-		makeLeFn(types.Oid, types.Oid, volatility.LeakProof),
-		makeLeFn(types.String, types.String, volatility.LeakProof),
-		makeLeFn(types.Time, types.Time, volatility.LeakProof),
-		makeLeFn(types.TimeTZ, types.TimeTZ, volatility.LeakProof),
-		makeLeFn(types.Timestamp, types.Timestamp, volatility.LeakProof),
-		makeLeFn(types.TimestampTZ, types.TimestampTZ, volatility.LeakProof),
-		makeLeFn(types.Uuid, types.Uuid, volatility.LeakProof),
-		makeLeFn(types.VarBit, types.VarBit, volatility.LeakProof),
+		makeLeFn(types.AnyCollatedString, types.AnyCollatedString, volatility.Leakproof),
+		makeLeFn(types.Float, types.Float, volatility.Leakproof),
+		makeLeFn(types.Box2D, types.Box2D, volatility.Leakproof),
+		makeLeFn(types.Geography, types.Geography, volatility.Leakproof),
+		makeLeFn(types.Geometry, types.Geometry, volatility.Leakproof),
+		makeLeFn(types.INet, types.INet, volatility.Leakproof),
+		makeLeFn(types.Int, types.Int, volatility.Leakproof),
+		makeLeFn(types.Interval, types.Interval, volatility.Leakproof),
+		makeLeFn(types.Oid, types.Oid, volatility.Leakproof),
+		makeLeFn(types.String, types.String, volatility.Leakproof),
+		makeLeFn(types.Time, types.Time, volatility.Leakproof),
+		makeLeFn(types.TimeTZ, types.TimeTZ, volatility.Leakproof),
+		makeLeFn(types.Timestamp, types.Timestamp, volatility.Leakproof),
+		makeLeFn(types.TimestampTZ, types.TimestampTZ, volatility.Leakproof),
+		makeLeFn(types.Uuid, types.Uuid, volatility.Leakproof),
+		makeLeFn(types.VarBit, types.VarBit, volatility.Leakproof),
 
 		// Mixed-type comparisons.
 		makeLeFn(types.Date, types.Timestamp, volatility.Immutable),
 		makeLeFn(types.Date, types.TimestampTZ, volatility.Stable),
-		makeLeFn(types.Decimal, types.Float, volatility.LeakProof),
-		makeLeFn(types.Decimal, types.Int, volatility.LeakProof),
-		makeLeFn(types.Float, types.Decimal, volatility.LeakProof),
-		makeLeFn(types.Float, types.Int, volatility.LeakProof),
-		makeLeFn(types.Int, types.Decimal, volatility.LeakProof),
-		makeLeFn(types.Int, types.Float, volatility.LeakProof),
-		makeLeFn(types.Int, types.Oid, volatility.LeakProof),
-		makeLeFn(types.Oid, types.Int, volatility.LeakProof),
+		makeLeFn(types.Decimal, types.Float, volatility.Leakproof),
+		makeLeFn(types.Decimal, types.Int, volatility.Leakproof),
+		makeLeFn(types.Float, types.Decimal, volatility.Leakproof),
+		makeLeFn(types.Float, types.Int, volatility.Leakproof),
+		makeLeFn(types.Int, types.Decimal, volatility.Leakproof),
+		makeLeFn(types.Int, types.Float, volatility.Leakproof),
+		makeLeFn(types.Int, types.Oid, volatility.Leakproof),
+		makeLeFn(types.Oid, types.Int, volatility.Leakproof),
 		makeLeFn(types.Timestamp, types.Date, volatility.Immutable),
 		makeLeFn(types.Timestamp, types.TimestampTZ, volatility.Stable),
 		makeLeFn(types.TimestampTZ, types.Date, volatility.Stable),
@@ -1593,10 +1593,10 @@ var CmpOps = cmpOpFixups(map[treecmp.ComparisonOperatorSymbol]cmpOpOverload{
 			EvalOp: &CompareScalarOp{
 				ComparisonOperator: treecmp.MakeComparisonOperator(treecmp.IsNotDistinctFrom),
 			},
-			NullableArgs: true,
+			CalledOnNullInput: true,
 			// Avoids ambiguous comparison error for NULL IS NOT DISTINCT FROM NULL.
 			PreferredOverload: true,
-			Volatility:        volatility.LeakProof,
+			Volatility:        volatility.Leakproof,
 		},
 		&CmpOp{
 			LeftType:  types.AnyArray,
@@ -1604,47 +1604,47 @@ var CmpOps = cmpOpFixups(map[treecmp.ComparisonOperatorSymbol]cmpOpOverload{
 			EvalOp: &CompareScalarOp{
 				ComparisonOperator: treecmp.MakeComparisonOperator(treecmp.IsNotDistinctFrom),
 			},
-			NullableArgs: true,
-			Volatility:   volatility.LeakProof,
+			CalledOnNullInput: true,
+			Volatility:        volatility.Leakproof,
 		},
 		// Single-type comparisons.
 		makeIsFn(types.AnyEnum, types.AnyEnum, volatility.Immutable),
-		makeIsFn(types.Bool, types.Bool, volatility.LeakProof),
-		makeIsFn(types.Bytes, types.Bytes, volatility.LeakProof),
-		makeIsFn(types.Date, types.Date, volatility.LeakProof),
+		makeIsFn(types.Bool, types.Bool, volatility.Leakproof),
+		makeIsFn(types.Bytes, types.Bytes, volatility.Leakproof),
+		makeIsFn(types.Date, types.Date, volatility.Leakproof),
 		makeIsFn(types.Decimal, types.Decimal, volatility.Immutable),
 		// Note: it is an error to compare two strings with different collations;
-		// the operator is leak proof under the assumption that these cases will be
+		// the operator is leakproof under the assumption that these cases will be
 		// detected during type checking.
-		makeIsFn(types.AnyCollatedString, types.AnyCollatedString, volatility.LeakProof),
-		makeIsFn(types.Float, types.Float, volatility.LeakProof),
-		makeIsFn(types.Box2D, types.Box2D, volatility.LeakProof),
-		makeIsFn(types.Geography, types.Geography, volatility.LeakProof),
-		makeIsFn(types.Geometry, types.Geometry, volatility.LeakProof),
-		makeIsFn(types.INet, types.INet, volatility.LeakProof),
-		makeIsFn(types.Int, types.Int, volatility.LeakProof),
-		makeIsFn(types.Interval, types.Interval, volatility.LeakProof),
+		makeIsFn(types.AnyCollatedString, types.AnyCollatedString, volatility.Leakproof),
+		makeIsFn(types.Float, types.Float, volatility.Leakproof),
+		makeIsFn(types.Box2D, types.Box2D, volatility.Leakproof),
+		makeIsFn(types.Geography, types.Geography, volatility.Leakproof),
+		makeIsFn(types.Geometry, types.Geometry, volatility.Leakproof),
+		makeIsFn(types.INet, types.INet, volatility.Leakproof),
+		makeIsFn(types.Int, types.Int, volatility.Leakproof),
+		makeIsFn(types.Interval, types.Interval, volatility.Leakproof),
 		makeIsFn(types.Jsonb, types.Jsonb, volatility.Immutable),
-		makeIsFn(types.Oid, types.Oid, volatility.LeakProof),
-		makeIsFn(types.String, types.String, volatility.LeakProof),
-		makeIsFn(types.Time, types.Time, volatility.LeakProof),
-		makeIsFn(types.TimeTZ, types.TimeTZ, volatility.LeakProof),
-		makeIsFn(types.Timestamp, types.Timestamp, volatility.LeakProof),
-		makeIsFn(types.TimestampTZ, types.TimestampTZ, volatility.LeakProof),
-		makeIsFn(types.Uuid, types.Uuid, volatility.LeakProof),
-		makeIsFn(types.VarBit, types.VarBit, volatility.LeakProof),
+		makeIsFn(types.Oid, types.Oid, volatility.Leakproof),
+		makeIsFn(types.String, types.String, volatility.Leakproof),
+		makeIsFn(types.Time, types.Time, volatility.Leakproof),
+		makeIsFn(types.TimeTZ, types.TimeTZ, volatility.Leakproof),
+		makeIsFn(types.Timestamp, types.Timestamp, volatility.Leakproof),
+		makeIsFn(types.TimestampTZ, types.TimestampTZ, volatility.Leakproof),
+		makeIsFn(types.Uuid, types.Uuid, volatility.Leakproof),
+		makeIsFn(types.VarBit, types.VarBit, volatility.Leakproof),
 
 		// Mixed-type comparisons.
 		makeIsFn(types.Date, types.Timestamp, volatility.Immutable),
 		makeIsFn(types.Date, types.TimestampTZ, volatility.Stable),
-		makeIsFn(types.Decimal, types.Float, volatility.LeakProof),
-		makeIsFn(types.Decimal, types.Int, volatility.LeakProof),
-		makeIsFn(types.Float, types.Decimal, volatility.LeakProof),
-		makeIsFn(types.Float, types.Int, volatility.LeakProof),
-		makeIsFn(types.Int, types.Decimal, volatility.LeakProof),
-		makeIsFn(types.Int, types.Float, volatility.LeakProof),
-		makeIsFn(types.Int, types.Oid, volatility.LeakProof),
-		makeIsFn(types.Oid, types.Int, volatility.LeakProof),
+		makeIsFn(types.Decimal, types.Float, volatility.Leakproof),
+		makeIsFn(types.Decimal, types.Int, volatility.Leakproof),
+		makeIsFn(types.Float, types.Decimal, volatility.Leakproof),
+		makeIsFn(types.Float, types.Int, volatility.Leakproof),
+		makeIsFn(types.Int, types.Decimal, volatility.Leakproof),
+		makeIsFn(types.Int, types.Float, volatility.Leakproof),
+		makeIsFn(types.Int, types.Oid, volatility.Leakproof),
+		makeIsFn(types.Oid, types.Int, volatility.Leakproof),
 		makeIsFn(types.Timestamp, types.Date, volatility.Immutable),
 		makeIsFn(types.Timestamp, types.TimestampTZ, volatility.Stable),
 		makeIsFn(types.TimestampTZ, types.Date, volatility.Stable),
@@ -1654,9 +1654,9 @@ var CmpOps = cmpOpFixups(map[treecmp.ComparisonOperatorSymbol]cmpOpOverload{
 
 		// Tuple comparison.
 		&CmpOp{
-			LeftType:     types.AnyTuple,
-			RightType:    types.AnyTuple,
-			NullableArgs: true,
+			LeftType:          types.AnyTuple,
+			RightType:         types.AnyTuple,
+			CalledOnNullInput: true,
 			EvalOp: &CompareAnyTupleOp{
 				ComparisonOperator: treecmp.MakeComparisonOperator(treecmp.IsNotDistinctFrom),
 			},
@@ -1665,29 +1665,29 @@ var CmpOps = cmpOpFixups(map[treecmp.ComparisonOperatorSymbol]cmpOpOverload{
 	},
 
 	treecmp.In: {
-		makeEvalTupleIn(types.AnyEnum, volatility.LeakProof),
-		makeEvalTupleIn(types.Bool, volatility.LeakProof),
-		makeEvalTupleIn(types.Bytes, volatility.LeakProof),
-		makeEvalTupleIn(types.Date, volatility.LeakProof),
-		makeEvalTupleIn(types.Decimal, volatility.LeakProof),
-		makeEvalTupleIn(types.AnyCollatedString, volatility.LeakProof),
-		makeEvalTupleIn(types.AnyTuple, volatility.LeakProof),
-		makeEvalTupleIn(types.Float, volatility.LeakProof),
-		makeEvalTupleIn(types.Box2D, volatility.LeakProof),
-		makeEvalTupleIn(types.Geography, volatility.LeakProof),
-		makeEvalTupleIn(types.Geometry, volatility.LeakProof),
-		makeEvalTupleIn(types.INet, volatility.LeakProof),
-		makeEvalTupleIn(types.Int, volatility.LeakProof),
-		makeEvalTupleIn(types.Interval, volatility.LeakProof),
-		makeEvalTupleIn(types.Jsonb, volatility.LeakProof),
-		makeEvalTupleIn(types.Oid, volatility.LeakProof),
-		makeEvalTupleIn(types.String, volatility.LeakProof),
-		makeEvalTupleIn(types.Time, volatility.LeakProof),
-		makeEvalTupleIn(types.TimeTZ, volatility.LeakProof),
-		makeEvalTupleIn(types.Timestamp, volatility.LeakProof),
-		makeEvalTupleIn(types.TimestampTZ, volatility.LeakProof),
-		makeEvalTupleIn(types.Uuid, volatility.LeakProof),
-		makeEvalTupleIn(types.VarBit, volatility.LeakProof),
+		makeEvalTupleIn(types.AnyEnum, volatility.Leakproof),
+		makeEvalTupleIn(types.Bool, volatility.Leakproof),
+		makeEvalTupleIn(types.Bytes, volatility.Leakproof),
+		makeEvalTupleIn(types.Date, volatility.Leakproof),
+		makeEvalTupleIn(types.Decimal, volatility.Leakproof),
+		makeEvalTupleIn(types.AnyCollatedString, volatility.Leakproof),
+		makeEvalTupleIn(types.AnyTuple, volatility.Leakproof),
+		makeEvalTupleIn(types.Float, volatility.Leakproof),
+		makeEvalTupleIn(types.Box2D, volatility.Leakproof),
+		makeEvalTupleIn(types.Geography, volatility.Leakproof),
+		makeEvalTupleIn(types.Geometry, volatility.Leakproof),
+		makeEvalTupleIn(types.INet, volatility.Leakproof),
+		makeEvalTupleIn(types.Int, volatility.Leakproof),
+		makeEvalTupleIn(types.Interval, volatility.Leakproof),
+		makeEvalTupleIn(types.Jsonb, volatility.Leakproof),
+		makeEvalTupleIn(types.Oid, volatility.Leakproof),
+		makeEvalTupleIn(types.String, volatility.Leakproof),
+		makeEvalTupleIn(types.Time, volatility.Leakproof),
+		makeEvalTupleIn(types.TimeTZ, volatility.Leakproof),
+		makeEvalTupleIn(types.Timestamp, volatility.Leakproof),
+		makeEvalTupleIn(types.TimestampTZ, volatility.Leakproof),
+		makeEvalTupleIn(types.Uuid, volatility.Leakproof),
+		makeEvalTupleIn(types.VarBit, volatility.Leakproof),
 	},
 
 	treecmp.Like: {
@@ -1695,7 +1695,7 @@ var CmpOps = cmpOpFixups(map[treecmp.ComparisonOperatorSymbol]cmpOpOverload{
 			LeftType:   types.String,
 			RightType:  types.String,
 			EvalOp:     &MatchLikeOp{CaseInsensitive: false},
-			Volatility: volatility.LeakProof,
+			Volatility: volatility.Leakproof,
 		},
 	},
 
@@ -1704,7 +1704,7 @@ var CmpOps = cmpOpFixups(map[treecmp.ComparisonOperatorSymbol]cmpOpOverload{
 			LeftType:   types.String,
 			RightType:  types.String,
 			EvalOp:     &MatchLikeOp{CaseInsensitive: true},
-			Volatility: volatility.LeakProof,
+			Volatility: volatility.Leakproof,
 		},
 	},
 
@@ -1713,7 +1713,7 @@ var CmpOps = cmpOpFixups(map[treecmp.ComparisonOperatorSymbol]cmpOpOverload{
 			LeftType:   types.String,
 			RightType:  types.String,
 			EvalOp:     &SimilarToOp{Escape: '\\'},
-			Volatility: volatility.LeakProof,
+			Volatility: volatility.Leakproof,
 		},
 	},
 
@@ -1894,11 +1894,11 @@ func CmpOpInverse(i treecmp.ComparisonOperatorSymbol) (treecmp.ComparisonOperato
 
 func makeEvalTupleIn(typ *types.T, v volatility.V) *CmpOp {
 	return &CmpOp{
-		LeftType:     typ,
-		RightType:    types.AnyTuple,
-		EvalOp:       &InTupleOp{},
-		NullableArgs: true,
-		Volatility:   v,
+		LeftType:          typ,
+		RightType:         types.AnyTuple,
+		EvalOp:            &InTupleOp{},
+		CalledOnNullInput: true,
+		Volatility:        v,
 	}
 }
 

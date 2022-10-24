@@ -36,7 +36,7 @@ cp -R $COCKROACHDB_LOC/pkg/geo/geoprojbase/data $LOC/pkg/geo/geoprojbase/data
 # delete tests and testfiles
 find pkg -type f -name '*_test.go' | xargs rm
 # sed replace any instances of cockroachdb
-find pkg -type f -name '*.go' | xargs sed -i '' -e 's_github\.com/cockroachdb/cockroach_&db-parser_g'
+find pkg -type f -name '*.go' | xargs sed -i '' -e 's_github\.com/cockroachdb/cockroach/_github.com/cockroachdb/cockroachdb-parser/_g'
 
 echo "Cleaning up go and testing everything works"
 go mod tidy

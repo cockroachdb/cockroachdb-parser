@@ -1,3 +1,4 @@
+load("//build/bazelutil/unused_checker:unused.bzl", "get_x_data")
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 load("//pkg/testutils/buildutil:buildutil.bzl", "disallowed_imports_test")
 
@@ -38,6 +39,7 @@ go_test(
         "encode_test.go",
         "json_test.go",
     ],
+    args = ["-test.timeout=55s"],
     data = glob(["testdata/**"]),
     embed = [":json"],
     deps = [
@@ -57,3 +59,5 @@ disallowed_imports_test(
     "json",
     ["//pkg/roachpb"],
 )
+
+get_x_data(name = "get_x_data")

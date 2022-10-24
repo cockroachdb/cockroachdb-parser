@@ -85,6 +85,9 @@ const (
 	BackupFileDetails
 	// BackupSchemaDetails identifies a SHOW BACKUP SCHEMAS statement.
 	BackupSchemaDetails
+	// BackupValidateDetails identifies a SHOW BACKUP VALIDATION
+	// statement.
+	BackupValidateDetails
 )
 
 // TODO (msbutler): 22.2 after removing old style show backup syntax, rename
@@ -472,18 +475,24 @@ func (node *ShowConstraints) Format(ctx *FmtCtx) {
 }
 
 // ShowGrants represents a SHOW GRANTS statement.
-// TargetList is defined in grant.go.
+// GrantTargetList is defined in grant.go.
 type ShowGrants struct {
-	Targets  *TargetList
+	Targets  *GrantTargetList
 	Grantees RoleSpecList
 }
 
 // Format implements the NodeFormatter interface.
 func (node *ShowGrants) Format(ctx *FmtCtx) {
-	ctx.WriteString("SHOW GRANTS")
+	ctx.WriteString("SHOW ")
+	if node.Targets != nil && node.Targets.System {
+		ctx.WriteString("SYSTEM ")
+	}
+	ctx.WriteString("GRANTS")
 	if node.Targets != nil {
-		ctx.WriteString(" ON ")
-		ctx.FormatNode(node.Targets)
+		if !node.Targets.System {
+			ctx.WriteString(" ON ")
+			ctx.FormatNode(node.Targets)
+		}
 	}
 	if node.Grantees != nil {
 		ctx.WriteString(" FOR ")
@@ -727,6 +736,7 @@ func (node *ShowFingerprints) Format(ctx *FmtCtx) {
 type ShowTableStats struct {
 	Table     *UnresolvedObjectName
 	UsingJSON bool
+	Options   KVOptions
 }
 
 // Format implements the NodeFormatter interface.
@@ -737,6 +747,10 @@ func (node *ShowTableStats) Format(ctx *FmtCtx) {
 	}
 	ctx.WriteString("FOR TABLE ")
 	ctx.FormatNode(node.Table)
+	if len(node.Options) > 0 {
+		ctx.WriteString(" WITH ")
+		ctx.FormatNode(&node.Options)
+	}
 }
 
 // ShowHistogram represents a SHOW HISTOGRAM statement.
@@ -794,6 +808,10 @@ const (
 	// ScheduledRowLevelTTLExecutor is an executor responsible for the cleanup
 	// of rows on row level TTL tables.
 	ScheduledRowLevelTTLExecutor
+
+	// ScheduledSchemaTelemetryExecutor is an executor responsible for the logging
+	// of schema telemetry.
+	ScheduledSchemaTelemetryExecutor
 )
 
 var scheduleExecutorInternalNames = map[ScheduledJobExecutorType]string{
@@ -801,6 +819,7 @@ var scheduleExecutorInternalNames = map[ScheduledJobExecutorType]string{
 	ScheduledBackupExecutor:             "scheduled-backup-executor",
 	ScheduledSQLStatsCompactionExecutor: "scheduled-sql-stats-compaction-executor",
 	ScheduledRowLevelTTLExecutor:        "scheduled-row-level-ttl-executor",
+	ScheduledSchemaTelemetryExecutor:    "scheduled-schema-telemetry-executor",
 }
 
 // InternalName returns an internal executor name.
@@ -818,6 +837,8 @@ func (t ScheduledJobExecutorType) UserName() string {
 		return "SQL STATISTICS"
 	case ScheduledRowLevelTTLExecutor:
 		return "ROW LEVEL TTL"
+	case ScheduledSchemaTelemetryExecutor:
+		return "SCHEMA TELEMETRY"
 	}
 	return "unsupported-executor"
 }
@@ -944,3 +965,34 @@ func (s ShowCompletions) Format(ctx *FmtCtx) {
 }
 
 var _ Statement = &ShowCompletions{}
+
+// ShowCreateFunction represents a SHOW CREATE FUNCTION statement.
+type ShowCreateFunction struct {
+	Name ResolvableFunctionReference
+}
+
+// Format implements the NodeFormatter interface.
+func (node *ShowCreateFunction) Format(ctx *FmtCtx) {
+	ctx.WriteString("SHOW CREATE FUNCTION ")
+	ctx.FormatNode(&node.Name)
+}
+
+var _ Statement = &ShowCreateFunction{}
+
+// ShowCreateExternalConnections represents a SHOW CREATE EXTERNAL CONNECTION
+// statement.
+type ShowCreateExternalConnections struct {
+	ConnectionLabel Expr
+}
+
+// Format implements the NodeFormatter interface.
+func (node *ShowCreateExternalConnections) Format(ctx *FmtCtx) {
+	if node.ConnectionLabel != nil {
+		ctx.WriteString("SHOW CREATE EXTERNAL CONNECTION ")
+		ctx.FormatNode(node.ConnectionLabel)
+		return
+	}
+	ctx.Printf("SHOW CREATE ALL EXTERNAL CONNECTIONS")
+}
+
+var _ Statement = &ShowCreateExternalConnections{}

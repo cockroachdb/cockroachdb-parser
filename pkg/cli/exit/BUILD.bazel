@@ -1,0 +1,24 @@
+load("//build/bazelutil/unused_checker:unused.bzl", "get_x_data")
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "exit",
+    srcs = [
+        "codes.go",
+        "doc.go",
+        "exit.go",
+    ],
+    importpath = "github.com/cockroachdb/cockroach/pkg/cli/exit",
+    visibility = ["//visibility:public"],
+    deps = ["@com_github_cockroachdb_redact//:redact"],
+)
+
+go_test(
+    name = "exit_test",
+    size = "small",
+    srcs = ["codes_test.go"],
+    args = ["-test.timeout=55s"],
+    embed = [":exit"],
+)
+
+get_x_data(name = "get_x_data")

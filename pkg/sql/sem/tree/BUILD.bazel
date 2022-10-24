@@ -1,3 +1,4 @@
+load("//build/bazelutil/unused_checker:unused.bzl", "get_x_data")
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 load("//build:STRINGER.bzl", "stringer")
 load("//pkg/testutils/buildutil:buildutil.bzl", "disallowed_imports_test")
@@ -6,6 +7,7 @@ go_library(
     name = "tree",
     srcs = [
         "alter_backup.go",
+        "alter_backup_schedule.go",
         "alter_changefeed.go",
         "alter_database.go",
         "alter_default_privileges.go",
@@ -77,6 +79,7 @@ go_library(
         "returning.go",
         "revoke.go",
         "role_spec.go",
+        "routine.go",
         "run_control.go",
         "schedule.go",
         "schema_feature_name.go",
@@ -99,7 +102,10 @@ go_library(
         "txn.go",
         "type_check.go",
         "type_name.go",
+        "typing.go",
+        "udf.go",
         "union.go",
+        "unlisten.go",
         "unsupported_error.go",
         "update.go",
         "values.go",
@@ -123,7 +129,6 @@ go_library(
         "//pkg/sql/pgwire/pgcode",
         "//pkg/sql/pgwire/pgerror",
         "//pkg/sql/privilege",
-        "//pkg/sql/roleoption",
         "//pkg/sql/sem/cast",
         "//pkg/sql/sem/catconstants",
         "//pkg/sql/sem/catid",
@@ -174,6 +179,7 @@ go_test(
         "datum_test.go",
         "expr_test.go",
         "format_test.go",
+        "function_definition_test.go",
         "function_name_test.go",
         "indexed_vars_test.go",
         "interval_test.go",
@@ -191,8 +197,11 @@ go_test(
         "type_check_internal_test.go",
         "type_check_test.go",
         "type_name_test.go",
+        "typing_test.go",
+        "udf_test.go",
         "var_expr_test.go",
     ],
+    args = ["-test.timeout=55s"],
     data = glob(["testdata/**"]) + ["//pkg/sql/parser:sql.y"],
     embed = [":tree"],
     deps = [
@@ -204,7 +213,6 @@ go_test(
         "//pkg/sql/parser",
         "//pkg/sql/randgen",
         "//pkg/sql/sem/builtins",
-        "//pkg/sql/sem/cast",
         "//pkg/sql/sem/catid",
         "//pkg/sql/sem/eval",
         "//pkg/sql/sem/normalize",
@@ -287,3 +295,5 @@ disallowed_imports_test(
         "pkg/sql/catalog",
     ],
 )
+
+get_x_data(name = "get_x_data")

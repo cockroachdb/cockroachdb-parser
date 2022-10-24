@@ -701,7 +701,8 @@ func AdjustGeomTSRID(t geom.T, srid geopb.SRID) {
 // IsLinearRingCCW returns whether a given linear ring is counter clock wise.
 // See 2.07 of http://www.faqs.org/faqs/graphics/algorithms-faq/.
 // "Find the lowest vertex (or, if  there is more than one vertex with the same lowest coordinate,
-//  the rightmost of those vertices) and then take the cross product of the edges fore and aft of it."
+//
+//	the rightmost of those vertices) and then take the cross product of the edges fore and aft of it."
 func IsLinearRingCCW(linearRing *geom.LinearRing) bool {
 	smallestIdx := 0
 	smallest := linearRing.Coord(0)
@@ -756,9 +757,11 @@ func IsLinearRingCCW(linearRing *geom.LinearRing) bool {
 	b := smallest
 	c := linearRing.Coord(nextIdx)
 
-	areaSign := a.X()*b.Y() - a.Y()*b.X() +
-		a.Y()*c.X() - a.X()*c.Y() +
-		b.X()*c.Y() - c.X()*b.Y()
+	// Explicitly use float64 conversion to disable "fused multiply and add" (FMA) to force
+	// identical behavior on all platforms. See https://golang.org/ref/spec#Floating_point_operators
+	areaSign := float64(a.X()*b.Y()) - float64(a.Y()*b.X()) + // nolint:unconvert
+		float64(a.Y()*c.X()) - float64(a.X()*c.Y()) + // nolint:unconvert
+		float64(b.X()*c.Y()) - float64(c.X()*b.Y()) // nolint:unconvert
 	// Note having an area sign of 0 means it is a flat polygon, which is invalid.
 	return areaSign > 0
 }

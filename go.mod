@@ -6,6 +6,7 @@ require (
 	github.com/biogo/store v0.0.0-20201120204734-aad293a2328f
 	github.com/cockroachdb/apd/v3 v3.1.0
 	github.com/cockroachdb/errors v1.9.0
+	github.com/cockroachdb/gostdlib v1.19.0
 	github.com/cockroachdb/redact v1.1.3
 	github.com/dustin/go-humanize v1.0.0
 	github.com/gogo/protobuf v1.3.2
@@ -19,7 +20,7 @@ require (
 	github.com/stretchr/testify v1.7.0
 	github.com/twpayne/go-geom v1.4.1
 	golang.org/x/text v0.3.7
-	golang.org/x/tools v0.1.10
+	golang.org/x/tools v0.1.12
 )
 
 require (
@@ -34,7 +35,7 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/rogpeppe/go-internal v1.8.1 // indirect
 	github.com/twpayne/go-kml v1.5.2 // indirect
-	golang.org/x/sys v0.0.0-20220209214540-3681064d5158 // indirect
+	golang.org/x/sys v0.0.0-20220722155257-8c9f86f7a55f // indirect
 	google.golang.org/genproto v0.0.0-20210624195500-8bfb893ecb84 // indirect
 	google.golang.org/grpc v1.38.0 // indirect
 	google.golang.org/protobuf v1.26.0 // indirect
