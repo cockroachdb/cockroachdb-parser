@@ -8,6 +8,6 @@ import (
 )
 
 func TestParser(t *testing.T) {
-	_, err := parser.Parse("SELECT 1")
+	_, err := parser.Parse("CREATE TABLE t (a TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP)")
 	require.NoError(t, err)
 }

@@ -19,7 +19,6 @@ import (
 	"github.com/cockroachdb/cockroachdb-parser/pkg/sql/pgwire/pgerror"
 	"github.com/cockroachdb/cockroachdb-parser/pkg/sql/sem/catconstants"
 	"github.com/cockroachdb/errors"
-	"github.com/cockroachdb/redact"
 	"github.com/lib/pq/oid"
 )
 
@@ -144,7 +143,7 @@ type CustomBuiltinFunctionWrapper interface {
 func WrapFunction(n string) ResolvableFunctionReference {
 	fd, ok := FunDefs[n]
 	if !ok {
-		panic(errors.AssertionFailedf("function %s() not defined", redact.Safe(n)))
+		return ResolvableFunctionReference{&FunctionDefinition{Name: n}}
 	}
 	return ResolvableFunctionReference{fd}
 }

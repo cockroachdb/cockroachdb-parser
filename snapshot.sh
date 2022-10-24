@@ -42,6 +42,9 @@ rm pkg/sql/lexbase/.gitignore pkg/sql/parser/.gitignore
 find pkg -type f -name '*_test.go' | xargs rm
 # sed replace any instances of cockroachdb
 find pkg -type f -name '*.go' | xargs sed -i '' -e 's_github\.com/cockroachdb/cockroach/_github.com/cockroachdb/cockroachdb-parser/_g'
+# replace WrapFunction
+sed -i '' -e 's_panic(errors.AssertionFailedf("function %s() not defined", redact.Safe(n)))_return ResolvableFunctionReference{\&FunctionDefinition{Name: n}}_g' pkg/sql/sem/tree/function_name.go
+goimports -w pkg/sql/sem/tree/function_name.go
 
 echo "Cleaning up go and testing everything works"
 go mod tidy
