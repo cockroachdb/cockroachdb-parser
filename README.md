@@ -7,6 +7,12 @@ to pull in when configuring compared to `go get`.
 
 The SHA this is based off is available in `version`.
 
+## Versioning
+
+Versioning is done by CockroachDB version, with a `v0.` prepended.
+For example, `v0.22.1.0.x.y` maps to `v22.1.0` in CockroachDB, where
+`.x.y` maps to any subiterations.
+
 ## Example usage
 
 ```
@@ -17,7 +23,7 @@ import (
 )
 
 func Parse() error {
-	ast, err := parser.ParseOne("SELECT 1")
+  ast, err := parser.ParseOne("SELECT 1")
   if err != nil {
     return err
   }
