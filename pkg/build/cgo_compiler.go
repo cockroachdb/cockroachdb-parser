@@ -10,7 +10,7 @@
 
 package build
 
-// const char* compilerVersion() {
+// const char* compilerVersionParser() {
 // #if defined(__clang__)
 // 	return __VERSION__;
 // #elif defined(__GNUC__) || defined(__GNUG__)
@@ -22,5 +22,5 @@ package build
 import "C"
 
 func cgoVersion() string {
-	return C.GoString(C.compilerVersion())
+	return C.GoString(C.compilerVersionParser())
 }

@@ -32,6 +32,8 @@ echo $(git rev-parse HEAD) > $LOC/version
 
 echo "removing excess files, fixing up file paths"
 cd $LOC
+# replace compiler function to avoid conflicts.
+sed -i '' -e 's/compilerVersion/compilerVersionParser/g' pkg/build/*.go
 # temporarily copy embedded data over
 cp -R $COCKROACHDB_LOC/pkg/geo/geoprojbase/data $LOC/pkg/geo/geoprojbase/data
 # delete gitignores
