@@ -33,6 +33,8 @@ echo "removing excess files, fixing up file paths"
 cd $LOC
 # temporarily copy embedded data over
 cp -R $COCKROACHDB_LOC/pkg/geo/geoprojbase/data $LOC/pkg/geo/geoprojbase/data
+# delete gitignores
+rm pkg/sql/lexbase/.gitignore pkg/sql/parser/.gitignore
 # delete tests and testfiles
 find pkg -type f -name '*_test.go' | xargs rm
 # sed replace any instances of cockroachdb
@@ -40,4 +42,5 @@ find pkg -type f -name '*.go' | xargs sed -i '' -e 's_github\.com/cockroachdb/co
 
 echo "Cleaning up go and testing everything works"
 go mod tidy
+git clean -fd
 go test .
