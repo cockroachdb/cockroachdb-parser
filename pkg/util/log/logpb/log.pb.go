@@ -451,11 +451,11 @@ func (m *FileInfo) XXX_DiscardUnknown() {
 var xxx_messageInfo_FileInfo proto.InternalMessageInfo
 
 func init() {
-	proto.RegisterEnum("cockroach.util.log.Severity", Severity_name, Severity_value)
-	proto.RegisterEnum("cockroach.util.log.Channel", Channel_name, Channel_value)
-	proto.RegisterType((*Entry)(nil), "cockroach.util.log.Entry")
-	proto.RegisterType((*FileDetails)(nil), "cockroach.util.log.FileDetails")
-	proto.RegisterType((*FileInfo)(nil), "cockroach.util.log.FileInfo")
+	proto.RegisterEnum("cockroach.parser.util.log.Severity", Severity_name, Severity_value)
+	proto.RegisterEnum("cockroach.parser.util.log.Channel", Channel_name, Channel_value)
+	proto.RegisterType((*Entry)(nil), "cockroach.parser.util.log.Entry")
+	proto.RegisterType((*FileDetails)(nil), "cockroach.parser.util.log.FileDetails")
+	proto.RegisterType((*FileInfo)(nil), "cockroach.parser.util.log.FileInfo")
 }
 
 func init() { proto.RegisterFile("util/log/logpb/log.proto", fileDescriptor_84e824ab4ae60f77) }

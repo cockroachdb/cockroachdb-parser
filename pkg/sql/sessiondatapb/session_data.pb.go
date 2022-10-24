@@ -301,11 +301,11 @@ func (m *SequenceState_Seq) XXX_DiscardUnknown() {
 var xxx_messageInfo_SequenceState_Seq proto.InternalMessageInfo
 
 func init() {
-	proto.RegisterEnum("cockroach.sql.sessiondatapb.VectorizeExecMode", VectorizeExecMode_name, VectorizeExecMode_value)
-	proto.RegisterType((*SessionData)(nil), "cockroach.sql.sessiondatapb.SessionData")
-	proto.RegisterType((*DataConversionConfig)(nil), "cockroach.sql.sessiondatapb.DataConversionConfig")
-	proto.RegisterType((*SequenceState)(nil), "cockroach.sql.sessiondatapb.SequenceState")
-	proto.RegisterType((*SequenceState_Seq)(nil), "cockroach.sql.sessiondatapb.SequenceState.Seq")
+	proto.RegisterEnum("cockroach.parser.sql.sessiondatapb.VectorizeExecMode", VectorizeExecMode_name, VectorizeExecMode_value)
+	proto.RegisterType((*SessionData)(nil), "cockroach.parser.sql.sessiondatapb.SessionData")
+	proto.RegisterType((*DataConversionConfig)(nil), "cockroach.parser.sql.sessiondatapb.DataConversionConfig")
+	proto.RegisterType((*SequenceState)(nil), "cockroach.parser.sql.sessiondatapb.SequenceState")
+	proto.RegisterType((*SequenceState_Seq)(nil), "cockroach.parser.sql.sessiondatapb.SequenceState.Seq")
 }
 
 func init() {

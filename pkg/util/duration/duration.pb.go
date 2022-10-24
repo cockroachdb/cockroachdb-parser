@@ -50,7 +50,7 @@ func (IntervalStyle) EnumDescriptor() ([]byte, []int) {
 }
 
 func init() {
-	proto.RegisterEnum("cockroach.util.duration.IntervalStyle", IntervalStyle_name, IntervalStyle_value)
+	proto.RegisterEnum("cockroach.parser.util.duration.IntervalStyle", IntervalStyle_name, IntervalStyle_value)
 }
 
 func init() { proto.RegisterFile("util/duration/duration.proto", fileDescriptor_2a50a97034b582e9) }

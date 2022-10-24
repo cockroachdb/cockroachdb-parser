@@ -51,7 +51,7 @@ func (BytesEncodeFormat) EnumDescriptor() ([]byte, []int) {
 }
 
 func init() {
-	proto.RegisterEnum("cockroach.sql.sessiondatapb.BytesEncodeFormat", BytesEncodeFormat_name, BytesEncodeFormat_value)
+	proto.RegisterEnum("cockroach.parser.sql.sessiondatapb.BytesEncodeFormat", BytesEncodeFormat_name, BytesEncodeFormat_value)
 }
 
 func init() { proto.RegisterFile("sql/lex/encode.proto", fileDescriptor_3d1d8cf249b1b776) }

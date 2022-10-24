@@ -98,8 +98,8 @@ func (m *MigratableSession_PreparedStatement) XXX_DiscardUnknown() {
 var xxx_messageInfo_MigratableSession_PreparedStatement proto.InternalMessageInfo
 
 func init() {
-	proto.RegisterType((*MigratableSession)(nil), "cockroach.sql.sessiondatapb.MigratableSession")
-	proto.RegisterType((*MigratableSession_PreparedStatement)(nil), "cockroach.sql.sessiondatapb.MigratableSession.PreparedStatement")
+	proto.RegisterType((*MigratableSession)(nil), "cockroach.parser.sql.sessiondatapb.MigratableSession")
+	proto.RegisterType((*MigratableSession_PreparedStatement)(nil), "cockroach.parser.sql.sessiondatapb.MigratableSession.PreparedStatement")
 }
 
 func init() {

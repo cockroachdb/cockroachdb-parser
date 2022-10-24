@@ -164,10 +164,10 @@ func (m *SpanExpressionProto_Node) XXX_DiscardUnknown() {
 var xxx_messageInfo_SpanExpressionProto_Node proto.InternalMessageInfo
 
 func init() {
-	proto.RegisterEnum("cockroach.sql.inverted.SetOperator", SetOperator_name, SetOperator_value)
-	proto.RegisterType((*SpanExpressionProto)(nil), "cockroach.sql.inverted.SpanExpressionProto")
-	proto.RegisterType((*SpanExpressionProto_Span)(nil), "cockroach.sql.inverted.SpanExpressionProto.Span")
-	proto.RegisterType((*SpanExpressionProto_Node)(nil), "cockroach.sql.inverted.SpanExpressionProto.Node")
+	proto.RegisterEnum("cockroach.parser.sql.inverted.SetOperator", SetOperator_name, SetOperator_value)
+	proto.RegisterType((*SpanExpressionProto)(nil), "cockroach.parser.sql.inverted.SpanExpressionProto")
+	proto.RegisterType((*SpanExpressionProto_Span)(nil), "cockroach.parser.sql.inverted.SpanExpressionProto.Span")
+	proto.RegisterType((*SpanExpressionProto_Node)(nil), "cockroach.parser.sql.inverted.SpanExpressionProto.Node")
 }
 
 func init() {

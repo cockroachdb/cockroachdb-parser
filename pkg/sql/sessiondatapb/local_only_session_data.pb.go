@@ -377,10 +377,10 @@ func (m *SequenceCacheEntry) XXX_DiscardUnknown() {
 var xxx_messageInfo_SequenceCacheEntry proto.InternalMessageInfo
 
 func init() {
-	proto.RegisterType((*LocalOnlySessionData)(nil), "cockroach.sql.sessiondatapb.LocalOnlySessionData")
-	proto.RegisterMapType((map[string]string)(nil), "cockroach.sql.sessiondatapb.LocalOnlySessionData.CustomOptionsEntry")
-	proto.RegisterMapType((SequenceCache)(nil), "cockroach.sql.sessiondatapb.LocalOnlySessionData.SequenceCacheEntry")
-	proto.RegisterType((*SequenceCacheEntry)(nil), "cockroach.sql.sessiondatapb.SequenceCacheEntry")
+	proto.RegisterType((*LocalOnlySessionData)(nil), "cockroach.parser.sql.sessiondatapb.LocalOnlySessionData")
+	proto.RegisterMapType((map[string]string)(nil), "cockroach.parser.sql.sessiondatapb.LocalOnlySessionData.CustomOptionsEntry")
+	proto.RegisterMapType((SequenceCache)(nil), "cockroach.parser.sql.sessiondatapb.LocalOnlySessionData.SequenceCacheEntry")
+	proto.RegisterType((*SequenceCacheEntry)(nil), "cockroach.parser.sql.sessiondatapb.SequenceCacheEntry")
 }
 
 func init() {

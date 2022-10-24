@@ -760,13 +760,13 @@ func (m *InternalType) XXX_DiscardUnknown() {
 var xxx_messageInfo_InternalType proto.InternalMessageInfo
 
 func init() {
-	proto.RegisterEnum("cockroach.sql.sem.types.Family", Family_name, Family_value)
-	proto.RegisterEnum("cockroach.sql.sem.types.IntervalDurationType", IntervalDurationType_name, IntervalDurationType_value)
-	proto.RegisterType((*IntervalDurationField)(nil), "cockroach.sql.sem.types.IntervalDurationField")
-	proto.RegisterType((*GeoMetadata)(nil), "cockroach.sql.sem.types.GeoMetadata")
-	proto.RegisterType((*PersistentUserDefinedTypeMetadata)(nil), "cockroach.sql.sem.types.PersistentUserDefinedTypeMetadata")
-	proto.RegisterType((*T)(nil), "cockroach.sql.sem.types.T")
-	proto.RegisterType((*InternalType)(nil), "cockroach.sql.sem.types.InternalType")
+	proto.RegisterEnum("cockroach.parser.sql.sem.types.Family", Family_name, Family_value)
+	proto.RegisterEnum("cockroach.parser.sql.sem.types.IntervalDurationType", IntervalDurationType_name, IntervalDurationType_value)
+	proto.RegisterType((*IntervalDurationField)(nil), "cockroach.parser.sql.sem.types.IntervalDurationField")
+	proto.RegisterType((*GeoMetadata)(nil), "cockroach.parser.sql.sem.types.GeoMetadata")
+	proto.RegisterType((*PersistentUserDefinedTypeMetadata)(nil), "cockroach.parser.sql.sem.types.PersistentUserDefinedTypeMetadata")
+	proto.RegisterType((*T)(nil), "cockroach.parser.sql.sem.types.T")
+	proto.RegisterType((*InternalType)(nil), "cockroach.parser.sql.sem.types.InternalType")
 }
 
 func init() { proto.RegisterFile("sql/types/types.proto", fileDescriptor_bc7f16796a7f6725) }

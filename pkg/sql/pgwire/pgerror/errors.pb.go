@@ -103,8 +103,8 @@ func (m *Error_Source) XXX_DiscardUnknown() {
 var xxx_messageInfo_Error_Source proto.InternalMessageInfo
 
 func init() {
-	proto.RegisterType((*Error)(nil), "cockroach.pgerror.Error")
-	proto.RegisterType((*Error_Source)(nil), "cockroach.pgerror.Error.Source")
+	proto.RegisterType((*Error)(nil), "cockroach.parser.pgerror.Error")
+	proto.RegisterType((*Error_Source)(nil), "cockroach.parser.pgerror.Error.Source")
 }
 
 func init() { proto.RegisterFile("sql/pgwire/pgerror/errors.proto", fileDescriptor_79fd880909da5328) }

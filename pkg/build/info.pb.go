@@ -87,7 +87,7 @@ func (m *Info) XXX_DiscardUnknown() {
 var xxx_messageInfo_Info proto.InternalMessageInfo
 
 func init() {
-	proto.RegisterType((*Info)(nil), "cockroach.build.Info")
+	proto.RegisterType((*Info)(nil), "cockroach.parser.build.Info")
 }
 
 func init() { proto.RegisterFile("build/info.proto", fileDescriptor_4e07f274d5866c11) }

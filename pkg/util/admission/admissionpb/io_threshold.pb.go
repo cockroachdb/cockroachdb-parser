@@ -61,7 +61,7 @@ func (m *IOThreshold) XXX_DiscardUnknown() {
 var xxx_messageInfo_IOThreshold proto.InternalMessageInfo
 
 func init() {
-	proto.RegisterType((*IOThreshold)(nil), "cockroach.util.admission.admissionpb.IOThreshold")
+	proto.RegisterType((*IOThreshold)(nil), "cockroach.parser.util.admission.admissionpb.IOThreshold")
 }
 
 func init() {

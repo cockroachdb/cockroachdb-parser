@@ -59,7 +59,7 @@ func (m *RecursiveAndUncloneable) XXX_DiscardUnknown() {
 var xxx_messageInfo_RecursiveAndUncloneable proto.InternalMessageInfo
 
 func init() {
-	proto.RegisterType((*RecursiveAndUncloneable)(nil), "cockroach.util.protoutil.RecursiveAndUncloneable")
+	proto.RegisterType((*RecursiveAndUncloneable)(nil), "cockroach.parser.util.protoutil.RecursiveAndUncloneable")
 }
 
 func init() { proto.RegisterFile("util/protoutil/clone.proto", fileDescriptor_70112f44abab2f11) }

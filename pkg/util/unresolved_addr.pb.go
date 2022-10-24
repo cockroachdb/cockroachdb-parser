@@ -58,7 +58,7 @@ func (m *UnresolvedAddr) XXX_DiscardUnknown() {
 var xxx_messageInfo_UnresolvedAddr proto.InternalMessageInfo
 
 func init() {
-	proto.RegisterType((*UnresolvedAddr)(nil), "cockroach.util.UnresolvedAddr")
+	proto.RegisterType((*UnresolvedAddr)(nil), "cockroach.parser.util.UnresolvedAddr")
 }
 
 func init() { proto.RegisterFile("util/unresolved_addr.proto", fileDescriptor_e843f4480e4927e4) }

@@ -121,9 +121,9 @@ func (m *DateStyle) XXX_DiscardUnknown() {
 var xxx_messageInfo_DateStyle proto.InternalMessageInfo
 
 func init() {
-	proto.RegisterEnum("cockroach.util.timeutil.pgdate.Order", Order_name, Order_value)
-	proto.RegisterEnum("cockroach.util.timeutil.pgdate.Style", Style_name, Style_value)
-	proto.RegisterType((*DateStyle)(nil), "cockroach.util.timeutil.pgdate.DateStyle")
+	proto.RegisterEnum("cockroach.parser.util.timeutil.pgdate.Order", Order_name, Order_value)
+	proto.RegisterEnum("cockroach.parser.util.timeutil.pgdate.Style", Style_name, Style_value)
+	proto.RegisterType((*DateStyle)(nil), "cockroach.parser.util.timeutil.pgdate.DateStyle")
 }
 
 func init() { proto.RegisterFile("util/timeutil/pgdate/pgdate.proto", fileDescriptor_1038cae594af4e85) }

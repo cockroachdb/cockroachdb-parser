@@ -104,8 +104,8 @@ func (m *SessionRevivalToken_Payload) XXX_DiscardUnknown() {
 var xxx_messageInfo_SessionRevivalToken_Payload proto.InternalMessageInfo
 
 func init() {
-	proto.RegisterType((*SessionRevivalToken)(nil), "cockroach.sql.sessiondatapb.SessionRevivalToken")
-	proto.RegisterType((*SessionRevivalToken_Payload)(nil), "cockroach.sql.sessiondatapb.SessionRevivalToken.Payload")
+	proto.RegisterType((*SessionRevivalToken)(nil), "cockroach.parser.sql.sessiondatapb.SessionRevivalToken")
+	proto.RegisterType((*SessionRevivalToken_Payload)(nil), "cockroach.parser.sql.sessiondatapb.SessionRevivalToken.Payload")
 }
 
 func init() {

@@ -62,7 +62,7 @@ func (m *CommonEventDetails) XXX_DiscardUnknown() {
 var xxx_messageInfo_CommonEventDetails proto.InternalMessageInfo
 
 func init() {
-	proto.RegisterType((*CommonEventDetails)(nil), "cockroach.util.log.CommonEventDetails")
+	proto.RegisterType((*CommonEventDetails)(nil), "cockroach.parser.util.log.CommonEventDetails")
 }
 
 func init() { proto.RegisterFile("util/log/logpb/event.proto", fileDescriptor_b283fe773154b3ca) }

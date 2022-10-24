@@ -262,10 +262,10 @@ func (m *BoundingBox) XXX_DiscardUnknown() {
 var xxx_messageInfo_BoundingBox proto.InternalMessageInfo
 
 func init() {
-	proto.RegisterEnum("cockroach.geopb.ShapeType", ShapeType_name, ShapeType_value)
-	proto.RegisterEnum("cockroach.geopb.SpatialObjectType", SpatialObjectType_name, SpatialObjectType_value)
-	proto.RegisterType((*SpatialObject)(nil), "cockroach.geopb.SpatialObject")
-	proto.RegisterType((*BoundingBox)(nil), "cockroach.geopb.BoundingBox")
+	proto.RegisterEnum("cockroach.parser.geopb.ShapeType", ShapeType_name, ShapeType_value)
+	proto.RegisterEnum("cockroach.parser.geopb.SpatialObjectType", SpatialObjectType_name, SpatialObjectType_value)
+	proto.RegisterType((*SpatialObject)(nil), "cockroach.parser.geopb.SpatialObject")
+	proto.RegisterType((*BoundingBox)(nil), "cockroach.parser.geopb.BoundingBox")
 }
 
 func init() { proto.RegisterFile("geo/geopb/geopb.proto", fileDescriptor_e98b4c2fa47407b4) }
