@@ -363,3 +363,4 @@ var (
 	ErrIntOverflowClone          = fmt.Errorf("proto: integer overflow")
 	ErrUnexpectedEndOfGroupClone = fmt.Errorf("proto: unexpected end of group")
 )
+

@@ -1870,3 +1870,4 @@ var (
 	ErrIntOverflowSessionData          = fmt.Errorf("proto: integer overflow")
 	ErrUnexpectedEndOfGroupSessionData = fmt.Errorf("proto: unexpected end of group")
 )
+

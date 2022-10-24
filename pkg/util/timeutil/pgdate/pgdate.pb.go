@@ -385,3 +385,4 @@ var (
 	ErrIntOverflowPgdate          = fmt.Errorf("proto: integer overflow")
 	ErrUnexpectedEndOfGroupPgdate = fmt.Errorf("proto: unexpected end of group")
 )
+

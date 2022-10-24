@@ -339,3 +339,4 @@ var (
 	ErrIntOverflowEvent          = fmt.Errorf("proto: integer overflow")
 	ErrUnexpectedEndOfGroupEvent = fmt.Errorf("proto: unexpected end of group")
 )
+

@@ -924,3 +924,4 @@ var (
 	ErrIntOverflowSpanExpression          = fmt.Errorf("proto: integer overflow")
 	ErrUnexpectedEndOfGroupSpanExpression = fmt.Errorf("proto: unexpected end of group")
 )
+

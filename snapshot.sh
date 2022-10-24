@@ -10,8 +10,8 @@ COCKROACHDB_LOC=$GOPATH/src/github.com/cockroachdb/cockroach
 
 echo "Generating files in-line using dev build short"
 cd $COCKROACHDB_LOC
-./dev build short
 ./dev gen parser
+./dev gen protobuf
 
 echo "Copying required dependencies over"
 rm -rf $LOC/pkg

@@ -731,3 +731,4 @@ var (
 	ErrIntOverflowSessionMigration          = fmt.Errorf("proto: integer overflow")
 	ErrUnexpectedEndOfGroupSessionMigration = fmt.Errorf("proto: unexpected end of group")
 )
+

@@ -1619,3 +1619,4 @@ var (
 	ErrIntOverflowLog          = fmt.Errorf("proto: integer overflow")
 	ErrUnexpectedEndOfGroupLog = fmt.Errorf("proto: unexpected end of group")
 )
+

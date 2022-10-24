@@ -839,3 +839,4 @@ var (
 	ErrIntOverflowGeopb          = fmt.Errorf("proto: integer overflow")
 	ErrUnexpectedEndOfGroupGeopb = fmt.Errorf("proto: unexpected end of group")
 )
+

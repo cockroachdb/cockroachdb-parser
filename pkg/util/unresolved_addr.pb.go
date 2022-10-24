@@ -368,3 +368,4 @@ var (
 	ErrIntOverflowUnresolvedAddr          = fmt.Errorf("proto: integer overflow")
 	ErrUnexpectedEndOfGroupUnresolvedAddr = fmt.Errorf("proto: unexpected end of group")
 )
+

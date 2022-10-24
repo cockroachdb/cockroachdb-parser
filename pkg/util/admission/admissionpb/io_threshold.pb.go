@@ -379,3 +379,4 @@ var (
 	ErrIntOverflowIoThreshold          = fmt.Errorf("proto: integer overflow")
 	ErrUnexpectedEndOfGroupIoThreshold = fmt.Errorf("proto: unexpected end of group")
 )
+

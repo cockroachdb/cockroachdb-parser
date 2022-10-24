@@ -2004,3 +2004,4 @@ var (
 	ErrIntOverflowTypes          = fmt.Errorf("proto: integer overflow")
 	ErrUnexpectedEndOfGroupTypes = fmt.Errorf("proto: unexpected end of group")
 )
+

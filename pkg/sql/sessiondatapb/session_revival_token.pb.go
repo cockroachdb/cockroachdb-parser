@@ -680,3 +680,4 @@ var (
 	ErrIntOverflowSessionRevivalToken          = fmt.Errorf("proto: integer overflow")
 	ErrUnexpectedEndOfGroupSessionRevivalToken = fmt.Errorf("proto: unexpected end of group")
 )
+
