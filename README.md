@@ -3,7 +3,7 @@
 `cockroachdb-parser` is a snapshot of the parser package and
 all its dependencies from the [CockroachDB repo](repo). The
 smaller package is Apache licensed and contains less dependencies
-to pull in when configuring compared to `go get`.
+to pull in when configuring compared to `go get github.com/cockroachdb/cockroach`.
 
 The SHA this is based off is available in `version`.
 
@@ -12,6 +12,11 @@ The SHA this is based off is available in `version`.
 Versioning is done by CockroachDB version, with a `v0.` prepended.
 For example, `v0.22.1.0.x.y` maps to `v22.1.0` in CockroachDB, where
 `.x.y` maps to any subiterations.
+
+## Custom patches
+
+There are custom patches in `patches/` which gets applied to the repo.
+This helps us customise the parser slightly for third party users.
 
 ## Example usage
 
