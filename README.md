@@ -39,7 +39,7 @@ func Parse() error {
 
 ## Generating a snapshot
 
-Ensure the [repo](CockroachDB repo) is cloned in your $GOPATH, and then type:
+Ensure the [CockroachDB repo](repo) is cloned in your $GOPATH, and then type:
 
 ```sh
 ./snapshot.sh
