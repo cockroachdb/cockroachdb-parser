@@ -55,6 +55,11 @@ find pkg -type f -name 'BUILD.bazel' | xargs rm
 # command works on both linux and macos.
 find pkg -type f -name '*.bak' | xargs rm
 
+for f in patches/*; do
+  echo "applying patch $f"
+  git apply $f
+done
+
 echo "Cleaning up go and testing everything works"
 go mod tidy
 git clean -fd

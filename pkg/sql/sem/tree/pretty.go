@@ -47,6 +47,8 @@ type PrettyCfg struct {
 	// TabWidth is the amount of spaces to use for tabs when UseTabs is
 	// false.
 	TabWidth int
+	// DoNotNewLineAfterColName is true if we do not new line after table column names.
+	DoNotNewLineAfterColName bool
 	// Align, when set to another value than PrettyNoAlign, uses
 	// alignment for some constructs as a first choice. If not set or if
 	// the line width is insufficient, nesting is used instead.
@@ -195,7 +197,7 @@ func (p *PrettyCfg) rlTable(rows ...pretty.TableRow) pretty.Doc {
 	if p.Align != PrettyNoAlign {
 		alignment = pretty.TableRightAlignFirstColumn
 	}
-	return pretty.Table(alignment, pretty.Keyword, rows...)
+	return pretty.Table(alignment, pretty.Keyword, p.DoNotNewLineAfterColName, rows...)
 }
 
 // llTable produces a Table using Left alignment of the first column.
@@ -204,7 +206,7 @@ func (p *PrettyCfg) llTable(docFn func(string) pretty.Doc, rows ...pretty.TableR
 	if p.Align != PrettyNoAlign {
 		alignment = pretty.TableLeftAlignFirstColumn
 	}
-	return pretty.Table(alignment, docFn, rows...)
+	return pretty.Table(alignment, docFn, p.DoNotNewLineAfterColName, rows...)
 }
 
 func (p *PrettyCfg) row(lbl string, d pretty.Doc) pretty.TableRow {
@@ -242,7 +244,7 @@ func (p *PrettyCfg) joinNestedOuter(lbl string, d ...pretty.Doc) pretty.Doc {
 			}
 			items[i].Doc = dd
 		}
-		return pretty.Table(pretty.TableRightAlignFirstColumn, pretty.Keyword, items...)
+		return pretty.Table(pretty.TableRightAlignFirstColumn, pretty.Keyword, p.DoNotNewLineAfterColName, items...)
 	default:
 		return pretty.JoinNestedRight(pretty.Keyword(lbl), d...)
 	}
