@@ -1,0 +1,90 @@
+From c11283e6d2342e0801ace7d1a8badbfe63ee71a4 Mon Sep 17 00:00:00 2001
+From: Oliver Tan <otan@cockroachlabs.com>
+Date: Thu, 3 Nov 2022 15:05:20 +1100
+Subject: [PATCH] add extra pretty option for no new lines
+
+---
+ pkg/sql/sem/tree/pretty.go | 8 +++++---
+ pkg/util/pretty/util.go    | 9 ++++++---
+ 2 files changed, 11 insertions(+), 6 deletions(-)
+
+diff --git a/pkg/sql/sem/tree/pretty.go b/pkg/sql/sem/tree/pretty.go
+index 6df5efe..5e3715f 100644
+--- a/pkg/sql/sem/tree/pretty.go
++++ b/pkg/sql/sem/tree/pretty.go
+@@ -47,6 +47,8 @@ type PrettyCfg struct {
+ 	// TabWidth is the amount of spaces to use for tabs when UseTabs is
+ 	// false.
+ 	TabWidth int
++	// DoNotNewLineAfterColName is true if we do not new line after table column names.
++	DoNotNewLineAfterColName bool
+ 	// Align, when set to another value than PrettyNoAlign, uses
+ 	// alignment for some constructs as a first choice. If not set or if
+ 	// the line width is insufficient, nesting is used instead.
+@@ -195,7 +197,7 @@ func (p *PrettyCfg) rlTable(rows ...pretty.TableRow) pretty.Doc {
+ 	if p.Align != PrettyNoAlign {
+ 		alignment = pretty.TableRightAlignFirstColumn
+ 	}
+-	return pretty.Table(alignment, pretty.Keyword, rows...)
++	return pretty.Table(alignment, pretty.Keyword, p.DoNotNewLineAfterColName, rows...)
+ }
+ 
+ // llTable produces a Table using Left alignment of the first column.
+@@ -204,7 +206,7 @@ func (p *PrettyCfg) llTable(docFn func(string) pretty.Doc, rows ...pretty.TableR
+ 	if p.Align != PrettyNoAlign {
+ 		alignment = pretty.TableLeftAlignFirstColumn
+ 	}
+-	return pretty.Table(alignment, docFn, rows...)
++	return pretty.Table(alignment, docFn, p.DoNotNewLineAfterColName, rows...)
+ }
+ 
+ func (p *PrettyCfg) row(lbl string, d pretty.Doc) pretty.TableRow {
+@@ -242,7 +244,7 @@ func (p *PrettyCfg) joinNestedOuter(lbl string, d ...pretty.Doc) pretty.Doc {
+ 			}
+ 			items[i].Doc = dd
+ 		}
+-		return pretty.Table(pretty.TableRightAlignFirstColumn, pretty.Keyword, items...)
++		return pretty.Table(pretty.TableRightAlignFirstColumn, pretty.Keyword, p.DoNotNewLineAfterColName, items...)
+ 	default:
+ 		return pretty.JoinNestedRight(pretty.Keyword(lbl), d...)
+ 	}
+diff --git a/pkg/util/pretty/util.go b/pkg/util/pretty/util.go
+index 568461a..b754eb8 100644
+--- a/pkg/util/pretty/util.go
++++ b/pkg/util/pretty/util.go
+@@ -238,11 +238,11 @@ const (
+ //
+ // docFn should be set to Text or Keyword and will be used when converting
+ // TableRow label's to Docs.
+-func Table(alignment TableAlignment, docFn func(string) Doc, rows ...TableRow) Doc {
++func Table(alignment TableAlignment, docFn func(string) Doc, noNewLine bool, rows ...TableRow) Doc {
+ 	// Compute the nested formatting in "sections". It's simple.
+ 	// Note that we do not use NestUnder() because we are not grouping
+ 	// at this level (the group is done for the final form below).
+-	items := makeTableNestedSections(docFn, rows)
++	items := makeTableNestedSections(docFn, rows, noNewLine)
+ 	nestedSections := Stack(items...)
+ 
+ 	finalDoc := nestedSections
+@@ -300,7 +300,7 @@ func makeAlignedTableItems(
+ 	return items
+ }
+ 
+-func makeTableNestedSections(docFn func(string) Doc, rows []TableRow) []Doc {
++func makeTableNestedSections(docFn func(string) Doc, rows []TableRow, noNewLine bool) []Doc {
+ 	items := make([]Doc, 0, len(rows))
+ 	for _, r := range rows {
+ 		if r.Doc == nil || (r.Label == "" && r.Doc == Nil) {
+@@ -309,6 +309,9 @@ func makeTableNestedSections(docFn func(string) Doc, rows []TableRow) []Doc {
+ 		if r.Label != "" {
+ 			d := simplifyNil(docFn(r.Label), r.Doc,
+ 				func(a, b Doc) Doc {
++					if noNewLine {
++						return ConcatSpace(a, b)
++					}
+ 					return Concat(a, NestT(Concat(Line, Group(b))))
+ 				})
+ 			items = append(items, d)
+-- 
+2.37.1 (Apple Git-137.1)
+

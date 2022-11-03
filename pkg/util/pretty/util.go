@@ -238,11 +238,11 @@ const (
 //
 // docFn should be set to Text or Keyword and will be used when converting
 // TableRow label's to Docs.
-func Table(alignment TableAlignment, docFn func(string) Doc, rows ...TableRow) Doc {
+func Table(alignment TableAlignment, docFn func(string) Doc, noNewLine bool, rows ...TableRow) Doc {
 	// Compute the nested formatting in "sections". It's simple.
 	// Note that we do not use NestUnder() because we are not grouping
 	// at this level (the group is done for the final form below).
-	items := makeTableNestedSections(docFn, rows)
+	items := makeTableNestedSections(docFn, rows, noNewLine)
 	nestedSections := Stack(items...)
 
 	finalDoc := nestedSections
@@ -300,7 +300,7 @@ func makeAlignedTableItems(
 	return items
 }
 
-func makeTableNestedSections(docFn func(string) Doc, rows []TableRow) []Doc {
+func makeTableNestedSections(docFn func(string) Doc, rows []TableRow, noNewLine bool) []Doc {
 	items := make([]Doc, 0, len(rows))
 	for _, r := range rows {
 		if r.Doc == nil || (r.Label == "" && r.Doc == Nil) {
@@ -309,6 +309,9 @@ func makeTableNestedSections(docFn func(string) Doc, rows []TableRow) []Doc {
 		if r.Label != "" {
 			d := simplifyNil(docFn(r.Label), r.Doc,
 				func(a, b Doc) Doc {
+					if noNewLine {
+						return ConcatSpace(a, b)
+					}
 					return Concat(a, NestT(Concat(Line, Group(b))))
 				})
 			items = append(items, d)
