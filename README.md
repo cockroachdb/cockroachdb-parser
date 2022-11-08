@@ -1,7 +1,7 @@
 # cockroachdb-parser
 
 `cockroachdb-parser` is a snapshot of the parser package and
-all its dependencies from the [CRDB repo][repo]. The
+all its dependencies from the [CockroachDB repo][repo]. The
 smaller package is Apache licensed and contains less dependencies
 to pull in when configuring compared to `go get github.com/cockroachdb/cockroach`.
 
@@ -39,7 +39,7 @@ func Parse() error {
 
 ## Generating a snapshot
 
-Ensure the [CRDB repo][repo] is cloned in your $GOPATH, and then type:
+Ensure the [CockroachDB repo][repo] is cloned in your $GOPATH, and then type:
 
 ```sh
 ./snapshot.sh
