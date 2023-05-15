@@ -145,8 +145,11 @@ func (ref *ResolvableFunctionReference) Resolve(
 func WrapFunction(n string) ResolvableFunctionReference {
 	fd, ok := FunDefs[n]
 	if !ok {
-		// Make every builtin parse.
-		return ResolvableFunctionReference{ReferenceByName: &UnresolvedObjectName{NumParts: 1, Parts: [3]string{n, "", ""}}}
+		return ResolvableFunctionReference{
+			FunctionReference: &FunctionDefinition{
+				Name: n,
+			},
+		}
 	}
 	return ResolvableFunctionReference{FunctionReference: fd}
 }
