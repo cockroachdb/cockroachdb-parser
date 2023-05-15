@@ -11,7 +11,7 @@
 // Cannot be proto3 because we use nullable primitives.
 syntax = "proto2";
 package cockroach.sql.sem.types;
-option go_package = "types";
+option go_package = "github.com/cockroachdb/cockroach/pkg/sql/types";
 
 import "gogoproto/gogo.proto";
 import "geo/geopb/geopb.proto";
@@ -377,6 +377,18 @@ enum Family {
     // EncodedKeyFamily is a special type family used internally for inverted
     // index keys, which do not fully encode an object.
     EncodedKeyFamily = 27;
+
+    // TSQueryFamily is a type family for the TSQuery type, which is the type
+    // of full text search queries.
+    //   Canonical: types.TSQuery
+    //   Oid      : T_tsquery
+    TSQueryFamily = 28;
+
+    // TSVectorFamily is a type family for the TSVector type, which is the type
+    // of full text search document representations.
+    //   Canonical: types.TSVector
+    //   Oid      : T_tsvector
+    TSVectorFamily = 29;
 
     // AnyFamily is a special type family used during static analysis as a
     // wildcard type that matches any other type, including scalar, array, and

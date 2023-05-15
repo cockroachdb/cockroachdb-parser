@@ -15,11 +15,13 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/cockroachdb/cockroachdb-parser/pkg/sql/lexbase"
 	"github.com/cockroachdb/cockroachdb-parser/pkg/sql/sessiondatapb"
 	"github.com/cockroachdb/cockroachdb-parser/pkg/sql/types"
 	"github.com/cockroachdb/cockroachdb-parser/pkg/util"
+	"github.com/cockroachdb/cockroachdb-parser/pkg/util/uuid"
 	"github.com/cockroachdb/errors"
 	"github.com/cockroachdb/redact"
 )
@@ -252,6 +254,7 @@ type FmtCtx struct {
 	bytes.Buffer
 
 	dataConversionConfig sessiondatapb.DataConversionConfig
+	location             *time.Location
 
 	// NOTE: if you add more flags to this structure, make sure to add
 	// corresponding cleanup code in FmtCtx.Close().
@@ -273,6 +276,8 @@ type FmtCtx struct {
 	// indexedTypeFormatter is an optional interceptor for formatting
 	// IDTypeReferences differently than normal.
 	indexedTypeFormatter func(*FmtCtx, *OIDTypeReference)
+	// small scratch buffer to reduce allocations.
+	scratch [64]byte
 }
 
 // FmtCtxOption is an option to pass into NewFmtCtx.
@@ -301,7 +306,7 @@ func FmtPlaceholderFormat(placeholderFn func(_ *FmtCtx, _ *Placeholder)) FmtCtxO
 	}
 }
 
-// FmtReformatTableNames modifies FmtCtx to to substitute the printing of table
+// FmtReformatTableNames modifies FmtCtx to substitute the printing of table
 // naFmtParsable using the provided function.
 func FmtReformatTableNames(tableNameFmt func(*FmtCtx, *TableName)) FmtCtxOption {
 	return func(ctx *FmtCtx) {
@@ -322,6 +327,13 @@ func FmtIndexedTypeFormat(fn func(*FmtCtx, *OIDTypeReference)) FmtCtxOption {
 func FmtDataConversionConfig(dcc sessiondatapb.DataConversionConfig) FmtCtxOption {
 	return func(ctx *FmtCtx) {
 		ctx.dataConversionConfig = dcc
+	}
+}
+
+// FmtLocation modifies FmtCtx to contain the correct location.
+func FmtLocation(loc *time.Location) FmtCtxOption {
+	return func(ctx *FmtCtx) {
+		ctx.location = loc
 	}
 }
 
@@ -346,6 +358,13 @@ func (ctx *FmtCtx) SetDataConversionConfig(
 ) sessiondatapb.DataConversionConfig {
 	old := ctx.dataConversionConfig
 	ctx.dataConversionConfig = dcc
+	return old
+}
+
+// SetLocation sets the location on ctx and returns the old one.
+func (ctx *FmtCtx) SetLocation(loc *time.Location) *time.Location {
+	old := ctx.location
+	ctx.location = loc
 	return old
 }
 
@@ -672,4 +691,12 @@ func (ctx *FmtCtx) formatNodeMaybeMarkRedaction(n NodeFormatter) {
 		}
 		n.Format(ctx)
 	}
+}
+
+func init() {
+	ctx := NewFmtCtx(FmtSimple)
+	if len(ctx.scratch) < uuid.RFC4122StrSize {
+		panic(errors.AssertionFailedf("FmtCtx scratch must be at least %d bytes", uuid.RFC4122StrSize))
+	}
+	ctx.Close()
 }

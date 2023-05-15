@@ -22,6 +22,7 @@ import (
 	"github.com/cockroachdb/cockroachdb-parser/pkg/sql/pgwire/pgcode"
 	"github.com/cockroachdb/cockroachdb-parser/pkg/sql/pgwire/pgerror"
 	"github.com/cockroachdb/cockroachdb-parser/pkg/sql/types"
+	"github.com/cockroachdb/cockroachdb-parser/pkg/util/intsets"
 	"github.com/cockroachdb/errors"
 	"github.com/lib/pq/oid"
 )
@@ -61,6 +62,11 @@ var _ Constant = &StrVal{}
 func isConstant(expr Expr) bool {
 	_, ok := expr.(Constant)
 	return ok
+}
+
+func isPlaceholder(expr Expr) bool {
+	_, isPlaceholder := StripParens(expr).(*Placeholder)
+	return isPlaceholder
 }
 
 func typeCheckConstant(
@@ -339,7 +345,7 @@ func (expr *NumVal) ResolveAsType(
 			if strings.EqualFold(expr.origString, "NaN") {
 				// We need to check NaN separately since expr.value is
 				// unknownVal for NaN.
-				// TODO(sql-experience): unknownVal is also used for +Inf and
+				// TODO(sql-sessions): unknownVal is also used for +Inf and
 				// -Inf, so we may need to handle those in the future too.
 				expr.resFloat = DFloat(math.NaN())
 			} else {
@@ -435,10 +441,10 @@ func intersectTypeSlices(xs, ys []*types.T) (out []*types.T) {
 // The function takes a slice of Exprs and indexes, but expects all the indexed
 // Exprs to wrap a Constant. The reason it does no take a slice of Constants
 // instead is to avoid forcing callers to allocate separate slices of Constant.
-func commonConstantType(vals []Expr, idxs []int) (*types.T, bool) {
+func commonConstantType(vals []Expr, idxs intsets.Fast) (*types.T, bool) {
 	var candidates []*types.T
 
-	for _, i := range idxs {
+	for i, ok := idxs.Next(0); ok; i, ok = idxs.Next(i + 1) {
 		availableTypes := vals[i].(Constant).DesirableTypes()
 		if candidates == nil {
 			candidates = availableTypes
@@ -536,6 +542,8 @@ var (
 		types.UUIDArray,
 		types.INet,
 		types.Jsonb,
+		types.TSQuery,
+		types.TSVector,
 		types.VarBit,
 		types.AnyEnum,
 		types.AnyEnumArray,
@@ -601,7 +609,11 @@ func (expr *StrVal) ResolveAsType(
 			expr.resBytes = DBytes(expr.s)
 			return &expr.resBytes, nil
 		case types.EnumFamily:
-			return MakeDEnumFromPhysicalRepresentation(typ, []byte(expr.s))
+			e, err := MakeDEnumFromPhysicalRepresentation(typ, []byte(expr.s))
+			if err != nil {
+				return nil, err
+			}
+			return NewDEnum(e), nil
 		case types.UuidFamily:
 			return ParseDUuidFromBytes([]byte(expr.s))
 		case types.StringFamily:
@@ -625,7 +637,7 @@ func (expr *StrVal) ResolveAsType(
 		return ParseDByte(expr.s)
 
 	default:
-		ptCtx := simpleParseTimeContext{
+		ptCtx := &simpleParseContext{
 			// We can return any time, but not the zero value - it causes an error when
 			// parsing "yesterday".
 			RelativeParseTime: time.Date(2000, time.January, 2, 3, 4, 5, 0, time.UTC),
@@ -633,6 +645,16 @@ func (expr *StrVal) ResolveAsType(
 		if semaCtx != nil {
 			ptCtx.DateStyle = semaCtx.DateStyle
 			ptCtx.IntervalStyle = semaCtx.IntervalStyle
+		}
+		if typ.UserDefined() && !typ.IsHydrated() {
+			var err error
+			if semaCtx == nil || semaCtx.TypeResolver == nil {
+				return nil, errors.AssertionFailedf("unable to hydrate type for resolution")
+			}
+			typ, err = semaCtx.TypeResolver.ResolveTypeByOID(ctx, typ.Oid())
+			if err != nil {
+				return nil, err
+			}
 		}
 		val, dependsOnContext, err := ParseAndRequireString(typ, expr.s, ptCtx)
 		if err != nil {

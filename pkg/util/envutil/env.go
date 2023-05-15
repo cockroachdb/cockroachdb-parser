@@ -186,10 +186,12 @@ func GetEnvVarsUsed() (result []redact.RedactableString) {
 // the name and the value safely: the value is known to never contain
 // sensitive information.
 var safeVarRegistry = map[redact.SafeString]struct{}{
+	// Go runtime.
 	"GOGC":        {},
 	"GODEBUG":     {},
 	"GOMAXPROCS":  {},
 	"GOTRACEBACK": {},
+	"GOMEMLIMIT":  {},
 	// gRPC.
 	"GRPC_GO_LOG_SEVERITY_LEVEL":  {},
 	"GRPC_GO_LOG_VERBOSITY_LEVEL": {},
@@ -328,6 +330,19 @@ func EnvOrDefaultString(name string, value string) string {
 
 // EnvOrDefaultBool returns the value set by the specified environment
 // variable, if any, otherwise the specified default value.
+//
+// N.B. EnvOrDefaultBool has the desired side-effect of populating envVarRegistry.cache.
+// It has to be invoked during (var) init; otherwise, cli/start.go:reportConfiguration will not report the
+// value of this environment variable in the server log, upon startup.
+//
+//	Correct Usage: var allowUpgradeToDev = envutil.EnvOrDefaultBool("COCKROACH_UPGRADE_TO_DEV_VERSION", false)
+//
+//	Incorrect Usage: func() {
+//											...
+//											var allowUpgradeToDev envutil.EnvOrDefaultBool("COCKROACH_UPGRADE_TO_DEV_VERSION", false)
+//										}
+//
+// N.B. The same rule applies to the remaining EnvOrDefaultXXX defined here.
 func EnvOrDefaultBool(name string, value bool) bool {
 	if str, present := getEnv(name, 1); present {
 		v, err := strconv.ParseBool(str)

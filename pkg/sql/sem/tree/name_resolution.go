@@ -123,18 +123,19 @@ const (
 // database in the qualification.
 type QualifiedNameResolver interface {
 	GetQualifiedTableNameByID(ctx context.Context, id int64, requiredType RequiredTableKind) (*TableName, error)
+	GetQualifiedFunctionNameByID(ctx context.Context, id int64) (*FunctionName, error)
 	CurrentDatabase() string
 }
 
 // SearchPath encapsulates the ordered list of schemas in the current database
 // to search during name resolution.
 type SearchPath interface {
+	// NumElements returns the number of elements in the SearchPath.
+	NumElements() int
 
-	// IterateSearchPath calls the passed function for every element of the
-	// SearchPath in order. If an error is returned, iteration stops. If the
-	// error is iterutil.StopIteration, no error will be returned from the
-	// method.
-	IterateSearchPath(func(schema string) error) error
+	// GetSchema returns the schema at the ord offset in the SearchPath.
+	// Note that it will return the empty string if the ordinal is out of range.
+	GetSchema(ord int) string
 }
 
 // EmptySearchPath is a SearchPath with no members.
@@ -142,9 +143,8 @@ var EmptySearchPath SearchPath = emptySearchPath{}
 
 type emptySearchPath struct{}
 
-func (emptySearchPath) IterateSearchPath(func(string) error) error {
-	return nil
-}
+func (emptySearchPath) NumElements() int       { return 0 }
+func (emptySearchPath) GetSchema(i int) string { return "" }
 
 func newInvColRef(n *UnresolvedName) error {
 	return pgerror.NewWithDepthf(1, pgcode.InvalidColumnReference,
@@ -156,43 +156,9 @@ func newInvTableNameError(n fmt.Stringer) error {
 		"invalid table name: %s", n)
 }
 
-// CommonLookupFlags is the common set of flags for the various accessor interfaces.
-type CommonLookupFlags struct {
-	// if required is set, lookup will return an error if the item is not found.
-	Required bool
-	// RequireMutable specifies whether to return a mutable descriptor.
-	RequireMutable bool
-	// AvoidLeased, if set, avoid the leased (possibly stale) version of the
-	// descriptor. It must be set when callers want consistent reads.
-	AvoidLeased bool
-	// AvoidCommittedAdding specifies if committed descriptors in the adding state
-	// will be ignored.
-	AvoidCommittedAdding bool
-	// IncludeOffline specifies if offline descriptors should be visible.
-	IncludeOffline bool
-	// IncludeOffline specifies if dropped descriptors should be visible.
-	IncludeDropped bool
-	// AvoidSynthetic specifies if the synthetic descriptors will be ignored.
-	AvoidSynthetic bool
-}
-
-// SchemaLookupFlags is the flag struct suitable for GetSchemaByName().
-type SchemaLookupFlags = CommonLookupFlags
-
-// DatabaseLookupFlags is the flag struct suitable for GetImmutableDatabaseByName().
-type DatabaseLookupFlags = CommonLookupFlags
-
-// DatabaseListFlags is the flag struct suitable for GetObjectNamesAndIDs().
-type DatabaseListFlags struct {
-	CommonLookupFlags
-	// ExplicitPrefix, when set, will cause the returned table names to
-	// have an explicit schema and catalog part.
-	ExplicitPrefix bool
-}
-
 // DesiredObjectKind represents what kind of object is desired in a name
 // resolution attempt.
-type DesiredObjectKind int
+type DesiredObjectKind byte
 
 const (
 	// TableObject is used when a table-like object is desired from resolution.
@@ -201,24 +167,9 @@ const (
 	TypeObject
 )
 
-// NewQualifiedObjectName returns an ObjectName of the corresponding kind.
-// It is used mainly for constructing appropriate error messages depending
-// on what kind of object was requested.
-func NewQualifiedObjectName(catalog, schema, object string, kind DesiredObjectKind) ObjectName {
-	switch kind {
-	case TableObject:
-		name := MakeTableNameWithSchema(Name(catalog), Name(schema), Name(object))
-		return &name
-	case TypeObject:
-		name := MakeQualifiedTypeName(catalog, schema, object)
-		return &name
-	}
-	return nil
-}
-
 // RequiredTableKind controls what kind of TableDescriptor backed object is
 // requested to be resolved.
-type RequiredTableKind int
+type RequiredTableKind byte
 
 // RequiredTableKind options have descriptive names.
 const (
@@ -243,7 +194,17 @@ func (r RequiredTableKind) String() string {
 
 // ObjectLookupFlags is the flag struct suitable for GetObjectByName().
 type ObjectLookupFlags struct {
-	CommonLookupFlags
+	// Required specifies that the lookup will return an error if the item is
+	// not found.
+	Required bool
+	// RequireMutable specifies whether to return a mutable descriptor.
+	RequireMutable bool
+	// AvoidLeased, if set, avoid the leased (possibly stale) version of the
+	// descriptor. It must be set when callers want consistent reads.
+	AvoidLeased bool
+	// IncludeOffline specifies if offline descriptors should be visible.
+	IncludeOffline bool
+	// AllowWithoutPrimaryKey specifies if tables without PKs can be resolved.
 	AllowWithoutPrimaryKey bool
 	// Control what type of object is being requested.
 	DesiredObjectKind DesiredObjectKind
@@ -252,21 +213,16 @@ type ObjectLookupFlags struct {
 	DesiredTableDescKind RequiredTableKind
 }
 
-// ObjectLookupFlagsWithRequired returns a default ObjectLookupFlags object
-// with just the Required flag true. This is a common configuration of the
-// flags.
-func ObjectLookupFlagsWithRequired() ObjectLookupFlags {
-	return ObjectLookupFlags{
-		CommonLookupFlags: CommonLookupFlags{Required: true},
-	}
-}
-
-// ObjectLookupFlagsWithRequiredTableKind returns an ObjectLookupFlags with
-// Required set to true, and the DesiredTableDescKind set to the input kind.
-func ObjectLookupFlagsWithRequiredTableKind(kind RequiredTableKind) ObjectLookupFlags {
-	return ObjectLookupFlags{
-		CommonLookupFlags:    CommonLookupFlags{Required: true},
-		DesiredObjectKind:    TableObject,
-		DesiredTableDescKind: kind,
-	}
+// IndexLookupFlags is the flag struct used for resolver.ResolveIndex() only.
+type IndexLookupFlags struct {
+	// Required, if true, indicates lookup can return nil index without
+	// returning an error if the index does not exist.
+	Required bool
+	// IncludeNonActiveIndex expands the lookup to also consider
+	// non-active indexes. By default, only active indexes are
+	// considered.
+	IncludeNonActiveIndex bool
+	// IncludeOfflineTable expands the lookup to also consider offline
+	// tables. By default, only online tables are considered.
+	IncludeOfflineTable bool
 }

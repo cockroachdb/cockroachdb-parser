@@ -16,8 +16,8 @@ import (
 	"github.com/cockroachdb/cockroachdb-parser/pkg/sql/pgwire/pgcode"
 	"github.com/cockroachdb/cockroachdb-parser/pkg/sql/pgwire/pgerror"
 	"github.com/cockroachdb/cockroachdb-parser/pkg/sql/sem/catconstants"
+	"github.com/cockroachdb/cockroachdb-parser/pkg/sql/sem/catid"
 	"github.com/cockroachdb/cockroachdb-parser/pkg/sql/types"
-	"github.com/cockroachdb/cockroachdb-parser/pkg/util/iterutil"
 	"github.com/cockroachdb/errors"
 	"github.com/lib/pq/oid"
 )
@@ -47,6 +47,16 @@ type ResolvedFunctionDefinition struct {
 	Name string
 
 	Overloads []QualifiedOverload
+}
+
+type qualifiedOverloads []QualifiedOverload
+
+func (qo qualifiedOverloads) len() int {
+	return len(qo)
+}
+
+func (qo qualifiedOverloads) get(i int) overloadImpl {
+	return qo[i].Overload
 }
 
 // QualifiedOverload is a wrapper of Overload prefixed with a schema name.
@@ -90,9 +100,6 @@ type FunctionProperties struct {
 	// TODO(andrei): Get rid of the planner from the EvalContext and then we can
 	// get rid of this blocklist.
 	DistsqlBlocklist bool
-
-	// Class is the kind of built-in function (normal/aggregate/window/etc.)
-	Class FunctionClass
 
 	// Category is used to generate documentation strings.
 	Category string
@@ -149,35 +156,6 @@ func (fp *FunctionProperties) ShouldDocument() bool {
 	return !(fp.Undocumented || fp.Private)
 }
 
-// FunctionClass specifies the class of the builtin function.
-type FunctionClass int
-
-const (
-	// NormalClass is a standard builtin function.
-	NormalClass FunctionClass = iota
-	// AggregateClass is a builtin aggregate function.
-	AggregateClass
-	// WindowClass is a builtin window function.
-	WindowClass
-	// GeneratorClass is a builtin generator function.
-	GeneratorClass
-	// SQLClass is a builtin function that executes a SQL statement as a side
-	// effect of the function call.
-	//
-	// For example, AddGeometryColumn is a SQLClass function that executes an
-	// ALTER TABLE ... ADD COLUMN statement to add a geometry column to an
-	// existing table. It returns metadata about the column added.
-	//
-	// All builtin functions of this class should include a definition for
-	// Overload.SQLFn, which returns the SQL statement to be executed. They
-	// should also include a definition for Overload.Fn, which is executed
-	// like a NormalClass function and returns a Datum.
-	SQLClass
-)
-
-// Avoid vet warning about unused enum value.
-var _ = NormalClass
-
 // NewFunctionDefinition allocates a function definition corresponding
 // to the given built-in definition.
 func NewFunctionDefinition(
@@ -221,6 +199,10 @@ var ResolvedBuiltinFuncDefs map[string]*ResolvedFunctionDefinition
 // package because of dependency issues: we can't use oidHasher from this file.
 var OidToBuiltinName map[oid.Oid]string
 
+// OidToQualifiedBuiltinOverload is a map from builtin function OID to an
+// qualified overload.
+var OidToQualifiedBuiltinOverload map[oid.Oid]QualifiedOverload
+
 // Format implements the NodeFormatter interface.
 func (fd *FunctionDefinition) Format(ctx *FmtCtx) {
 	ctx.WriteString(fd.Name)
@@ -231,6 +213,15 @@ func (fd *FunctionDefinition) String() string { return AsString(fd) }
 
 // Format implements the NodeFormatter interface.
 func (fd *ResolvedFunctionDefinition) Format(ctx *FmtCtx) {
+	// This is necessary when deserializing function expressions for SHOW CREATE
+	// statements. When deserializing a function expression with function OID
+	// references, it's guaranteed that there'll be always one overload resolved.
+	// There is no need to show prefix for builtin functions since we don't
+	// serialize them.
+	if len(fd.Overloads) == 1 && catid.IsOIDUserDefined(fd.Overloads[0].Oid) {
+		ctx.WriteString(fd.Overloads[0].Schema)
+		ctx.WriteString(".")
+	}
 	ctx.WriteString(fd.Name)
 }
 
@@ -258,20 +249,25 @@ func (fd *ResolvedFunctionDefinition) MergeWith(
 	}, nil
 }
 
-// MatchOverload searches an overload which takes exactly the same input
-// argument types. The overload from the most significant schema is returned. If
-// argTypes==nil, an error is returned if the function name is not unique in the
-// most significant schema. If argTypes is not nil, an error with
+// MatchOverload searches an overload which has exactly the same parameter
+// types. The overload from the most significant schema is returned. If
+// paramTypes==nil, an error is returned if the function name is not unique in
+// the most significant schema. If paramTypes is not nil, an error with
 // ErrFunctionUndefined cause is returned if not matched found.
 func (fd *ResolvedFunctionDefinition) MatchOverload(
-	argTypes []*types.T, explicitSchema string, searchPath SearchPath,
+	paramTypes []*types.T, explicitSchema string, searchPath SearchPath,
 ) (QualifiedOverload, error) {
 	matched := func(ol QualifiedOverload, schema string) bool {
-		return schema == ol.Schema && (argTypes == nil || ol.params().Match(argTypes))
+		if ol.IsUDF {
+			// TODO(mgartner/chengxiong-ruan): Differentiate between functions
+			// defined with `Body` and UDFs, now that we use `Body` for built-in functions.
+			return schema == ol.Schema && (paramTypes == nil || ol.params().MatchIdentical(paramTypes))
+		}
+		return schema == ol.Schema && (paramTypes == nil || ol.params().Match(paramTypes))
 	}
 	typeNames := func() string {
-		ns := make([]string, len(argTypes))
-		for i, t := range argTypes {
+		ns := make([]string, len(paramTypes))
+		for i, t := range paramTypes {
 			ns[i] = t.Name()
 		}
 		return strings.Join(ns, ",")
@@ -292,15 +288,10 @@ func (fd *ResolvedFunctionDefinition) MatchOverload(
 	if explicitSchema != "" {
 		findMatches(explicitSchema)
 	} else {
-		err := searchPath.IterateSearchPath(func(schema string) error {
-			findMatches(schema)
-			if found {
-				return iterutil.StopIteration()
+		for i, n := 0, searchPath.NumElements(); i < n; i++ {
+			if findMatches(searchPath.GetSchema(i)); found {
+				break
 			}
-			return nil
-		})
-		if err != nil {
-			return QualifiedOverload{}, err
 		}
 	}
 
@@ -386,16 +377,30 @@ func QualifyBuiltinFunctionDefinition(
 // GetBuiltinFuncDefinitionOrFail is similar to GetBuiltinFuncDefinition but
 // returns an error if function is not found.
 func GetBuiltinFuncDefinitionOrFail(
-	fName *FunctionName, searchPath SearchPath,
+	fName FunctionName, searchPath SearchPath,
 ) (*ResolvedFunctionDefinition, error) {
 	def, err := GetBuiltinFuncDefinition(fName, searchPath)
 	if err != nil {
 		return nil, err
 	}
 	if def == nil {
-		return nil, errors.Wrapf(ErrFunctionUndefined, "unknown function: %s()", ErrString(fName))
+		forError := fName // prevent fName from escaping
+		return nil, errors.Wrapf(ErrFunctionUndefined, "unknown function: %s()", ErrString(&forError))
 	}
 	return def, nil
+}
+
+// GetBuiltinFunctionByOIDOrFail retrieves a builtin function by OID.
+func GetBuiltinFunctionByOIDOrFail(oid oid.Oid) (*ResolvedFunctionDefinition, error) {
+	ol, ok := OidToQualifiedBuiltinOverload[oid]
+	if !ok {
+		return nil, errors.Wrapf(ErrFunctionUndefined, "function %d not found", oid)
+	}
+	fd := &ResolvedFunctionDefinition{
+		Name:      OidToBuiltinName[oid],
+		Overloads: []QualifiedOverload{ol},
+	}
+	return fd, nil
 }
 
 // GetBuiltinFuncDefinition search for a builtin function given a function name
@@ -409,7 +414,7 @@ func GetBuiltinFuncDefinitionOrFail(
 // error is still checked and return from the function signature just in case
 // we change the iterating function in the future.
 func GetBuiltinFuncDefinition(
-	fName *FunctionName, searchPath SearchPath,
+	fName FunctionName, searchPath SearchPath,
 ) (*ResolvedFunctionDefinition, error) {
 	if fName.ExplicitSchema {
 		return ResolvedBuiltinFuncDefs[fName.Schema()+"."+fName.Object()], nil
@@ -429,15 +434,13 @@ func GetBuiltinFuncDefinition(
 
 	// If not in pg_catalog, go through search path.
 	var resolvedDef *ResolvedFunctionDefinition
-	if err := searchPath.IterateSearchPath(func(schema string) error {
+	for i, n := 0, searchPath.NumElements(); i < n; i++ {
+		schema := searchPath.GetSchema(i)
 		fullName := schema + "." + fName.Object()
 		if def, ok := ResolvedBuiltinFuncDefs[fullName]; ok {
 			resolvedDef = def
-			return iterutil.StopIteration()
+			break
 		}
-		return nil
-	}); err != nil {
-		return nil, err
 	}
 
 	return resolvedDef, nil

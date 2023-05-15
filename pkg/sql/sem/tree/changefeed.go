@@ -65,7 +65,7 @@ func (node *CreateChangefeed) formatWithPredicates(ctx *FmtCtx) {
 		ctx.FormatNode(&node.Options)
 	}
 	ctx.WriteString(" AS ")
-	node.Select.Format(ctx)
+	ctx.FormatNode(node.Select)
 }
 
 // ChangefeedTarget represents a database object to be watched by a changefeed.
@@ -89,11 +89,11 @@ type ChangefeedTargets []ChangefeedTarget
 
 // Format implements the NodeFormatter interface.
 func (cts *ChangefeedTargets) Format(ctx *FmtCtx) {
-	for i, ct := range *cts {
+	for i := range *cts {
 		if i > 0 {
 			ctx.WriteString(", ")
 		}
-		ctx.FormatNode(&ct)
+		ctx.FormatNode(&(*cts)[i])
 	}
 }
 

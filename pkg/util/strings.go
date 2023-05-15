@@ -14,10 +14,13 @@ import (
 	"bytes"
 	"fmt"
 	io "io"
+	"math/rand"
 	"strings"
+	"text/tabwriter"
 	"unicode/utf8"
 
 	"github.com/cockroachdb/errors"
+	"github.com/cockroachdb/redact"
 )
 
 // GetSingleRune decodes the string s as a single rune if possible.
@@ -137,4 +140,30 @@ func (b *StringListBuilder) Finish(w io.Writer) {
 	if b.started {
 		_, _ = w.Write([]byte(b.end))
 	}
+}
+
+// ExpandTabsInRedactableBytes expands tabs in the redactable byte
+// slice, so that columns are aligned. The correctness of this
+// function depends on the assumption that the `tabwriter` does not
+// replace characters.
+func ExpandTabsInRedactableBytes(s redact.RedactableBytes) (redact.RedactableBytes, error) {
+	var buf bytes.Buffer
+	tw := tabwriter.NewWriter(&buf, 2, 1, 2, ' ', 0)
+	if _, err := tw.Write([]byte(s)); err != nil {
+		return nil, err
+	}
+	if err := tw.Flush(); err != nil {
+		return nil, err
+	}
+	return redact.RedactableBytes(buf.Bytes()), nil
+}
+
+// RandString generates a random string of the desired length from the
+// input alphabet.
+func RandString(rng *rand.Rand, length int, alphabet string) string {
+	buf := make([]byte, length)
+	for i := range buf {
+		buf[i] = alphabet[rng.Intn(len(alphabet))]
+	}
+	return string(buf)
 }

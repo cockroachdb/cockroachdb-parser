@@ -1,13 +1,15 @@
 module github.com/cockroachdb/cockroachdb-parser
 
-go 1.17
+go 1.18
 
 require (
 	github.com/biogo/store v0.0.0-20201120204734-aad293a2328f
+	github.com/blevesearch/snowballstem v0.9.0
 	github.com/cockroachdb/apd/v3 v3.1.0
 	github.com/cockroachdb/errors v1.9.0
 	github.com/cockroachdb/gostdlib v1.19.0
 	github.com/cockroachdb/redact v1.1.3
+	github.com/dave/dst v0.27.2
 	github.com/dustin/go-humanize v1.0.0
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/geo v0.0.0-20210211234256-740aa86cb551
@@ -35,6 +37,7 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/rogpeppe/go-internal v1.8.1 // indirect
 	github.com/twpayne/go-kml v1.5.2 // indirect
+	golang.org/x/mod v0.6.0-dev.0.20220419223038-86c51ed26bb4 // indirect
 	golang.org/x/sys v0.0.0-20220722155257-8c9f86f7a55f // indirect
 	google.golang.org/genproto v0.0.0-20210624195500-8bfb893ecb84 // indirect
 	google.golang.org/grpc v1.38.0 // indirect

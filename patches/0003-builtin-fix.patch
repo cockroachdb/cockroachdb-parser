@@ -1,0 +1,34 @@
+From 54d336fe9bb80f56dd9ac4b5ef8a306b25fd28ec Mon Sep 17 00:00:00 2001
+From: Oliver Tan <otan@cockroachlabs.com>
+Date: Mon, 15 May 2023 10:51:31 +1000
+Subject: [PATCH] temp
+
+---
+ pkg/sql/sem/tree/function_name.go | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/pkg/sql/sem/tree/function_name.go b/pkg/sql/sem/tree/function_name.go
+index 3b0ac48..fd524d3 100644
+--- a/pkg/sql/sem/tree/function_name.go
++++ b/pkg/sql/sem/tree/function_name.go
+@@ -19,7 +19,6 @@ import (
+ 	"github.com/cockroachdb/cockroachdb-parser/pkg/sql/pgwire/pgerror"
+ 	"github.com/cockroachdb/cockroachdb-parser/pkg/sql/sem/catconstants"
+ 	"github.com/cockroachdb/errors"
+-	"github.com/cockroachdb/redact"
+ 	"github.com/lib/pq/oid"
+ )
+ 
+@@ -146,7 +145,8 @@ func (ref *ResolvableFunctionReference) Resolve(
+ func WrapFunction(n string) ResolvableFunctionReference {
+ 	fd, ok := FunDefs[n]
+ 	if !ok {
+-		panic(errors.AssertionFailedf("function %s() not defined", redact.Safe(n)))
++		// Make every builtin parse.
++		return ResolvableFunctionReference{ReferenceByName: &UnresolvedObjectName{NumParts: 1, Parts: [3]string{n, "", ""}}}
+ 	}
+ 	return ResolvableFunctionReference{FunctionReference: fd}
+ }
+-- 
+2.39.2 (Apple Git-143)
+
