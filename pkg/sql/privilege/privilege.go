@@ -59,6 +59,10 @@ const (
 	RESTORE                  Kind = 24
 	EXTERNALIOIMPLICITACCESS Kind = 25
 	CHANGEFEED               Kind = 26
+	VIEWJOB                  Kind = 27
+	MODIFYSQLCLUSTERSETTING  Kind = 28
+	REPLICATION              Kind = 29
+	MANAGETENANT             Kind = 30
 )
 
 // Privilege represents a privilege parsed from an Access Privilege Inquiry
@@ -112,7 +116,7 @@ var isDescriptorBacked = map[ObjectType]bool{
 
 // Predefined sets of privileges.
 var (
-	AllPrivileges         = List{ALL, CHANGEFEED, CONNECT, CREATE, DROP, SELECT, INSERT, DELETE, UPDATE, USAGE, ZONECONFIG, EXECUTE, BACKUP, RESTORE, EXTERNALIOIMPLICITACCESS}
+	AllPrivileges         = List{ALL, CHANGEFEED, CONNECT, CREATE, DROP, SELECT, INSERT, DELETE, UPDATE, USAGE, ZONECONFIG, EXECUTE, BACKUP, RESTORE, EXTERNALIOIMPLICITACCESS, VIEWJOB}
 	ReadData              = List{SELECT}
 	ReadWriteData         = List{SELECT, INSERT, DELETE, UPDATE}
 	ReadWriteSequenceData = List{SELECT, UPDATE, USAGE}
@@ -126,26 +130,19 @@ var (
 	// certain privileges unavailable after upgrade migration.
 	// Note that "CREATE, CHANGEFEED, INSERT, DELETE, ZONECONFIG" are no-op privileges on sequences.
 	SequencePrivileges           = List{ALL, USAGE, SELECT, UPDATE, CREATE, CHANGEFEED, DROP, INSERT, DELETE, ZONECONFIG}
-	GlobalPrivileges             = List{ALL, BACKUP, RESTORE, MODIFYCLUSTERSETTING, EXTERNALCONNECTION, VIEWACTIVITY, VIEWACTIVITYREDACTED, VIEWCLUSTERSETTING, CANCELQUERY, NOSQLLOGIN, VIEWCLUSTERMETADATA, VIEWDEBUG, EXTERNALIOIMPLICITACCESS}
+	GlobalPrivileges             = List{ALL, BACKUP, RESTORE, MODIFYCLUSTERSETTING, EXTERNALCONNECTION, VIEWACTIVITY, VIEWACTIVITYREDACTED, VIEWCLUSTERSETTING, CANCELQUERY, NOSQLLOGIN, VIEWCLUSTERMETADATA, VIEWDEBUG, EXTERNALIOIMPLICITACCESS, VIEWJOB, MODIFYSQLCLUSTERSETTING, REPLICATION, MANAGETENANT}
 	VirtualTablePrivileges       = List{ALL, SELECT}
 	ExternalConnectionPrivileges = List{ALL, USAGE, DROP}
 )
 
 // Mask returns the bitmask for a given privilege.
-func (k Kind) Mask() uint32 {
+func (k Kind) Mask() uint64 {
 	return 1 << k
 }
 
 // IsSetIn returns true if this privilege kind is set in the supplied bitfield.
-func (k Kind) IsSetIn(bits uint32) bool {
+func (k Kind) IsSetIn(bits uint64) bool {
 	return bits&k.Mask() != 0
-}
-
-// ByValue is just an array of privilege kinds sorted by value.
-var ByValue = [...]Kind{
-	ALL, CREATE, DROP, SELECT, INSERT, DELETE, UPDATE, USAGE, ZONECONFIG, CONNECT, RULE,
-	MODIFYCLUSTERSETTING, EXTERNALCONNECTION, VIEWACTIVITY, VIEWACTIVITYREDACTED, VIEWCLUSTERSETTING,
-	CANCELQUERY, NOSQLLOGIN, EXECUTE, VIEWCLUSTERMETADATA, VIEWDEBUG, BACKUP,
 }
 
 // ByName is a map of string -> kind value.
@@ -175,6 +172,10 @@ var ByName = map[string]Kind{
 	"BACKUP":                   BACKUP,
 	"RESTORE":                  RESTORE,
 	"EXTERNALIOIMPLICITACCESS": EXTERNALIOIMPLICITACCESS,
+	"VIEWJOB":                  VIEWJOB,
+	"MODIFYSQLCLUSTERSETTING":  MODIFYSQLCLUSTERSETTING,
+	"REPLICATION":              REPLICATION,
+	"MANAGETENANT":             MANAGETENANT,
 }
 
 // List is a list of privileges.
@@ -237,8 +238,8 @@ func (pl List) SortedNames() []string {
 
 // ToBitField returns the bitfield representation of
 // a list of privileges.
-func (pl List) ToBitField() uint32 {
-	var ret uint32
+func (pl List) ToBitField() uint64 {
+	var ret uint64
 	for _, p := range pl {
 		ret |= p.Mask()
 	}
@@ -257,27 +258,33 @@ func (pl List) Contains(k Kind) bool {
 
 // ListFromBitField takes a bitfield of privileges and a ObjectType
 // returns a List. It is ordered in increasing value of privilege.Kind.
-func ListFromBitField(m uint32, objectType ObjectType) List {
+func ListFromBitField(m uint64, objectType ObjectType) (List, error) {
 	ret := List{}
 
-	privileges := GetValidPrivilegesForObject(objectType)
+	privileges, err := GetValidPrivilegesForObject(objectType)
+	if err != nil {
+		return nil, err
+	}
 
 	for _, p := range privileges {
 		if m&p.Mask() != 0 {
 			ret = append(ret, p)
 		}
 	}
-	return ret
+	return ret, nil
 }
 
 // PrivilegesFromBitFields takes a bitfield of privilege kinds, a bitfield of grant options, and an ObjectType
 // returns a List. It is ordered in increasing value of privilege.Kind.
 func PrivilegesFromBitFields(
-	kindBits uint32, grantOptionBits uint32, objectType ObjectType,
-) []Privilege {
+	kindBits, grantOptionBits uint64, objectType ObjectType,
+) ([]Privilege, error) {
 	var ret []Privilege
 
-	kinds := GetValidPrivilegesForObject(objectType)
+	kinds, err := GetValidPrivilegesForObject(objectType)
+	if err != nil {
+		return nil, err
+	}
 
 	for _, kind := range kinds {
 		if mask := kind.Mask(); kindBits&mask != 0 {
@@ -287,18 +294,21 @@ func PrivilegesFromBitFields(
 			})
 		}
 	}
-	return ret
+	return ret, nil
 }
 
 // ListFromStrings takes a list of strings and attempts to build a list of Kind.
 // We convert each string to uppercase and search for it in the ByName map.
-// If an entry is not found in ByName, an error is returned.
+// If an entry is not found in ByName, it is ignored.
 func ListFromStrings(strs []string) (List, error) {
 	ret := make(List, len(strs))
 	for i, s := range strs {
 		k, ok := ByName[strings.ToUpper(s)]
 		if !ok {
-			return nil, errors.Errorf("not a valid privilege: %q", s)
+			// Ignore an unknown privilege name. This is so that it is possible to
+			// backport new privileges onto older release branches, without causing
+			// mixed-version compatibility issues.
+			continue
 		}
 		ret[i] = k
 	}
@@ -308,7 +318,10 @@ func ListFromStrings(strs []string) (List, error) {
 // ValidatePrivileges returns an error if any privilege in
 // privileges cannot be granted on the given objectType.
 func ValidatePrivileges(privileges List, objectType ObjectType) error {
-	validPrivs := GetValidPrivilegesForObject(objectType)
+	validPrivs, err := GetValidPrivilegesForObject(objectType)
+	if err != nil {
+		return err
+	}
 	for _, priv := range privileges {
 		if validPrivs.ToBitField()&priv.Mask() == 0 {
 			return pgerror.Newf(pgcode.InvalidGrantOperation,
@@ -321,30 +334,30 @@ func ValidatePrivileges(privileges List, objectType ObjectType) error {
 
 // GetValidPrivilegesForObject returns the list of valid privileges for the
 // specified object type.
-func GetValidPrivilegesForObject(objectType ObjectType) List {
+func GetValidPrivilegesForObject(objectType ObjectType) (List, error) {
 	switch objectType {
 	case Table:
-		return TablePrivileges
+		return TablePrivileges, nil
 	case Schema:
-		return SchemaPrivileges
+		return SchemaPrivileges, nil
 	case Database:
-		return DBPrivileges
+		return DBPrivileges, nil
 	case Type:
-		return TypePrivileges
+		return TypePrivileges, nil
 	case Sequence:
-		return SequencePrivileges
+		return SequencePrivileges, nil
 	case Any:
-		return AllPrivileges
+		return AllPrivileges, nil
 	case Function:
-		return FunctionPrivileges
+		return FunctionPrivileges, nil
 	case Global:
-		return GlobalPrivileges
+		return GlobalPrivileges, nil
 	case VirtualTable:
-		return VirtualTablePrivileges
+		return VirtualTablePrivileges, nil
 	case ExternalConnection:
-		return ExternalConnectionPrivileges
+		return ExternalConnectionPrivileges, nil
 	default:
-		panic(errors.AssertionFailedf("unknown object type %s", objectType))
+		return nil, errors.AssertionFailedf("unknown object type %s", objectType)
 	}
 }
 
@@ -368,19 +381,26 @@ var orderedPrivs = List{CREATE, USAGE, INSERT, CONNECT, DELETE, SELECT, UPDATE, 
 // See: https://www.postgresql.org/docs/13/ddl-priv.html#PRIVILEGE-ABBREVS-TABLE
 //
 //	for privileges and their ACL abbreviations.
-func (pl List) ListToACL(grantOptions List, objectType ObjectType) string {
+func (pl List) ListToACL(grantOptions List, objectType ObjectType) (string, error) {
 	privileges := pl
 	// If ALL is present, explode ALL into the underlying privileges.
 	if pl.Contains(ALL) {
-		privileges = GetValidPrivilegesForObject(objectType)
+		var err error
+		privileges, err = GetValidPrivilegesForObject(objectType)
+		if err != nil {
+			return "", err
+		}
 		if grantOptions.Contains(ALL) {
-			grantOptions = GetValidPrivilegesForObject(objectType)
+			grantOptions, err = GetValidPrivilegesForObject(objectType)
+			if err != nil {
+				return "", err
+			}
 		}
 	}
 	chars := make([]string, len(privileges))
 	for _, privilege := range orderedPrivs {
 		if _, ok := privToACL[privilege]; !ok {
-			panic(errors.AssertionFailedf("unknown privilege type %s", privilege.String()))
+			return "", errors.AssertionFailedf("unknown privilege type %s", privilege.String())
 		}
 		if privileges.Contains(privilege) {
 			chars = append(chars, privToACL[privilege])
@@ -390,7 +410,7 @@ func (pl List) ListToACL(grantOptions List, objectType ObjectType) string {
 		}
 	}
 
-	return strings.Join(chars, "")
+	return strings.Join(chars, ""), nil
 
 }
 
@@ -399,4 +419,14 @@ func (pl List) ListToACL(grantOptions List, objectType ObjectType) string {
 // system.privileges.
 func (o ObjectType) IsDescriptorBacked() bool {
 	return isDescriptorBacked[o]
+}
+
+// Object represents an object that can have privileges. The privileges
+// can either live on the descriptor or in the system.privileges table.
+type Object interface {
+	// GetObjectType returns the privilege.ObjectType of the Object.
+	GetObjectType() ObjectType
+	// GetName returns the name of the object. For example, the name of a
+	// table, schema or database.
+	GetName() string
 }

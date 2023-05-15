@@ -17,7 +17,6 @@ import (
 	"github.com/cockroachdb/cockroachdb-parser/pkg/sql/pgwire/pgcode"
 	"github.com/cockroachdb/cockroachdb-parser/pkg/sql/pgwire/pgerror"
 	"github.com/cockroachdb/cockroachdb-parser/pkg/sql/types"
-	"github.com/cockroachdb/cockroachdb-parser/pkg/util/errorutil/unimplemented"
 	"github.com/cockroachdb/errors"
 )
 
@@ -85,10 +84,16 @@ type CreateFunction struct {
 	IsProcedure bool
 	Replace     bool
 	FuncName    FunctionName
-	Args        FuncArgs
+	Params      FuncParams
 	ReturnType  FuncReturnType
 	Options     FunctionOptions
 	RoutineBody *RoutineBody
+	// BodyStatements is not assigned during initial parsing of user input. It's
+	// assigned during opt builder for logging purpose at the moment. It stores
+	// all parsed AST nodes of body statements with all expression in original
+	// format. That is sequence names and type name in expressions are not
+	// rewritten with OIDs.
+	BodyStatements Statements
 }
 
 // Format implements the NodeFormatter interface.
@@ -100,13 +105,13 @@ func (node *CreateFunction) Format(ctx *FmtCtx) {
 	ctx.WriteString("FUNCTION ")
 	ctx.FormatNode(&node.FuncName)
 	ctx.WriteString("(")
-	ctx.FormatNode(node.Args)
+	ctx.FormatNode(node.Params)
 	ctx.WriteString(")\n\t")
 	ctx.WriteString("RETURNS ")
 	if node.ReturnType.IsSet {
 		ctx.WriteString("SETOF ")
 	}
-	ctx.WriteString(node.ReturnType.Type.SQLString())
+	ctx.FormatTypeReference(node.ReturnType.Type)
 	ctx.WriteString("\n\t")
 	var funcBody FunctionBodyStr
 	for _, option := range node.Options {
@@ -118,16 +123,27 @@ func (node *CreateFunction) Format(ctx *FmtCtx) {
 		ctx.FormatNode(option)
 		ctx.WriteString("\n\t")
 	}
-	if len(funcBody) > 0 {
-		ctx.FormatNode(funcBody)
-	}
-	if node.RoutineBody != nil {
+
+	if ctx.HasFlags(FmtMarkRedactionNode) {
+		ctx.WriteString("AS ")
+		ctx.WriteString("$$")
+		for i, stmt := range node.BodyStatements {
+			if i > 0 {
+				ctx.WriteString(" ")
+			}
+			ctx.FormatNode(stmt)
+			ctx.WriteString(";")
+		}
+		ctx.WriteString("$$")
+	} else if node.RoutineBody != nil {
 		ctx.WriteString("BEGIN ATOMIC ")
 		for _, stmt := range node.RoutineBody.Stmts {
 			ctx.FormatNode(stmt)
 			ctx.WriteString("; ")
 		}
 		ctx.WriteString("END")
+	} else {
+		ctx.FormatNode(funcBody)
 	}
 }
 
@@ -235,33 +251,34 @@ func (node FunctionLeakproof) Format(ctx *FmtCtx) {
 
 // FunctionLanguage indicates the language of the statements in the UDF function
 // body.
-type FunctionLanguage int
+type FunctionLanguage string
 
 const (
-	_ FunctionLanguage = iota
-	// FunctionLangSQL represent SQL language.
-	FunctionLangSQL
+	// FunctionLangUnknown represents an unknown language.
+	FunctionLangUnknown FunctionLanguage = "unknown"
+	// FunctionLangSQL represents SQL language.
+	FunctionLangSQL FunctionLanguage = "SQL"
+	// FunctionLangPlPgSQL represents the PL/pgSQL procedural language.
+	FunctionLangPlPgSQL FunctionLanguage = "plpgsql"
 )
 
 // Format implements the NodeFormatter interface.
 func (node FunctionLanguage) Format(ctx *FmtCtx) {
 	ctx.WriteString("LANGUAGE ")
-	switch node {
-	case FunctionLangSQL:
-		ctx.WriteString("SQL")
-	default:
-		panic(pgerror.New(pgcode.InvalidParameterValue, "Unknown function option"))
-	}
+	ctx.WriteString(string(node))
 }
 
 // AsFunctionLanguage converts a string to a FunctionLanguage if applicable.
-// Error is returned if string does not represent a valid UDF language.
+// No error is returned if string does not represent a valid UDF language;
+// unknown languages result in an error later.
 func AsFunctionLanguage(lang string) (FunctionLanguage, error) {
 	switch strings.ToLower(lang) {
 	case "sql":
 		return FunctionLangSQL, nil
+	case "plpgsql":
+		return FunctionLangPlPgSQL, nil
 	}
-	return 0, errors.Newf("language %q does not exist", lang)
+	return FunctionLanguage(lang), nil
 }
 
 // FunctionBodyStr is a string containing all statements in a UDF body.
@@ -271,41 +288,45 @@ type FunctionBodyStr string
 func (node FunctionBodyStr) Format(ctx *FmtCtx) {
 	ctx.WriteString("AS ")
 	ctx.WriteString("$$")
-	ctx.WriteString(string(node))
+	if ctx.flags.HasFlags(FmtAnonymize) || ctx.flags.HasFlags(FmtHideConstants) {
+		ctx.WriteString("_")
+	} else {
+		ctx.WriteString(string(node))
+	}
 	ctx.WriteString("$$")
 }
 
-// FuncArgs represents a list of FuncArg.
-type FuncArgs []FuncArg
+// FuncParams represents a list of FuncParam.
+type FuncParams []FuncParam
 
 // Format implements the NodeFormatter interface.
-func (node FuncArgs) Format(ctx *FmtCtx) {
-	for i, arg := range node {
+func (node FuncParams) Format(ctx *FmtCtx) {
+	for i := range node {
 		if i > 0 {
 			ctx.WriteString(", ")
 		}
-		ctx.FormatNode(&arg)
+		ctx.FormatNode(&node[i])
 	}
 }
 
-// FuncArg represents an argument from a UDF signature.
-type FuncArg struct {
+// FuncParam represents a parameter in a UDF signature.
+type FuncParam struct {
 	Name       Name
 	Type       ResolvableTypeReference
-	Class      FuncArgClass
+	Class      FuncParamClass
 	DefaultVal Expr
 }
 
 // Format implements the NodeFormatter interface.
-func (node *FuncArg) Format(ctx *FmtCtx) {
+func (node *FuncParam) Format(ctx *FmtCtx) {
 	switch node.Class {
-	case FunctionArgIn:
+	case FunctionParamIn:
 		ctx.WriteString("IN")
-	case FunctionArgOut:
+	case FunctionParamOut:
 		ctx.WriteString("OUT")
-	case FunctionArgInOut:
+	case FunctionParamInOut:
 		ctx.WriteString("INOUT")
-	case FunctionArgVariadic:
+	case FunctionParamVariadic:
 		ctx.WriteString("VARIADIC")
 	default:
 		panic(pgerror.New(pgcode.InvalidParameterValue, "Unknown function option"))
@@ -315,25 +336,25 @@ func (node *FuncArg) Format(ctx *FmtCtx) {
 		ctx.FormatNode(&node.Name)
 		ctx.WriteString(" ")
 	}
-	ctx.WriteString(node.Type.SQLString())
+	ctx.FormatTypeReference(node.Type)
 	if node.DefaultVal != nil {
 		ctx.WriteString(" DEFAULT ")
 		ctx.FormatNode(node.DefaultVal)
 	}
 }
 
-// FuncArgClass indicates what type of argument an arg is.
-type FuncArgClass int
+// FuncParamClass indicates what type of argument an arg is.
+type FuncParamClass int
 
 const (
-	// FunctionArgIn args can only be used as input.
-	FunctionArgIn FuncArgClass = iota
-	// FunctionArgOut args can only be used as output.
-	FunctionArgOut
-	// FunctionArgInOut args can be used as both input and output.
-	FunctionArgInOut
-	// FunctionArgVariadic args are variadic.
-	FunctionArgVariadic
+	// FunctionParamIn args can only be used as input.
+	FunctionParamIn FuncParamClass = iota
+	// FunctionParamOut args can only be used as output.
+	FunctionParamOut
+	// FunctionParamInOut args can be used as both input and output.
+	FunctionParamInOut
+	// FunctionParamVariadic args are variadic.
+	FunctionParamVariadic
 )
 
 // FuncReturnType represent the return type of UDF.
@@ -367,41 +388,39 @@ type FuncObjs []FuncObj
 
 // Format implements the NodeFormatter interface.
 func (node FuncObjs) Format(ctx *FmtCtx) {
-	for i, f := range node {
+	for i := range node {
 		if i > 0 {
 			ctx.WriteString(", ")
 		}
-		ctx.FormatNode(f)
+		ctx.FormatNode(&node[i])
 	}
 }
 
 // FuncObj represents a function object DROP FUNCTION tries to drop.
 type FuncObj struct {
 	FuncName FunctionName
-	Args     FuncArgs
+	Params   FuncParams
 }
 
 // Format implements the NodeFormatter interface.
-func (node FuncObj) Format(ctx *FmtCtx) {
+func (node *FuncObj) Format(ctx *FmtCtx) {
 	ctx.FormatNode(&node.FuncName)
-	if node.Args != nil {
+	if node.Params != nil {
 		ctx.WriteString("(")
-		ctx.FormatNode(node.Args)
+		ctx.FormatNode(node.Params)
 		ctx.WriteString(")")
 	}
 }
 
-// InputArgTypes returns a slice of argument types of the function.
-func (node FuncObj) InputArgTypes(
-	ctx context.Context, res TypeReferenceResolver,
-) ([]*types.T, error) {
+// ParamTypes returns a slice of parameter types of the function.
+func (node FuncObj) ParamTypes(ctx context.Context, res TypeReferenceResolver) ([]*types.T, error) {
 	// TODO(chengxiong): handle INOUT, OUT and VARIADIC argument classes when we
 	// support them. This is because only IN and INOUT arg types need to be
 	// considered to match a overload.
 	var argTypes []*types.T
-	if node.Args != nil {
-		argTypes = make([]*types.T, len(node.Args))
-		for i, arg := range node.Args {
+	if node.Params != nil {
+		argTypes = make([]*types.T, len(node.Params))
+		for i, arg := range node.Params {
 			typ, err := ResolveType(ctx, arg.Type, res)
 			if err != nil {
 				return nil, err
@@ -421,7 +440,7 @@ type AlterFunctionOptions struct {
 // Format implements the NodeFormatter interface.
 func (node *AlterFunctionOptions) Format(ctx *FmtCtx) {
 	ctx.WriteString("ALTER FUNCTION ")
-	ctx.FormatNode(node.Function)
+	ctx.FormatNode(&node.Function)
 	for _, option := range node.Options {
 		ctx.WriteString(" ")
 		ctx.FormatNode(option)
@@ -437,7 +456,7 @@ type AlterFunctionRename struct {
 // Format implements the NodeFormatter interface.
 func (node *AlterFunctionRename) Format(ctx *FmtCtx) {
 	ctx.WriteString("ALTER FUNCTION ")
-	ctx.FormatNode(node.Function)
+	ctx.FormatNode(&node.Function)
 	ctx.WriteString(" RENAME TO ")
 	ctx.WriteString(string(node.NewName))
 }
@@ -451,7 +470,7 @@ type AlterFunctionSetSchema struct {
 // Format implements the NodeFormatter interface.
 func (node *AlterFunctionSetSchema) Format(ctx *FmtCtx) {
 	ctx.WriteString("ALTER FUNCTION ")
-	ctx.FormatNode(node.Function)
+	ctx.FormatNode(&node.Function)
 	ctx.WriteString(" SET SCHEMA ")
 	ctx.WriteString(string(node.NewSchemaName))
 }
@@ -465,7 +484,7 @@ type AlterFunctionSetOwner struct {
 // Format implements the NodeFormatter interface.
 func (node *AlterFunctionSetOwner) Format(ctx *FmtCtx) {
 	ctx.WriteString("ALTER FUNCTION ")
-	ctx.FormatNode(node.Function)
+	ctx.FormatNode(&node.Function)
 	ctx.WriteString(" OWNER TO ")
 	ctx.FormatNode(&node.NewOwner)
 }
@@ -480,7 +499,7 @@ type AlterFunctionDepExtension struct {
 // Format implements the NodeFormatter interface.
 func (node *AlterFunctionDepExtension) Format(ctx *FmtCtx) {
 	ctx.WriteString("ALTER FUNCTION  ")
-	ctx.FormatNode(node.Function)
+	ctx.FormatNode(&node.Function)
 	if node.Remove {
 		ctx.WriteString(" NO")
 	}
@@ -497,7 +516,7 @@ type UDFDisallowanceVisitor struct {
 
 // VisitPre implements the Visitor interface.
 func (v *UDFDisallowanceVisitor) VisitPre(expr Expr) (recurse bool, newExpr Expr) {
-	if funcExpr, ok := expr.(*FuncExpr); ok && funcExpr.ResolvedOverload().IsUDF {
+	if funcExpr, ok := expr.(*FuncExpr); ok && funcExpr.ResolvedOverload().HasSQLBody() {
 		v.FoundUDF = true
 		return false, expr
 	}
@@ -509,50 +528,68 @@ func (v *UDFDisallowanceVisitor) VisitPost(expr Expr) (newNode Expr) {
 	return expr
 }
 
-// MaybeFailOnUDFUsage returns an error if the given expression or any
-// sub-expression used a UDF.
-// TODO(chengxiong): remove this function when we start allowing UDF references.
-func MaybeFailOnUDFUsage(expr TypedExpr) error {
-	visitor := &UDFDisallowanceVisitor{}
-	WalkExpr(visitor, expr)
-	if visitor.FoundUDF {
-		return unimplemented.NewWithIssue(83234, "usage of user-defined function from relations not supported")
+// SchemaExprContext indicates in which schema change context an expression is being
+// used in. For example, DEFAULT VALUE of a column, CHECK CONSTRAINT's
+// expression, etc.
+type SchemaExprContext string
+
+const (
+	AlterColumnTypeUsingExpr        SchemaExprContext = "ALTER COLUMN TYPE USING EXPRESSION"
+	StoredComputedColumnExpr        SchemaExprContext = "STORED COMPUTED COLUMN"
+	VirtualComputedColumnExpr       SchemaExprContext = "VIRTUAL COMPUTED COLUMN"
+	ColumnOnUpdateExpr              SchemaExprContext = "ON UPDATE"
+	ColumnDefaultExprInAddColumn    SchemaExprContext = "DEFAULT (in ADD COLUMN)"
+	ColumnDefaultExprInNewTable     SchemaExprContext = "DEFAULT (in CREATE TABLE)"
+	ColumnDefaultExprInNewView      SchemaExprContext = "DEFAULT (in CREATE VIEW)"
+	ColumnDefaultExprInSetDefault   SchemaExprContext = "DEFAULT (in SET DEFAULT)"
+	CheckConstraintExpr             SchemaExprContext = "CHECK"
+	UniqueWithoutIndexPredicateExpr SchemaExprContext = "UNIQUE WITHOUT INDEX PREDICATE"
+	IndexPredicateExpr              SchemaExprContext = "INDEX PREDICATE"
+	ExpressionIndexElementExpr      SchemaExprContext = "EXPRESSION INDEX ELEMENT"
+	TTLExpirationExpr               SchemaExprContext = "TTL EXPIRATION EXPRESSION"
+	TTLDefaultExpr                  SchemaExprContext = "TTL DEFAULT"
+	TTLUpdateExpr                   SchemaExprContext = "TTL UPDATE"
+)
+
+func ComputedColumnExprContext(isVirtual bool) SchemaExprContext {
+	if isVirtual {
+		return VirtualComputedColumnExpr
 	}
-	return nil
+	return StoredComputedColumnExpr
 }
 
 // ValidateFuncOptions checks whether there are conflicting or redundant
 // function options in the given slice.
 func ValidateFuncOptions(options FunctionOptions) error {
 	var hasLang, hasBody, hasLeakProof, hasVolatility, hasNullInputBehavior bool
-	err := func(opt FunctionOption) error {
+	conflictingErr := func(opt FunctionOption) error {
 		return errors.Wrapf(ErrConflictingFunctionOption, "%s", AsString(opt))
 	}
 	for _, option := range options {
 		switch option.(type) {
 		case FunctionLanguage:
 			if hasLang {
-				return err(option)
+				return conflictingErr(option)
 			}
 			hasLang = true
 		case FunctionBodyStr:
 			if hasBody {
-				return err(option)
+				return conflictingErr(option)
 			}
 			hasBody = true
 		case FunctionLeakproof:
 			if hasLeakProof {
-				return err(option)
+				return conflictingErr(option)
 			}
 			hasLeakProof = true
 		case FunctionVolatility:
 			if hasVolatility {
-				return err(option)
+				return conflictingErr(option)
 			}
 			hasVolatility = true
 		case FunctionNullInputBehavior:
 			if hasNullInputBehavior {
-				return err(option)
+				return conflictingErr(option)
 			}
 			hasNullInputBehavior = true
 		default:
@@ -561,4 +598,17 @@ func ValidateFuncOptions(options FunctionOptions) error {
 	}
 
 	return nil
+}
+
+// GetFuncVolatility tries to find a function volatility from the given list of
+// function options. If there is no volatility found, FunctionVolatile is
+// returned as the default.
+func GetFuncVolatility(options FunctionOptions) FunctionVolatility {
+	for _, option := range options {
+		switch t := option.(type) {
+		case FunctionVolatility:
+			return t
+		}
+	}
+	return FunctionVolatile
 }

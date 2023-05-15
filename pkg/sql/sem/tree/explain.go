@@ -16,6 +16,7 @@ import (
 	"github.com/cockroachdb/cockroachdb-parser/pkg/sql/pgwire/pgcode"
 	"github.com/cockroachdb/cockroachdb-parser/pkg/sql/pgwire/pgerror"
 	"github.com/cockroachdb/cockroachdb-parser/pkg/util"
+	"github.com/cockroachdb/cockroachdb-parser/pkg/util/errorutil/unimplemented"
 	"github.com/cockroachdb/cockroachdb-parser/pkg/util/pretty"
 	"github.com/cockroachdb/errors"
 )
@@ -68,8 +69,7 @@ const (
 	// EXPLAIN ANALYZE.
 	ExplainDebug
 
-	// ExplainDDL generates a DDL plan diagram for the statement. Not allowed with
-	//
+	// ExplainDDL generates a DDL plan diagram for the statement.
 	ExplainDDL
 
 	// ExplainGist generates a plan "gist".
@@ -103,6 +103,11 @@ func (m ExplainMode) String() string {
 	return explainModeStrings[m]
 }
 
+// ExplainModes returns a map from EXPLAIN mode strings to ExplainMode.
+func ExplainModes() map[string]ExplainMode {
+	return explainModeStringMap
+}
+
 // ExplainFlag is a modifier in an EXPLAIN statement (like VERBOSE).
 type ExplainFlag uint8
 
@@ -116,6 +121,7 @@ const (
 	ExplainFlagMemo
 	ExplainFlagShape
 	ExplainFlagViz
+	ExplainFlagRedact
 	numExplainFlags = iota
 )
 
@@ -128,6 +134,7 @@ var explainFlagStrings = [...]string{
 	ExplainFlagMemo:    "MEMO",
 	ExplainFlagShape:   "SHAPE",
 	ExplainFlagViz:     "VIZ",
+	ExplainFlagRedact:  "REDACT",
 }
 
 var explainFlagStringMap = func() map[string]ExplainFlag {
@@ -143,6 +150,11 @@ func (f ExplainFlag) String() string {
 		panic(errors.AssertionFailedf("invalid ExplainFlag %d", f))
 	}
 	return explainFlagStrings[f]
+}
+
+// ExplainFlags returns a map from EXPLAIN flag strings to ExplainFlag.
+func ExplainFlags() map[string]ExplainFlag {
+	return explainFlagStringMap
 }
 
 // Format implements the NodeFormatter interface.
@@ -258,6 +270,32 @@ func MakeExplain(options []string, stmt Statement) (Statement, error) {
 		}
 		if analyze {
 			return nil, pgerror.Newf(pgcode.Syntax, "the JSON flag cannot be used with ANALYZE")
+		}
+	}
+
+	if opts.Flags[ExplainFlagEnv] {
+		if opts.Mode != ExplainOpt {
+			return nil, pgerror.Newf(pgcode.Syntax, "the ENV flag can only be used with OPT")
+		}
+	}
+
+	if opts.Flags[ExplainFlagRedact] {
+		// TODO(michae2): Support redaction of other EXPLAIN modes.
+		switch opts.Mode {
+		case ExplainPlan:
+		case ExplainOpt:
+		case ExplainVec:
+		case ExplainDebug:
+		default:
+			return nil, unimplemented.Newf(
+				"EXPLAIN (REDACT)", "the REDACT flag cannot be used with %s", opts.Mode,
+			)
+		}
+
+		if opts.Flags[ExplainFlagEnv] {
+			return nil, unimplemented.Newf(
+				"EXPLAIN (REDACT)", "the REDACT flag cannot be used with %s, ENV", opts.Mode,
+			)
 		}
 	}
 

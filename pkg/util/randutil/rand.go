@@ -18,11 +18,45 @@ import (
 	"math/rand"
 	"runtime"
 	"strings"
+	"time"
 	_ "unsafe" // required by go:linkname
 
 	"github.com/cockroachdb/cockroachdb-parser/pkg/util/envutil"
 	"github.com/cockroachdb/cockroachdb-parser/pkg/util/syncutil"
 )
+
+// lockedSource is a thread safe math/rand.Source. See math/rand/rand.go.
+type lockedSource struct {
+	mu  syncutil.Mutex
+	src rand.Source64
+}
+
+// NewLockedSource creates random source protected by mutex.
+func NewLockedSource(seed int64) rand.Source {
+	return &lockedSource{
+		src: rand.NewSource(seed).(rand.Source64),
+	}
+}
+
+func (rng *lockedSource) Int63() (n int64) {
+	rng.mu.Lock()
+	n = rng.src.Int63()
+	rng.mu.Unlock()
+	return
+}
+
+func (rng *lockedSource) Uint64() (n uint64) {
+	rng.mu.Lock()
+	n = rng.src.Uint64()
+	rng.mu.Unlock()
+	return
+}
+
+func (rng *lockedSource) Seed(seed int64) {
+	rng.mu.Lock()
+	rng.src.Seed(seed)
+	rng.mu.Unlock()
+}
 
 // globalSeed contains a pseudo random seed that should only be used in tests.
 var globalSeed int64
@@ -70,6 +104,16 @@ func NewPseudoRand() (*rand.Rand, int64) {
 // seed. This rand.Rand is useful in testing to produce deterministic,
 // reproducible behavior.
 func NewTestRand() (*rand.Rand, int64) {
+	return newTestRandImpl(rand.NewSource)
+}
+
+// NewLockedTestRand is identical to NewTestRand but returned rand.Rand is using
+// thread safe underlying source.
+func NewLockedTestRand() (*rand.Rand, int64) {
+	return newTestRandImpl(NewLockedSource)
+}
+
+func newTestRandImpl(f func(int64) rand.Source) (*rand.Rand, int64) {
 	mtx.Lock()
 	defer mtx.Unlock()
 	fxn := getTestName()
@@ -78,10 +122,10 @@ func NewTestRand() (*rand.Rand, int64) {
 		// the global seed so that individual tests are reproducible using the
 		// random seed.
 		lastTestName = fxn
-		rng = rand.New(rand.NewSource(globalSeed))
+		rng = rand.New(f(globalSeed))
 	}
 	seed := rng.Int63()
-	return rand.New(rand.NewSource(seed)), seed
+	return rand.New(f(seed)), seed
 }
 
 // NewTestRandWithSeed returns an instance of math/rand.Rand, similar to
@@ -104,6 +148,28 @@ func RandIntInRange(r *rand.Rand, min, max int) int {
 // RandInt63InRange returns a value in [min, max)
 func RandInt63InRange(r *rand.Rand, min, max int64) int64 {
 	return min + r.Int63n(max-min)
+}
+
+// RandUint64n generates a 64-bit random number in [0, n) range.
+// Note: n == 0 means n is math.MaxUint64 + 1
+func RandUint64n(r *rand.Rand, n uint64) uint64 {
+	if n == 0 {
+		return r.Uint64()
+	}
+	// If n is less than 64 bits, delegate to 63 bit version.
+	if n < (1 << 63) {
+		return uint64(r.Int63n(int64(n)))
+	}
+	v := r.Uint64()
+	for v > n {
+		v = r.Uint64()
+	}
+	return v
+}
+
+// RandDuration returns a random duration in [0, max).
+func RandDuration(r *rand.Rand, max time.Duration) time.Duration {
+	return time.Duration(r.Int63n(int64(max)))
 }
 
 var randLetters = []byte("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
@@ -161,11 +227,12 @@ const PrintableKeyAlphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWX
 // be printable without further escaping if alphabet is restricted to
 // alphanumeric chars.
 func RandString(rng *rand.Rand, length int, alphabet string) string {
-	buf := make([]byte, length)
-	for i := range buf {
-		buf[i] = alphabet[rng.Intn(len(alphabet))]
+	runes := []rune(alphabet)
+	buf := &strings.Builder{}
+	for i := 0; i < length; i++ {
+		buf.WriteRune(runes[rng.Intn(len(runes))])
 	}
-	return string(buf)
+	return buf.String()
 }
 
 // SeedForTests seeds the random number generator and prints the seed

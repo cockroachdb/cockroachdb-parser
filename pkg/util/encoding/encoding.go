@@ -36,6 +36,7 @@ import (
 	"github.com/cockroachdb/cockroachdb-parser/pkg/util/timeutil"
 	"github.com/cockroachdb/cockroachdb-parser/pkg/util/uuid"
 	"github.com/cockroachdb/errors"
+	"github.com/cockroachdb/redact"
 )
 
 const (
@@ -154,6 +155,25 @@ const (
 
 const escapeLength = 2
 
+// EncodeUint16Ascending encodes the uint16 value using a big-endian 2 byte
+// representation. The bytes are appended to the supplied buffer and
+// the final buffer is returned.
+func EncodeUint16Ascending(b []byte, v uint16) []byte {
+	return append(b, byte(v>>8), byte(v))
+}
+
+// PutUint16Ascending encodes the uint16 value using a big-endian 2 byte
+// representation at the specified index, lengthening the input slice if
+// necessary.
+func PutUint16Ascending(b []byte, v uint16, idx int) []byte {
+	for len(b) < idx+2 {
+		b = append(b, 0)
+	}
+	b[idx] = byte(v >> 8)
+	b[idx+1] = byte(v)
+	return b
+}
+
 // EncodeUint32Ascending encodes the uint32 value using a big-endian 4 byte
 // representation. The bytes are appended to the supplied buffer and
 // the final buffer is returned.
@@ -179,6 +199,17 @@ func PutUint32Ascending(b []byte, v uint32, idx int) []byte {
 // reverse order, from largest to smallest.
 func EncodeUint32Descending(b []byte, v uint32) []byte {
 	return EncodeUint32Ascending(b, ^v)
+}
+
+// DecodeUint16Ascending decodes a uint16 from the input buffer, treating
+// the input as a big-endian 2 byte uint16 representation. The remainder
+// of the input buffer and the decoded uint16 are returned.
+func DecodeUint16Ascending(b []byte) ([]byte, uint16, error) {
+	if len(b) < 2 {
+		return nil, 0, errors.Errorf("insufficient bytes to decode uint16 int value")
+	}
+	v := binary.BigEndian.Uint16(b)
+	return b[2:], v, nil
 }
 
 // DecodeUint32Ascending decodes a uint32 from the input buffer, treating
@@ -579,6 +610,23 @@ func EncodeBytesAscending(b []byte, data []byte) []byte {
 	return encodeBytesAscendingWithTerminatorAndPrefix(b, data, ascendingBytesEscapes.escapedTerm, bytesMarker)
 }
 
+// EncodeNextBytesAscending encodes the []byte value with an extra 0x00 byte
+// appended before encoding. It's equivalent to
+//
+//	EncodeBytesAscending(b, append(data, 0x00))
+//
+// but may avoid an allocation when the data slice does not have additional
+// capacity.
+func EncodeNextBytesAscending(b []byte, data []byte) []byte {
+	b = append(b, bytesMarker)
+	return encodeNextBytesAscendingWithTerminator(b, data, ascendingBytesEscapes.escapedTerm)
+}
+
+func encodeNextBytesAscendingWithTerminator(b []byte, data []byte, terminator byte) []byte {
+	bs := encodeBytesAscendingWithoutTerminatorOrPrefix(b, data)
+	return append(bs, escape, escaped00, escape, terminator)
+}
+
 // encodeBytesAscendingWithTerminatorAndPrefix encodes the []byte value using an escape-based
 // encoding. The encoded value is terminated with the sequence
 // "\x00\terminator". The encoded bytes are append to the supplied buffer
@@ -628,6 +676,37 @@ func EncodeBytesDescending(b []byte, data []byte) []byte {
 	b[n] = bytesDescMarker
 	onesComplement(b[n+1:])
 	return b
+}
+
+// EncodeBytesSize returns the size of the []byte value when encoded using
+// EncodeBytes{Ascending,Descending}. The function accounts for the encoding
+// marker, escaping, and the terminator.
+func EncodeBytesSize(data []byte) int {
+	// Encoding overhead:
+	// +1 for [bytesMarker] prefix
+	// +2 for [escape, escapedTerm] suffix
+	// +1 for each byte that needs to be escaped
+	//
+	// NOTE: bytes.Count is implemented by the go runtime in assembly and is
+	// much faster than looping over the bytes in the slice, especially when
+	// given a single-byte separator.
+	return len(data) + 3 + bytes.Count(data, []byte{escape})
+}
+
+// EncodeNextBytesSize returns the size of the []byte value when suffixed with a
+// zero byte and then encoded using EncodeNextBytes{Ascending,Descending}. The
+// function accounts for the encoding marker, escaping, and the terminator.
+func EncodeNextBytesSize(data []byte) int {
+	// Encoding overhead:
+	// +1 for [bytesMarker] prefix
+	// +2 for [escape, escapedTerm] suffix
+	// +1 for each byte that needs to be escaped
+	// +2 for the appended 0x00 byte, plus its escaping byte
+	//
+	// NOTE: bytes.Count is implemented by the go runtime in assembly and is
+	// much faster than looping over the bytes in the slice, especially when
+	// given a single-byte separator.
+	return len(data) + 5 + bytes.Count(data, []byte{escape})
 }
 
 // DecodeBytesAscending decodes a []byte value from the input buffer
@@ -1631,6 +1710,8 @@ const (
 	ArrayKeyDesc Type = 23 // Array key encoded descendingly
 	Box2D        Type = 24
 	Void         Type = 25
+	TSQuery      Type = 26
+	TSVector     Type = 27
 )
 
 // typMap maps an encoded type byte to a decoded Type. It's got 256 slots, one
@@ -1879,10 +1960,11 @@ func PeekLength(b []byte) (int, error) {
 // separator.
 // The directions each value is encoded may be provided. If valDirs is nil,
 // all values are decoded and printed with the default direction (ascending).
-func PrettyPrintValue(valDirs []Direction, b []byte, sep string) string {
-	s1, allDecoded := prettyPrintValueImpl(valDirs, b, sep)
+func PrettyPrintValue(buf *redact.StringBuilder, valDirs []Direction, b []byte, sep string) {
+	safeSep := redact.SafeString(sep)
+	allDecoded := prettyPrintValueImpl(buf, valDirs, b, safeSep)
 	if allDecoded {
-		return s1
+		return
 	}
 	// If we failed to decoded everything above, assume the key was the result of a
 	// `PrefixEnd()`. Attempt to undo PrefixEnd & retry the process, otherwise return
@@ -1896,13 +1978,14 @@ func PrettyPrintValue(valDirs []Direction, b []byte, sep string) string {
 			cap = len(valDirs) - len(b)
 		}
 		for i := 0; i < cap; i++ {
-			if s2, allDecoded := prettyPrintValueImpl(valDirs, undoPrefixEnd, sep); allDecoded {
-				return s2 + sep + "PrefixEnd"
+			if allDecoded := prettyPrintValueImpl(buf, valDirs, undoPrefixEnd, safeSep); allDecoded {
+				buf.Reset()
+				buf.Print(sep + "PrefixEnd")
+				return
 			}
 			undoPrefixEnd = append(undoPrefixEnd, 0xFF)
 		}
 	}
-	return s1
 }
 
 // PrettyPrintValuesWithTypes returns a slice containing each contiguous decodable value
@@ -1965,9 +2048,10 @@ func prettyPrintValuesWithTypesImpl(
 	return vals, types, allDecoded
 }
 
-func prettyPrintValueImpl(valDirs []Direction, b []byte, sep string) (string, bool) {
+func prettyPrintValueImpl(
+	buf *redact.StringBuilder, valDirs []Direction, b []byte, sep redact.SafeString,
+) bool {
 	allDecoded := true
-	var buf strings.Builder
 	for len(b) > 0 {
 		// If there are more values than encoding directions specified,
 		// valDir will contain the 0 value of Direction.
@@ -1985,17 +2069,16 @@ func prettyPrintValueImpl(valDirs []Direction, b []byte, sep string) (string, bo
 			// to continue - it's possible we can still decode the
 			// remainder of the key bytes.
 			allDecoded = false
-			buf.WriteString(sep)
-			buf.WriteByte('?')
-			buf.WriteByte('?')
-			buf.WriteByte('?')
+			// Mark the separator as safe.
+			buf.Print(sep)
+			buf.SafeString("???")
 		} else {
-			buf.WriteString(sep)
-			buf.WriteString(s)
+			buf.Print(sep)
+			buf.Print(redact.Safe(s))
 		}
 		b = bb
 	}
-	return buf.String(), allDecoded
+	return allDecoded
 }
 
 // prettyPrintFirstValue returns a string representation of the first decodable
@@ -2588,6 +2671,22 @@ func EncodeJSONValue(appendTo []byte, colID uint32, data []byte) []byte {
 	return EncodeUntaggedBytesValue(appendTo, data)
 }
 
+// EncodeTSQueryValue encodes an already-byte-encoded TSQuery value with no
+// value tag but with a length prefix, appends it to the supplied buffer, and
+// returns the final buffer.
+func EncodeTSQueryValue(appendTo []byte, colID uint32, data []byte) []byte {
+	appendTo = EncodeValueTag(appendTo, colID, TSQuery)
+	return EncodeUntaggedBytesValue(appendTo, data)
+}
+
+// EncodeTSVectorValue encodes an already-byte-encoded TSVector value with no
+// value tag but with a length prefix, appends it to the supplied buffer, and
+// returns the final buffer.
+func EncodeTSVectorValue(appendTo []byte, colID uint32, data []byte) []byte {
+	appendTo = EncodeValueTag(appendTo, colID, TSVector)
+	return EncodeUntaggedBytesValue(appendTo, data)
+}
+
 // DecodeValueTag decodes a value encoded by EncodeValueTag, used as a prefix in
 // each of the other EncodeFooValue methods.
 //
@@ -2976,7 +3075,7 @@ func PeekValueLengthWithOffsetsAndType(b []byte, dataOffset int, typ Type) (leng
 		return dataOffset + n, err
 	case Float:
 		return dataOffset + floatValueEncodedLength, nil
-	case Bytes, Array, JSON, Geo:
+	case Bytes, Array, JSON, Geo, TSVector, TSQuery:
 		_, n, i, err := DecodeNonsortingUvarint(b)
 		return dataOffset + n + int(i), err
 	case Box2D:

@@ -24,6 +24,7 @@ var KeywordsCategories = map[string]string{
 "asc": "R",
 "asensitive": "U",
 "asymmetric": "R",
+"as_json": "U",
 "at": "U",
 "atomic": "U",
 "attribute": "U",
@@ -49,6 +50,8 @@ var KeywordsCategories = map[string]string{
 "called": "U",
 "cancel": "U",
 "cancelquery": "U",
+"capabilities": "U",
+"capability": "U",
 "cascade": "U",
 "case": "R",
 "cast": "R",
@@ -57,6 +60,7 @@ var KeywordsCategories = map[string]string{
 "character": "C",
 "characteristics": "C",
 "check": "R",
+"check_files": "U",
 "close": "U",
 "cluster": "U",
 "coalesce": "C",
@@ -109,6 +113,8 @@ var KeywordsCategories = map[string]string{
 "databases": "U",
 "day": "U",
 "deallocate": "U",
+"debug_dump_metadata_sst": "U",
+"debug_ids": "U",
 "debug_pause_on": "U",
 "dec": "C",
 "decimal": "C",
@@ -124,6 +130,7 @@ var KeywordsCategories = map[string]string{
 "desc": "R",
 "destination": "U",
 "detached": "U",
+"details": "U",
 "discard": "U",
 "distinct": "R",
 "do": "R",
@@ -133,6 +140,7 @@ var KeywordsCategories = map[string]string{
 "else": "R",
 "encoding": "U",
 "encrypted": "U",
+"encryption_info_dir": "U",
 "encryption_passphrase": "U",
 "end": "R",
 "enum": "U",
@@ -156,6 +164,7 @@ var KeywordsCategories = map[string]string{
 "external": "U",
 "extract": "C",
 "extract_duration": "C",
+"extremes": "U",
 "failure": "U",
 "false": "R",
 "family": "T",
@@ -168,8 +177,12 @@ var KeywordsCategories = map[string]string{
 "for": "R",
 "force": "U",
 "force_index": "U",
+"force_not_null": "U",
+"force_null": "U",
+"force_quote": "U",
 "force_zigzag": "U",
 "foreign": "R",
+"format": "U",
 "forward": "U",
 "freeze": "U",
 "from": "R",
@@ -212,12 +225,16 @@ var KeywordsCategories = map[string]string{
 "import": "U",
 "in": "R",
 "include": "U",
+"include_all_secondary_tenants": "U",
 "including": "U",
 "increment": "U",
 "incremental": "U",
 "incremental_location": "U",
-"index": "R",
+"index": "U",
 "indexes": "U",
+"index_after_order_by_before_at": "R",
+"index_before_name_then_paren": "R",
+"index_before_paren": "R",
 "inherits": "U",
 "initially": "R",
 "inject": "U",
@@ -233,6 +250,7 @@ var KeywordsCategories = map[string]string{
 "into": "R",
 "into_db": "U",
 "inverted": "U",
+"invisible": "U",
 "invoker": "U",
 "is": "T",
 "iserror": "C",
@@ -283,6 +301,7 @@ var KeywordsCategories = map[string]string{
 "minute": "U",
 "minvalue": "U",
 "modifyclustersetting": "U",
+"modifysqlclustersetting": "U",
 "month": "U",
 "move": "U",
 "multilinestring": "U",
@@ -318,7 +337,8 @@ var KeywordsCategories = map[string]string{
 "normal": "U",
 "nosqllogin": "U",
 "not": "R",
-"nothing": "R",
+"nothing": "U",
+"nothing_after_returning": "R",
 "notnull": "T",
 "noviewactivity": "U",
 "noviewactivityredacted": "U",
@@ -396,6 +416,7 @@ var KeywordsCategories = map[string]string{
 "reassign": "U",
 "recurring": "U",
 "recursive": "U",
+"redact": "U",
 "ref": "U",
 "references": "R",
 "refresh": "U",
@@ -416,6 +437,7 @@ var KeywordsCategories = map[string]string{
 "restrict": "U",
 "restricted": "U",
 "resume": "U",
+"retention": "U",
 "retry": "U",
 "return": "U",
 "returning": "R",
@@ -451,6 +473,7 @@ var KeywordsCategories = map[string]string{
 "sequences": "U",
 "serializable": "U",
 "server": "U",
+"service": "U",
 "session": "U",
 "sessions": "U",
 "session_user": "R",
@@ -460,6 +483,7 @@ var KeywordsCategories = map[string]string{
 "setting": "U",
 "settings": "U",
 "share": "U",
+"shared": "U",
 "show": "U",
 "similar": "T",
 "simple": "U",
@@ -468,6 +492,7 @@ var KeywordsCategories = map[string]string{
 "skip_missing_foreign_keys": "U",
 "skip_missing_sequences": "U",
 "skip_missing_sequence_owners": "U",
+"skip_missing_udfs": "U",
 "skip_missing_views": "U",
 "smallint": "C",
 "snapshot": "U",
@@ -482,6 +507,8 @@ var KeywordsCategories = map[string]string{
 "statistics": "U",
 "status": "U",
 "stdin": "U",
+"stdout": "U",
+"stop": "U",
 "storage": "U",
 "store": "U",
 "stored": "U",
@@ -505,6 +532,8 @@ var KeywordsCategories = map[string]string{
 "template": "U",
 "temporary": "U",
 "tenant": "U",
+"tenants": "U",
+"tenant_name": "U",
 "testing_relocate": "U",
 "text": "U",
 "then": "R",
@@ -537,6 +566,7 @@ var KeywordsCategories = map[string]string{
 "unknown": "U",
 "unlisten": "U",
 "unlogged": "U",
+"unsafe_restore_incompatible_version": "U",
 "unset": "U",
 "unsplit": "U",
 "until": "U",
@@ -601,6 +631,7 @@ var KeywordNames = []string{
 "asc",
 "asensitive",
 "asymmetric",
+"as_json",
 "at",
 "atomic",
 "attribute",
@@ -626,6 +657,8 @@ var KeywordNames = []string{
 "called",
 "cancel",
 "cancelquery",
+"capabilities",
+"capability",
 "cascade",
 "case",
 "cast",
@@ -634,6 +667,7 @@ var KeywordNames = []string{
 "character",
 "characteristics",
 "check",
+"check_files",
 "close",
 "cluster",
 "coalesce",
@@ -686,6 +720,8 @@ var KeywordNames = []string{
 "databases",
 "day",
 "deallocate",
+"debug_dump_metadata_sst",
+"debug_ids",
 "debug_pause_on",
 "dec",
 "decimal",
@@ -701,6 +737,7 @@ var KeywordNames = []string{
 "desc",
 "destination",
 "detached",
+"details",
 "discard",
 "distinct",
 "do",
@@ -710,6 +747,7 @@ var KeywordNames = []string{
 "else",
 "encoding",
 "encrypted",
+"encryption_info_dir",
 "encryption_passphrase",
 "end",
 "enum",
@@ -733,6 +771,7 @@ var KeywordNames = []string{
 "external",
 "extract",
 "extract_duration",
+"extremes",
 "failure",
 "false",
 "family",
@@ -745,8 +784,12 @@ var KeywordNames = []string{
 "for",
 "force",
 "force_index",
+"force_not_null",
+"force_null",
+"force_quote",
 "force_zigzag",
 "foreign",
+"format",
 "forward",
 "freeze",
 "from",
@@ -789,12 +832,16 @@ var KeywordNames = []string{
 "import",
 "in",
 "include",
+"include_all_secondary_tenants",
 "including",
 "increment",
 "incremental",
 "incremental_location",
 "index",
 "indexes",
+"index_after_order_by_before_at",
+"index_before_name_then_paren",
+"index_before_paren",
 "inherits",
 "initially",
 "inject",
@@ -810,6 +857,7 @@ var KeywordNames = []string{
 "into",
 "into_db",
 "inverted",
+"invisible",
 "invoker",
 "is",
 "iserror",
@@ -860,6 +908,7 @@ var KeywordNames = []string{
 "minute",
 "minvalue",
 "modifyclustersetting",
+"modifysqlclustersetting",
 "month",
 "move",
 "multilinestring",
@@ -896,6 +945,7 @@ var KeywordNames = []string{
 "nosqllogin",
 "not",
 "nothing",
+"nothing_after_returning",
 "notnull",
 "noviewactivity",
 "noviewactivityredacted",
@@ -973,6 +1023,7 @@ var KeywordNames = []string{
 "reassign",
 "recurring",
 "recursive",
+"redact",
 "ref",
 "references",
 "refresh",
@@ -993,6 +1044,7 @@ var KeywordNames = []string{
 "restrict",
 "restricted",
 "resume",
+"retention",
 "retry",
 "return",
 "returning",
@@ -1028,6 +1080,7 @@ var KeywordNames = []string{
 "sequences",
 "serializable",
 "server",
+"service",
 "session",
 "sessions",
 "session_user",
@@ -1037,6 +1090,7 @@ var KeywordNames = []string{
 "setting",
 "settings",
 "share",
+"shared",
 "show",
 "similar",
 "simple",
@@ -1045,6 +1099,7 @@ var KeywordNames = []string{
 "skip_missing_foreign_keys",
 "skip_missing_sequences",
 "skip_missing_sequence_owners",
+"skip_missing_udfs",
 "skip_missing_views",
 "smallint",
 "snapshot",
@@ -1059,6 +1114,8 @@ var KeywordNames = []string{
 "statistics",
 "status",
 "stdin",
+"stdout",
+"stop",
 "storage",
 "store",
 "stored",
@@ -1082,6 +1139,8 @@ var KeywordNames = []string{
 "template",
 "temporary",
 "tenant",
+"tenants",
+"tenant_name",
 "testing_relocate",
 "text",
 "then",
@@ -1114,6 +1173,7 @@ var KeywordNames = []string{
 "unknown",
 "unlisten",
 "unlogged",
+"unsafe_restore_incompatible_version",
 "unset",
 "unsplit",
 "until",
@@ -1183,6 +1243,7 @@ func GetKeywordID(k string) int32 {
 	case "asc": return ASC
 	case "asensitive": return ASENSITIVE
 	case "asymmetric": return ASYMMETRIC
+	case "as_json": return AS_JSON
 	case "at": return AT
 	case "atomic": return ATOMIC
 	case "attribute": return ATTRIBUTE
@@ -1208,6 +1269,8 @@ func GetKeywordID(k string) int32 {
 	case "called": return CALLED
 	case "cancel": return CANCEL
 	case "cancelquery": return CANCELQUERY
+	case "capabilities": return CAPABILITIES
+	case "capability": return CAPABILITY
 	case "cascade": return CASCADE
 	case "case": return CASE
 	case "cast": return CAST
@@ -1216,6 +1279,7 @@ func GetKeywordID(k string) int32 {
 	case "character": return CHARACTER
 	case "characteristics": return CHARACTERISTICS
 	case "check": return CHECK
+	case "check_files": return CHECK_FILES
 	case "close": return CLOSE
 	case "cluster": return CLUSTER
 	case "coalesce": return COALESCE
@@ -1268,6 +1332,8 @@ func GetKeywordID(k string) int32 {
 	case "databases": return DATABASES
 	case "day": return DAY
 	case "deallocate": return DEALLOCATE
+	case "debug_dump_metadata_sst": return DEBUG_DUMP_METADATA_SST
+	case "debug_ids": return DEBUG_IDS
 	case "debug_pause_on": return DEBUG_PAUSE_ON
 	case "dec": return DEC
 	case "decimal": return DECIMAL
@@ -1283,6 +1349,7 @@ func GetKeywordID(k string) int32 {
 	case "desc": return DESC
 	case "destination": return DESTINATION
 	case "detached": return DETACHED
+	case "details": return DETAILS
 	case "discard": return DISCARD
 	case "distinct": return DISTINCT
 	case "do": return DO
@@ -1292,6 +1359,7 @@ func GetKeywordID(k string) int32 {
 	case "else": return ELSE
 	case "encoding": return ENCODING
 	case "encrypted": return ENCRYPTED
+	case "encryption_info_dir": return ENCRYPTION_INFO_DIR
 	case "encryption_passphrase": return ENCRYPTION_PASSPHRASE
 	case "end": return END
 	case "enum": return ENUM
@@ -1315,6 +1383,7 @@ func GetKeywordID(k string) int32 {
 	case "external": return EXTERNAL
 	case "extract": return EXTRACT
 	case "extract_duration": return EXTRACT_DURATION
+	case "extremes": return EXTREMES
 	case "failure": return FAILURE
 	case "false": return FALSE
 	case "family": return FAMILY
@@ -1327,8 +1396,12 @@ func GetKeywordID(k string) int32 {
 	case "for": return FOR
 	case "force": return FORCE
 	case "force_index": return FORCE_INDEX
+	case "force_not_null": return FORCE_NOT_NULL
+	case "force_null": return FORCE_NULL
+	case "force_quote": return FORCE_QUOTE
 	case "force_zigzag": return FORCE_ZIGZAG
 	case "foreign": return FOREIGN
+	case "format": return FORMAT
 	case "forward": return FORWARD
 	case "freeze": return FREEZE
 	case "from": return FROM
@@ -1371,12 +1444,16 @@ func GetKeywordID(k string) int32 {
 	case "import": return IMPORT
 	case "in": return IN
 	case "include": return INCLUDE
+	case "include_all_secondary_tenants": return INCLUDE_ALL_SECONDARY_TENANTS
 	case "including": return INCLUDING
 	case "increment": return INCREMENT
 	case "incremental": return INCREMENTAL
 	case "incremental_location": return INCREMENTAL_LOCATION
 	case "index": return INDEX
 	case "indexes": return INDEXES
+	case "index_after_order_by_before_at": return INDEX_AFTER_ORDER_BY_BEFORE_AT
+	case "index_before_name_then_paren": return INDEX_BEFORE_NAME_THEN_PAREN
+	case "index_before_paren": return INDEX_BEFORE_PAREN
 	case "inherits": return INHERITS
 	case "initially": return INITIALLY
 	case "inject": return INJECT
@@ -1392,6 +1469,7 @@ func GetKeywordID(k string) int32 {
 	case "into": return INTO
 	case "into_db": return INTO_DB
 	case "inverted": return INVERTED
+	case "invisible": return INVISIBLE
 	case "invoker": return INVOKER
 	case "is": return IS
 	case "iserror": return ISERROR
@@ -1442,6 +1520,7 @@ func GetKeywordID(k string) int32 {
 	case "minute": return MINUTE
 	case "minvalue": return MINVALUE
 	case "modifyclustersetting": return MODIFYCLUSTERSETTING
+	case "modifysqlclustersetting": return MODIFYSQLCLUSTERSETTING
 	case "month": return MONTH
 	case "move": return MOVE
 	case "multilinestring": return MULTILINESTRING
@@ -1478,6 +1557,7 @@ func GetKeywordID(k string) int32 {
 	case "nosqllogin": return NOSQLLOGIN
 	case "not": return NOT
 	case "nothing": return NOTHING
+	case "nothing_after_returning": return NOTHING_AFTER_RETURNING
 	case "notnull": return NOTNULL
 	case "noviewactivity": return NOVIEWACTIVITY
 	case "noviewactivityredacted": return NOVIEWACTIVITYREDACTED
@@ -1555,6 +1635,7 @@ func GetKeywordID(k string) int32 {
 	case "reassign": return REASSIGN
 	case "recurring": return RECURRING
 	case "recursive": return RECURSIVE
+	case "redact": return REDACT
 	case "ref": return REF
 	case "references": return REFERENCES
 	case "refresh": return REFRESH
@@ -1575,6 +1656,7 @@ func GetKeywordID(k string) int32 {
 	case "restrict": return RESTRICT
 	case "restricted": return RESTRICTED
 	case "resume": return RESUME
+	case "retention": return RETENTION
 	case "retry": return RETRY
 	case "return": return RETURN
 	case "returning": return RETURNING
@@ -1610,6 +1692,7 @@ func GetKeywordID(k string) int32 {
 	case "sequences": return SEQUENCES
 	case "serializable": return SERIALIZABLE
 	case "server": return SERVER
+	case "service": return SERVICE
 	case "session": return SESSION
 	case "sessions": return SESSIONS
 	case "session_user": return SESSION_USER
@@ -1619,6 +1702,7 @@ func GetKeywordID(k string) int32 {
 	case "setting": return SETTING
 	case "settings": return SETTINGS
 	case "share": return SHARE
+	case "shared": return SHARED
 	case "show": return SHOW
 	case "similar": return SIMILAR
 	case "simple": return SIMPLE
@@ -1627,6 +1711,7 @@ func GetKeywordID(k string) int32 {
 	case "skip_missing_foreign_keys": return SKIP_MISSING_FOREIGN_KEYS
 	case "skip_missing_sequences": return SKIP_MISSING_SEQUENCES
 	case "skip_missing_sequence_owners": return SKIP_MISSING_SEQUENCE_OWNERS
+	case "skip_missing_udfs": return SKIP_MISSING_UDFS
 	case "skip_missing_views": return SKIP_MISSING_VIEWS
 	case "smallint": return SMALLINT
 	case "snapshot": return SNAPSHOT
@@ -1641,6 +1726,8 @@ func GetKeywordID(k string) int32 {
 	case "statistics": return STATISTICS
 	case "status": return STATUS
 	case "stdin": return STDIN
+	case "stdout": return STDOUT
+	case "stop": return STOP
 	case "storage": return STORAGE
 	case "store": return STORE
 	case "stored": return STORED
@@ -1664,6 +1751,8 @@ func GetKeywordID(k string) int32 {
 	case "template": return TEMPLATE
 	case "temporary": return TEMPORARY
 	case "tenant": return TENANT
+	case "tenants": return TENANTS
+	case "tenant_name": return TENANT_NAME
 	case "testing_relocate": return TESTING_RELOCATE
 	case "text": return TEXT
 	case "then": return THEN
@@ -1696,6 +1785,7 @@ func GetKeywordID(k string) int32 {
 	case "unknown": return UNKNOWN
 	case "unlisten": return UNLISTEN
 	case "unlogged": return UNLOGGED
+	case "unsafe_restore_incompatible_version": return UNSAFE_RESTORE_INCOMPATIBLE_VERSION
 	case "unset": return UNSET
 	case "unsplit": return UNSPLIT
 	case "until": return UNTIL

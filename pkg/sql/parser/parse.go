@@ -41,7 +41,14 @@ func init() {
 // node along with other information.
 type Statement struct {
 	// AST is the root of the AST tree for the parsed statement.
+	// Note that it is NOT SAFE to access this currently with statement execution,
+	// as unfortunately the AST is not immutable.
+	// See issue https://github.com/cockroachdb/cockroachdb-parser/issues/22847 for more
+	// details on this problem.
 	AST tree.Statement
+
+	// Comments is the list of parsed SQL comments.
+	Comments []string
 
 	// SQL is the original SQL from which the statement was parsed. Note that this
 	// is not appropriate for use in logging, as it may contain passwords and
@@ -61,6 +68,24 @@ type Statement struct {
 	// NumAnnotations indicates the number of annotations in the tree. It is equal
 	// to the maximum annotation index.
 	NumAnnotations tree.AnnotationIdx
+}
+
+// IsANSIDML returns true if the AST is one of the 4 DML statements,
+// SELECT, UPDATE, INSERT, DELETE, or an EXPLAIN of one of these statements.
+func (stmt Statement) IsANSIDML() bool {
+	return IsANSIDML(stmt.AST)
+}
+
+// IsANSIDML returns true if the AST is one of the 4 DML statements,
+// SELECT, UPDATE, INSERT, DELETE, or an EXPLAIN of one of these statements.
+func IsANSIDML(stmt tree.Statement) bool {
+	switch t := stmt.(type) {
+	case *tree.Select, *tree.ParenSelect, *tree.Delete, *tree.Insert, *tree.Update:
+		return true
+	case *tree.Explain:
+		return IsANSIDML(t.Statement)
+	}
+	return false
 }
 
 // Statements is a list of parsed statements.
@@ -134,12 +159,13 @@ func (p *Parser) parseOneWithInt(sql string, nakedIntType *types.T) (Statement, 
 }
 
 func (p *Parser) scanOneStmt() (sql string, tokens []sqlSymType, done bool) {
-	var lval sqlSymType
 	tokens = p.tokBuf[:0]
+	tokens = append(tokens, sqlSymType{})
+	lval := &p.tokBuf[0]
 
 	// Scan the first token.
 	for {
-		p.scanner.Scan(&lval)
+		p.scanner.Scan(lval)
 		if lval.id == 0 {
 			return "", nil, true
 		}
@@ -151,7 +177,6 @@ func (p *Parser) scanOneStmt() (sql string, tokens []sqlSymType, done bool) {
 	startPos := lval.pos
 	// We make the resulting token positions match the returned string.
 	lval.pos = 0
-	tokens = append(tokens, lval)
 	var preValID int32
 	// This is used to track the degree of nested `BEGIN ATOMIC ... END` function
 	// body context. When greater than zero, it means that we're scanning through
@@ -164,8 +189,9 @@ func (p *Parser) scanOneStmt() (sql string, tokens []sqlSymType, done bool) {
 			return p.scanner.In()[startPos:], tokens, true
 		}
 		preValID = lval.id
-		posBeforeScan := p.scanner.Pos()
-		p.scanner.Scan(&lval)
+		tokens = append(tokens, sqlSymType{})
+		lval = &tokens[len(tokens)-1]
+		p.scanner.Scan(lval)
 
 		if preValID == BEGIN && lval.id == ATOMIC {
 			curFuncBodyCnt++
@@ -174,10 +200,15 @@ func (p *Parser) scanOneStmt() (sql string, tokens []sqlSymType, done bool) {
 			curFuncBodyCnt--
 		}
 		if lval.id == 0 || (curFuncBodyCnt == 0 && lval.id == ';') {
-			return p.scanner.In()[startPos:posBeforeScan], tokens, (lval.id == 0)
+			endPos := p.scanner.Pos()
+			if lval.id == ';' {
+				// Don't include the ending semicolon, if there is one, in the raw SQL.
+				endPos--
+			}
+			tokens = tokens[:len(tokens)-1]
+			return p.scanner.In()[startPos:endPos], tokens, (lval.id == 0)
 		}
 		lval.pos -= startPos
-		tokens = append(tokens, lval)
 	}
 }
 
@@ -233,6 +264,7 @@ func (p *Parser) parse(
 	return Statement{
 		AST:             p.lexer.stmt,
 		SQL:             sql,
+		Comments:        p.scanner.Comments,
 		NumPlaceholders: p.lexer.numPlaceholders,
 		NumAnnotations:  p.lexer.numAnnotations,
 	}, nil
@@ -321,6 +353,35 @@ func ParseTableName(sql string) (*tree.UnresolvedObjectName, error) {
 	return rename.Name, nil
 }
 
+// ParseTablePattern parses a table pattern. The table name must contain one
+// or more name parts, using the full input SQL syntax: each name
+// part containing special characters, or non-lowercase characters,
+// must be enclosed in double quote. The name may not be an invalid
+// table name (the caller is responsible for guaranteeing that only
+// valid table names are provided as input).
+// The last part may be '*' to denote a wildcard.
+func ParseTablePattern(sql string) (tree.TablePattern, error) {
+	// We wrap the name we want to parse into a dummy statement since our parser
+	// can only parse full statements.
+	stmt, err := ParseOne(fmt.Sprintf("GRANT SELECT ON TABLE %s TO admin", sql))
+	if err != nil {
+		return nil, err
+	}
+	grant, ok := stmt.AST.(*tree.Grant)
+	if !ok {
+		return nil, errors.AssertionFailedf("expected a GRANT statement, but found %T", stmt)
+	}
+	if len(grant.Targets.Tables.TablePatterns) == 0 {
+		return nil, errors.AssertionFailedf("expected at least one pattern")
+	}
+	u := grant.Targets.Tables.TablePatterns[0]
+	un, ok := u.(*tree.UnresolvedName)
+	if !ok {
+		return nil, errors.AssertionFailedf("expected an unresolved name, but found %T", u)
+	}
+	return un.NormalizeTablePattern()
+}
+
 // parseExprsWithInt parses one or more sql expressions.
 func parseExprsWithInt(exprs []string, nakedIntType *types.T) (tree.Exprs, error) {
 	stmt, err := ParseOneWithInt(fmt.Sprintf("SET ROW (%s)", strings.Join(exprs, ",")), nakedIntType)
@@ -396,6 +457,19 @@ func GetTypeFromValidSQLSyntax(sql string) (tree.ResolvableTypeReference, error)
 	expr, err := ParseExpr(fmt.Sprintf("1::%s", sql))
 	if err != nil {
 		return nil, err
+	}
+	return GetTypeFromCastOrCollate(expr)
+}
+
+// GetTypeFromCastOrCollate returns the type of the given tree.Expr. The method
+// assumes that the expression is either tree.CastExpr or tree.CollateExpr
+// (which wraps the tree.CastExpr).
+func GetTypeFromCastOrCollate(expr tree.Expr) (tree.ResolvableTypeReference, error) {
+	// COLLATE clause has lower precedence than the cast, so if we have
+	// something like `1::STRING COLLATE en`, it'll be parsed as
+	// CollateExpr(CastExpr).
+	if collate, ok := expr.(*tree.CollateExpr); ok {
+		return types.MakeCollatedString(types.String, collate.Locale), nil
 	}
 
 	cast, ok := expr.(*tree.CastExpr)

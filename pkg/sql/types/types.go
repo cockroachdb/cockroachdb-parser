@@ -26,6 +26,7 @@ import (
 	"github.com/cockroachdb/cockroachdb-parser/pkg/util/errorutil/unimplemented"
 	"github.com/cockroachdb/cockroachdb-parser/pkg/util/protoutil"
 	"github.com/cockroachdb/errors"
+	"github.com/cockroachdb/redact"
 	"github.com/gogo/protobuf/proto"
 	"github.com/lib/pq/oid"
 )
@@ -195,8 +196,13 @@ type UserDefinedTypeMetadata struct {
 	// this version of the type metadata.
 	Version uint32
 
-	// enumData is non-nil iff the metadata is for an ENUM type.
+	// EnumData is non-nil iff the metadata is for an ENUM type.
 	EnumData *EnumMetadata
+
+	// ImplicitRecordType is true if the metadata is for an implicit record type
+	// for a table. Note: this can be deleted if we migrate implicit record types
+	// to ordinary persisted composite types.
+	ImplicitRecordType bool
 }
 
 // EnumMetadata is metadata about an ENUM needed for evaluation.
@@ -242,24 +248,7 @@ func (u UserDefinedTypeName) Basename() string {
 
 // FQName returns the fully qualified name.
 func (u UserDefinedTypeName) FQName() string {
-	var sb strings.Builder
-	// Even though cross-database type references are disabled, we still format
-	// the qualified name with the catalog. Consider the case where the current
-	// database is db1, and a statement like
-	// `CREATE VIEW db2.sc.v AS SELECT 'a'::db2.sc.typ`
-	// is executed. When parsing the inner view query, it's important to include
-	// the explicit catalog name, so the correct (non-cross-database) type is
-	// resolved.
-	if u.Catalog != "" {
-		sb.WriteString(u.Catalog)
-		sb.WriteString(".")
-	}
-	if u.ExplicitSchema {
-		sb.WriteString(u.Schema)
-		sb.WriteString(".")
-	}
-	sb.WriteString(u.Name)
-	return sb.String()
+	return FormatTypeName(u)
 }
 
 // Convenience list of pre-constructed types. Caller code can use any of these
@@ -490,6 +479,25 @@ var (
 		},
 	}
 
+	// TSQuery is the tsquery type, which represents a full text search query.
+	TSQuery = &T{
+		InternalType: InternalType{
+			Family: TSQueryFamily,
+			Oid:    oid.T_tsquery,
+			Locale: &emptyLocale,
+		},
+	}
+
+	// TSVector is the tsvector type which represents a document compressed in
+	// a form that a tsquery query can operate on.
+	TSVector = &T{
+		InternalType: InternalType{
+			Family: TSVectorFamily,
+			Oid:    oid.T_tsvector,
+			Locale: &emptyLocale,
+		},
+	}
+
 	// Scalar contains all types that meet this criteria:
 	//
 	//   1. Scalar type (no ArrayFamily or TupleFamily types).
@@ -626,9 +634,15 @@ var (
 	AnyEnumArray = &T{InternalType: InternalType{
 		Family: ArrayFamily, ArrayContents: AnyEnum, Oid: oid.T_anyarray, Locale: &emptyLocale}}
 
-	// JSONArray is the type of an array value having JSON-typed elements.
-	JSONArray = &T{InternalType: InternalType{
+	// JSONBArray is the type of an array value having JSONB-typed elements.
+	JSONBArray = &T{InternalType: InternalType{
 		Family: ArrayFamily, ArrayContents: Jsonb, Oid: oid.T__jsonb, Locale: &emptyLocale}}
+
+	// JSONArrayForDecodingOnly is the type of an array value having JSON-typed elements.
+	// Note that this struct can only used for decoding an input as we don't fully
+	// support the json array yet.
+	JSONArrayForDecodingOnly = &T{InternalType: InternalType{
+		Family: ArrayFamily, ArrayContents: Json, Oid: oid.T__json, Locale: &emptyLocale}}
 
 	// Int2Vector is a type-alias for an array of Int2 values with a different
 	// OID (T_int2vector instead of T__int2). It is a special VECTOR type used
@@ -1155,6 +1169,25 @@ func MakeLabeledTuple(contents []*T, labels []string) *T {
 	}}
 }
 
+// NewCompositeType constructs a new instance of a TupleFamily type with the
+// given field types and labels, and the given user-defined type OIDs.
+func NewCompositeType(typeOID, arrayTypeOID oid.Oid, contents []*T, labels []string) *T {
+	if len(contents) != len(labels) && labels != nil {
+		panic(errors.AssertionFailedf(
+			"tuple contents and labels must be of same length: %v, %v", contents, labels))
+	}
+	return &T{InternalType: InternalType{
+		Family:        TupleFamily,
+		Oid:           typeOID,
+		TupleContents: contents,
+		TupleLabels:   labels,
+		Locale:        &emptyLocale,
+		UDTMetadata: &PersistentUserDefinedTypeMetadata{
+			ArrayTypeOID: arrayTypeOID,
+		},
+	}}
+}
+
 // Family specifies a group of types that are compatible with one another. Types
 // in the same family can be compared, assigned, etc., but may differ from one
 // another in width, precision, locale, and other attributes. For example, it is
@@ -1323,11 +1356,15 @@ func (t *T) WithoutTypeModifiers() *T {
 
 	typ, ok := OidToType[t.Oid()]
 	if !ok {
+		// These special cases for json, json[] is here so we can
+		// support decoding parameters with oid=json/json[] without
+		// adding full support for these type.
+		// TODO(sql-exp): Remove this if we support JSON.
 		if t.Oid() == oid.T_json {
-			// This special case is here so we can support decoding parameters
-			// with oid=json without adding full support for the JSON type.
-			// TODO(sql-exp): Remove this if we support JSON.
 			return Jsonb
+		}
+		if t.Oid() == oid.T__json {
+			return JSONArrayForDecodingOnly
 		}
 		panic(errors.AssertionFailedf("unexpected OID: %d", t.Oid()))
 	}
@@ -1419,6 +1456,8 @@ var familyNames = map[Family]string{
 	TimestampFamily:      "timestamp",
 	TimestampTZFamily:    "timestamptz",
 	TimeTZFamily:         "timetz",
+	TSQueryFamily:        "tsquery",
+	TSVectorFamily:       "tsvector",
 	TupleFamily:          "tuple",
 	UnknownFamily:        "unknown",
 	UuidFamily:           "uuid",
@@ -1736,6 +1775,10 @@ func (t *T) SQLStandardNameWithTypmod(haveTypmod bool, typmod int) string {
 			return "timestamp with time zone"
 		}
 		return fmt.Sprintf("timestamp(%d) with time zone", typmod)
+	case TSQueryFamily:
+		return "tsquery"
+	case TSVectorFamily:
+		return "tsvector"
 	case TupleFamily:
 		if t.UserDefined() {
 			// If we have a user-defined tuple type, use its user-defined name.
@@ -1879,6 +1922,49 @@ func (t *T) SQLString() string {
 		return t.TypeMeta.Name.FQName()
 	}
 	return strings.ToUpper(t.Name())
+}
+
+// SQLStringForError returns a version of SQLString that will preserve safe
+// information during redaction. It is suitable for usage in error messages.
+func (t *T) SQLStringForError() redact.RedactableString {
+	if t.UserDefined() {
+		// Show the redacted SQLString output with an un-redacted prefix to indicate
+		// that the type is user defined (and possibly enum or record).
+		prefix := "TYPE"
+		switch t.Family() {
+		case EnumFamily:
+			prefix = "ENUM"
+		case TupleFamily:
+			prefix = "RECORD"
+		case ArrayFamily:
+			prefix = "ARRAY"
+		}
+		return redact.Sprintf("USER DEFINED %s: %s", redact.Safe(prefix), t.SQLString())
+	}
+	switch t.Family() {
+	case EnumFamily, TupleFamily, ArrayFamily:
+		// These types can be or can contain user-defined types, but the SQLString
+		// is safe when they are not user-defined. We filtered out the user-defined
+		// case above.
+		return redact.Sprint(redact.Safe(t.SQLString()))
+	case BoolFamily, IntFamily, FloatFamily, DecimalFamily, DateFamily, TimestampFamily,
+		IntervalFamily, StringFamily, BytesFamily, TimestampTZFamily, CollatedStringFamily, OidFamily,
+		UnknownFamily, UuidFamily, INetFamily, TimeFamily, JsonFamily, TimeTZFamily, BitFamily,
+		GeometryFamily, GeographyFamily, Box2DFamily, VoidFamily, EncodedKeyFamily, TSQueryFamily,
+		TSVectorFamily, AnyFamily:
+		// These types do not contain other types, and do not require redaction.
+		return redact.Sprint(redact.SafeString(t.SQLString()))
+	}
+	// Default to redaction for unhandled types.
+	return redact.Sprint(t.SQLString())
+}
+
+// FormatTypeName is an injected dependency from tree to properly format a
+// type name. The logic for proper formatting lives in the tree package.
+var FormatTypeName = fallbackFormatTypeName
+
+func fallbackFormatTypeName(UserDefinedTypeName) string {
+	return "formatting logic has not been injected from tree"
 }
 
 // Equivalent returns true if this type is "equivalent" to the given type.
@@ -2565,6 +2651,13 @@ func (t *T) EnumGetIdxOfLogical(logical string) (int, error) {
 	reps := t.TypeMeta.EnumData.LogicalRepresentations
 	for i := range reps {
 		if reps[i] == logical {
+			// If this enum member is read only, we cannot construct it from the
+			// logical representation. This is to ensure that it will not be
+			// written until all nodes in the cluster are able to decode the
+			// physical representation.
+			if t.TypeMeta.EnumData.IsMemberReadOnly[i] {
+				return 0, errors.Newf("enum value %q is not yet public", logical)
+			}
 			return i, nil
 		}
 	}
@@ -2594,6 +2687,10 @@ func IsStringType(t *T) bool {
 // the issue number should be included in the error report to inform the user.
 func IsValidArrayElementType(t *T) (valid bool, issueNum int) {
 	switch t.Family() {
+	case TSQueryFamily:
+		return false, 90886
+	case TSVectorFamily:
+		return false, 90886
 	default:
 		return true, 0
 	}
@@ -2648,6 +2745,13 @@ func IsAdditiveType(t *T) bool {
 // wildcard type matches a tuple type having any number of fields (including 0).
 func IsWildcardTupleType(t *T) bool {
 	return len(t.TupleContents()) == 1 && t.TupleContents()[0].Family() == AnyFamily
+}
+
+// IsRecordType returns true if this is a RECORD type. This should only be used
+// when processing UDFs. A record differs from AnyTuple in that the tuple
+// contents may contain types other than Any.
+func IsRecordType(typ *T) bool {
+	return typ.Family() == TupleFamily && typ.Oid() == oid.T_record
 }
 
 // collatedStringTypeSQL returns the string representation of a COLLATEDSTRING
@@ -2814,8 +2918,6 @@ var postgresPredefinedTypeIssues = map[string]int{
 	"money":         41578,
 	"path":          21286,
 	"pg_lsn":        -1,
-	"tsquery":       7821,
-	"tsvector":      7821,
 	"txid_snapshot": -1,
 	"xml":           43355,
 }

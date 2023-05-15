@@ -40,6 +40,9 @@ const SystemDatabaseName = "system"
 // SystemTableName is a type for system table names.
 type SystemTableName string
 
+// SystemTenantName is the tenant name of the system tenant.
+const SystemTenantName = "system"
+
 // Names of tables in the system database.
 const (
 	NamespaceTableName                     SystemTableName = "namespace"
@@ -48,6 +51,7 @@ const (
 	ZonesTableName                         SystemTableName = "zones"
 	SettingsTableName                      SystemTableName = "settings"
 	DescIDSequenceTableName                SystemTableName = "descriptor_id_seq"
+	TenantIDSequenceTableName              SystemTableName = "tenant_id_seq"
 	TenantsTableName                       SystemTableName = "tenants"
 	LeaseTableName                         SystemTableName = "lease"
 	EventLogTableName                      SystemTableName = "eventlog"
@@ -75,15 +79,24 @@ const (
 	JoinTokensTableName                    SystemTableName = "join_tokens"
 	StatementStatisticsTableName           SystemTableName = "statement_statistics"
 	TransactionStatisticsTableName         SystemTableName = "transaction_statistics"
+	StatementActivityTableName             SystemTableName = "statement_activity"
+	TransactionActivityTableName           SystemTableName = "transaction_activity"
 	DatabaseRoleSettingsTableName          SystemTableName = "database_role_settings"
 	TenantUsageTableName                   SystemTableName = "tenant_usage"
 	SQLInstancesTableName                  SystemTableName = "sql_instances"
 	SpanConfigurationsTableName            SystemTableName = "span_configurations"
+	TaskPayloadsTableName                  SystemTableName = "task_payloads"
 	TenantSettingsTableName                SystemTableName = "tenant_settings"
+	TenantTasksTableName                   SystemTableName = "tenant_tasks"
 	SpanCountTableName                     SystemTableName = "span_count"
 	SystemPrivilegeTableName               SystemTableName = "privileges"
 	SystemExternalConnectionsTableName     SystemTableName = "external_connections"
 	RoleIDSequenceName                     SystemTableName = "role_id_seq"
+	SystemJobInfoTableName                 SystemTableName = "job_info"
+	SpanStatsUniqueKeys                    SystemTableName = "span_stats_unique_keys"
+	SpanStatsBuckets                       SystemTableName = "span_stats_buckets"
+	SpanStatsSamples                       SystemTableName = "span_stats_samples"
+	SpanStatsTenantBoundaries              SystemTableName = "span_stats_tenant_boundaries"
 )
 
 // Oid for virtual database and table.
@@ -92,12 +105,18 @@ const (
 	CrdbInternalBackwardDependenciesTableID
 	CrdbInternalBuildInfoTableID
 	CrdbInternalBuiltinFunctionsTableID
+	CrdbInternalCatalogCommentsTableID
+	CrdbInternalCatalogDescriptorTableID
+	CrdbInternalCatalogNamespaceTableID
+	CrdbInternalCatalogZonesTableID
 	CrdbInternalClusterContendedIndexesViewID
 	CrdbInternalClusterContendedKeysViewID
 	CrdbInternalClusterContendedTablesViewID
 	CrdbInternalClusterContentionEventsTableID
 	CrdbInternalClusterDistSQLFlowsTableID
 	CrdbInternalClusterExecutionInsightsTableID
+	CrdbInternalClusterTxnExecutionInsightsTableID
+	CrdbInternalNodeTxnExecutionInsightsTableID
 	CrdbInternalClusterLocksTableID
 	CrdbInternalClusterQueriesTableID
 	CrdbInternalClusterTransactionsTableID
@@ -119,9 +138,11 @@ const (
 	CrdbInternalGossipNetworkTableID
 	CrdbInternalTransactionContentionEvents
 	CrdbInternalIndexColumnsTableID
+	CrdbInternalIndexSpansTableID
 	CrdbInternalIndexUsageStatisticsTableID
 	CrdbInternalInflightTraceSpanTableID
 	CrdbInternalJobsTableID
+	CrdbInternalSystemJobsTableID
 	CrdbInternalKVNodeStatusTableID
 	CrdbInternalKVStoreStatusTableID
 	CrdbInternalLeasesTableID
@@ -132,23 +153,30 @@ const (
 	CrdbInternalLocalTransactionsTableID
 	CrdbInternalLocalSessionsTableID
 	CrdbInternalLocalMetricsTableID
+	CrdbInternalNodeMemoryMonitorsTableID
 	CrdbInternalNodeStmtStatsTableID
 	CrdbInternalNodeTxnStatsTableID
 	CrdbInternalPartitionsTableID
-	CrdbInternalPredefinedCommentsTableID
 	CrdbInternalRangesNoLeasesTableID
 	CrdbInternalRangesViewID
 	CrdbInternalRuntimeInfoTableID
 	CrdbInternalSchemaChangesTableID
 	CrdbInternalSessionTraceTableID
 	CrdbInternalSessionVariablesTableID
+	CrdbInternalStmtActivityTableID
 	CrdbInternalStmtStatsTableID
+	CrdbInternalStmtStatsPersistedTableID
+	CrdbInternalStmtStatsPersistedV22_2TableID
 	CrdbInternalTableColumnsTableID
 	CrdbInternalTableIndexesTableID
+	CrdbInternalTableSpansTableID
 	CrdbInternalTablesTableID
 	CrdbInternalTablesTableLastStatsID
 	CrdbInternalTransactionStatsTableID
+	CrdbInternalTxnActivityTableID
 	CrdbInternalTxnStatsTableID
+	CrdbInternalTxnStatsPersistedTableID
+	CrdbInternalTxnStatsPersistedV22_2TableID
 	CrdbInternalZonesTableID
 	CrdbInternalInvalidDescriptorsTableID
 	CrdbInternalClusterDatabasePrivilegesTableID
@@ -161,6 +189,8 @@ const (
 	CrdbInternalTenantUsageDetailsViewID
 	CrdbInternalPgCatalogTableIsImplementedTableID
 	CrdbInternalSuperRegions
+	CrdbInternalDroppedRelationsViewID
+	CrdbInternalShowTenantCapabilitiesCacheTableID
 	InformationSchemaID
 	InformationSchemaAdministrableRoleAuthorizationsID
 	InformationSchemaApplicableRolesID
@@ -384,3 +414,22 @@ const (
 	PgExtensionSpatialRefSysTableID
 	MinVirtualID = PgExtensionSpatialRefSysTableID
 )
+
+// ConstraintType is used to identify the type of a constraint.
+type ConstraintType string
+
+const (
+	// ConstraintTypePK identifies a PRIMARY KEY constraint.
+	ConstraintTypePK ConstraintType = "PRIMARY KEY"
+	// ConstraintTypeFK identifies a FOREIGN KEY constraint.
+	ConstraintTypeFK ConstraintType = "FOREIGN KEY"
+	// ConstraintTypeUnique identifies a UNIQUE constraint.
+	ConstraintTypeUnique ConstraintType = "UNIQUE"
+	// ConstraintTypeCheck identifies a CHECK constraint.
+	ConstraintTypeCheck ConstraintType = "CHECK"
+	// ConstraintTypeUniqueWithoutIndex identifies a UNIQUE_WITHOUT_INDEX constraint.
+	ConstraintTypeUniqueWithoutIndex ConstraintType = "UNIQUE WITHOUT INDEX"
+)
+
+// SafeValue implements the redact.SafeValue interface.
+func (ConstraintType) SafeValue() {}

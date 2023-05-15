@@ -95,6 +95,8 @@ var OidToType = map[oid.Oid]*T{
 	oid.T_timetz:       TimeTZ,
 	oid.T_timestamp:    Timestamp,
 	oid.T_timestamptz:  TimestampTZ,
+	oid.T_tsquery:      TSQuery,
+	oid.T_tsvector:     TSVector,
 	oid.T_unknown:      Unknown,
 	oid.T_uuid:         Uuid,
 	oid.T_varbit:       VarBit,
@@ -140,6 +142,8 @@ var oidToArrayOid = map[oid.Oid]oid.Oid{
 	oid.T_timetz:       oid.T__timetz,
 	oid.T_timestamp:    oid.T__timestamp,
 	oid.T_timestamptz:  oid.T__timestamptz,
+	oid.T_tsquery:      oid.T__tsquery,
+	oid.T_tsvector:     oid.T__tsvector,
 	oid.T_uuid:         oid.T__uuid,
 	oid.T_varbit:       oid.T__varbit,
 	oid.T_varchar:      oid.T__varchar,
@@ -172,6 +176,8 @@ var familyToOid = map[Family]oid.Oid{
 	TimeFamily:           oid.T_time,
 	TimeTZFamily:         oid.T_timetz,
 	JsonFamily:           oid.T_jsonb,
+	TSQueryFamily:        oid.T_tsquery,
+	TSVectorFamily:       oid.T_tsvector,
 	TupleFamily:          oid.T_record,
 	BitFamily:            oid.T_bit,
 	AnyFamily:            oid.T_anyelement,
@@ -219,17 +225,24 @@ func CalcArrayOid(elemTyp *T) oid.Oid {
 
 	case TupleFamily:
 		if elemTyp.UserDefined() {
-			// We're currently not creating array types for implicitly-defined
-			// per-table record types. So, we cheat a little, and return, as the OID
-			// for an array of these things, the OID for a generic array of records.
-			return oid.T__record
+			if elemTyp.TypeMeta.ImplicitRecordType {
+				// We're currently not creating array types for implicitly-defined
+				// per-table record types. So, we cheat a little, and return, as the OID
+				// for an array of these things, the OID for a generic array of records.
+				return oid.T__record
+			}
+			return elemTyp.UserDefinedArrayOID()
 		}
 	}
 
 	// Map the OID of the array element type to the corresponding array OID.
 	// This should always be possible for all other OIDs (checked in oid.go
 	// init method).
-	o = oidToArrayOid[o]
+	if o == oid.T_json {
+		o = oid.T__json
+	} else {
+		o = oidToArrayOid[o]
+	}
 	if o == 0 {
 		panic(errors.AssertionFailedf("oid %d couldn't be mapped to array oid", o))
 	}

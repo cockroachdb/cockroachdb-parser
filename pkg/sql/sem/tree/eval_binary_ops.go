@@ -11,6 +11,8 @@
 package tree
 
 import (
+	"context"
+
 	"github.com/cockroachdb/cockroachdb-parser/pkg/sql/sem/tree/treecmp"
 	"github.com/cockroachdb/cockroachdb-parser/pkg/sql/types"
 )
@@ -43,11 +45,11 @@ type CompareAnyTupleOp CompareTupleOp
 
 // Eval suppresses an auto-generated binding and membership in the
 // OpEvaluator interface.
-func (t *CompareAnyTupleOp) Eval(e OpEvaluator, a, b Datum) (Datum, error) {
+func (t *CompareAnyTupleOp) Eval(ctx context.Context, e OpEvaluator, a, b Datum) (Datum, error) {
 	if a == DNull || b == DNull {
 		return MakeDBool(a == DNull && b == DNull), nil
 	}
-	return e.EvalCompareTupleOp((*CompareTupleOp)(t), a, b)
+	return e.EvalCompareTupleOp(ctx, (*CompareTupleOp)(t), a, b)
 }
 
 // MatchLikeOp is a BinaryEvalOp.
@@ -72,6 +74,12 @@ type OverlapsArrayOp struct{}
 
 // OverlapsINetOp is a BinaryEvalOp.
 type OverlapsINetOp struct{}
+
+// TSMatchesVectorQueryOp is a BinaryEvalOp.
+type TSMatchesVectorQueryOp struct{}
+
+// TSMatchesQueryVectorOp is a BinaryEvalOp.
+type TSMatchesQueryVectorOp struct{}
 
 // AppendToMaybeNullArrayOp is a BinaryEvalOp.
 type AppendToMaybeNullArrayOp struct {

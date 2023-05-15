@@ -62,6 +62,8 @@ type PrettyCfg struct {
 	// JSONFmt, when set, pretty-prints strings that are asserted or cast
 	// to JSON.
 	JSONFmt bool
+	// ValueRedaction, when set, surrounds literal values with redaction markers.
+	ValueRedaction bool
 }
 
 // DefaultPrettyCfg returns a PrettyCfg with the default
@@ -179,9 +181,16 @@ func (p *PrettyCfg) Doc(f NodeFormatter) pretty.Doc {
 }
 
 func (p *PrettyCfg) docAsString(f NodeFormatter) pretty.Doc {
-	const prettyFlags = FmtShowPasswords | FmtParsable
-	txt := AsStringWithFlags(f, prettyFlags)
+	txt := AsStringWithFlags(f, p.fmtFlags())
 	return pretty.Text(strings.TrimSpace(txt))
+}
+
+func (p *PrettyCfg) fmtFlags() FmtFlags {
+	prettyFlags := FmtShowPasswords | FmtParsable
+	if p.ValueRedaction {
+		prettyFlags |= FmtMarkRedactionNode | FmtOmitNameRedaction
+	}
+	return prettyFlags
 }
 
 func (p *PrettyCfg) nestUnder(a, b pretty.Doc) pretty.Doc {
@@ -653,11 +662,11 @@ func (node *With) docRow(p *PrettyCfg) pretty.TableRow {
 	d := make([]pretty.Doc, len(node.CTEList))
 	for i, cte := range node.CTEList {
 		asString := "AS"
-		if cte.Mtr.Set {
-			if !cte.Mtr.Materialize {
-				asString += " NOT"
-			}
+		switch cte.Mtr {
+		case CTEMaterializeAlways:
 			asString += " MATERIALIZED"
+		case CTEMaterializeNever:
+			asString += " NOT MATERIALIZED"
 		}
 		d[i] = p.nestUnder(
 			p.Doc(&cte.Name),
@@ -957,7 +966,7 @@ func (node *OnJoinCond) doc(p *PrettyCfg) pretty.Doc {
 }
 
 func (node *Insert) doc(p *PrettyCfg) pretty.Doc {
-	items := make([]pretty.TableRow, 0, 8)
+	items := make([]pretty.TableRow, 0, 9)
 	items = append(items, node.With.docRow(p))
 	kw := "INSERT"
 	if node.OnConflict.IsUpsertAlias() {
@@ -1007,14 +1016,14 @@ func (node *Insert) doc(p *PrettyCfg) pretty.Doc {
 
 func (node *NameList) doc(p *PrettyCfg) pretty.Doc {
 	d := make([]pretty.Doc, len(*node))
-	for i, n := range *node {
-		d[i] = p.Doc(&n)
+	for i := range *node {
+		d[i] = p.Doc(&(*node)[i])
 	}
 	return p.commaSeparated(d...)
 }
 
 func (node *CastExpr) doc(p *PrettyCfg) pretty.Doc {
-	typ := pretty.Text(node.Type.SQLString())
+	typ := p.formatType(node.Type)
 
 	switch node.SyntaxMode {
 	case CastPrepend:
@@ -1118,8 +1127,9 @@ func (node *Tuple) doc(p *PrettyCfg) pretty.Doc {
 	d := p.bracket("(", exprDoc, ")")
 	if len(node.Labels) > 0 {
 		labels := make([]pretty.Doc, len(node.Labels))
-		for i, n := range node.Labels {
-			labels[i] = p.Doc((*Name)(&n))
+		for i := range node.Labels {
+			n := &node.Labels[i]
+			labels[i] = p.Doc((*Name)(n))
 		}
 		d = p.bracket("(", pretty.Stack(
 			d,
@@ -1145,7 +1155,7 @@ func (p *PrettyCfg) exprDocWithParen(e Expr) pretty.Doc {
 }
 
 func (node *Update) doc(p *PrettyCfg) pretty.Doc {
-	items := make([]pretty.TableRow, 8)
+	items := make([]pretty.TableRow, 0, 8)
 	items = append(items,
 		node.With.docRow(p),
 		p.row("UPDATE", p.Doc(node.Table)),
@@ -1163,10 +1173,14 @@ func (node *Update) doc(p *PrettyCfg) pretty.Doc {
 }
 
 func (node *Delete) doc(p *PrettyCfg) pretty.Doc {
-	items := make([]pretty.TableRow, 6)
+	items := make([]pretty.TableRow, 0, 7)
 	items = append(items,
 		node.With.docRow(p),
-		p.row("DELETE FROM", p.Doc(node.Table)),
+		p.row("DELETE FROM", p.Doc(node.Table)))
+	if len(node.Using) > 0 {
+		items = append(items, p.row("USING", p.Doc(&node.Using)))
+	}
+	items = append(items,
 		node.Where.docRow(p),
 		node.OrderBy.docRow(p))
 	items = append(items, node.Limit.docTable(p)...)
@@ -1255,6 +1269,10 @@ func (node *CreateTable) doc(p *PrettyCfg) pretty.Doc {
 			title = pretty.ConcatSpace(title,
 				p.bracket("(", p.Doc(&node.Defs), ")"))
 		}
+		if node.StorageParams != nil {
+			title = pretty.ConcatSpace(title, pretty.Keyword("WITH"))
+			title = pretty.ConcatSpace(title, p.bracket(`(`, p.Doc(&node.StorageParams), `)`))
+		}
 		title = pretty.ConcatSpace(title, pretty.Keyword("AS"))
 	} else {
 		title = pretty.ConcatSpace(title,
@@ -1269,7 +1287,7 @@ func (node *CreateTable) doc(p *PrettyCfg) pretty.Doc {
 	if node.PartitionByTable != nil {
 		clauses = append(clauses, p.Doc(node.PartitionByTable))
 	}
-	if node.StorageParams != nil {
+	if node.StorageParams != nil && !node.As() {
 		clauses = append(
 			clauses,
 			pretty.ConcatSpace(
@@ -1612,7 +1630,7 @@ func (node *CreateIndex) doc(p *PrettyCfg) pretty.Doc {
 	//    [WHERE ...]
 	//    [NOT VISIBLE]
 	//
-	title := make([]pretty.Doc, 0, 6)
+	title := make([]pretty.Doc, 0, 7)
 	title = append(title, pretty.Keyword("CREATE"))
 	if node.Unique {
 		title = append(title, pretty.Keyword("UNIQUE"))
@@ -1631,7 +1649,7 @@ func (node *CreateIndex) doc(p *PrettyCfg) pretty.Doc {
 		title = append(title, p.Doc(&node.Name))
 	}
 
-	clauses := make([]pretty.Doc, 0, 5)
+	clauses := make([]pretty.Doc, 0, 7)
 	clauses = append(clauses, pretty.Fold(pretty.ConcatSpace,
 		pretty.Keyword("ON"),
 		p.Doc(&node.Table),
@@ -1711,7 +1729,7 @@ func (node *IndexTableDef) doc(p *PrettyCfg) pretty.Doc {
 	}
 	title = pretty.ConcatSpace(title, p.bracket("(", p.Doc(&node.Columns), ")"))
 
-	clauses := make([]pretty.Doc, 0, 4)
+	clauses := make([]pretty.Doc, 0, 6)
 	if node.Sharded != nil {
 		clauses = append(clauses, p.Doc(node.Sharded))
 	}
@@ -1762,7 +1780,7 @@ func (node *UniqueConstraintTableDef) doc(p *PrettyCfg) pretty.Doc {
 	//    [WHERE ...]
 	//    [NOT VISIBLE]
 	//
-	clauses := make([]pretty.Doc, 0, 5)
+	clauses := make([]pretty.Doc, 0, 6)
 	var title pretty.Doc
 	if node.PrimaryKey {
 		title = pretty.Keyword("PRIMARY KEY")
@@ -1876,13 +1894,18 @@ func (node *ColumnTableDef) docRow(p *PrettyCfg) pretty.TableRow {
 	//         [ACTIONS ...]
 	//   ]
 	//
-	clauses := make([]pretty.Doc, 0, 7)
+	clauses := make([]pretty.Doc, 0, 14)
 
 	// Column type.
 	// ColumnTableDef node type will not be specified if it represents a CREATE
 	// TABLE ... AS query.
 	if node.Type != nil {
-		clauses = append(clauses, pretty.Text(node.columnTypeString()))
+		clauses = append(clauses, func() pretty.Doc {
+			if name, replaced := node.replacedSerialTypeName(); replaced {
+				return pretty.Text(name)
+			}
+			return p.formatType(node.Type)
+		}())
 	}
 
 	// Compute expression (for computed columns).
@@ -2053,6 +2076,12 @@ func (node *ColumnTableDef) docRow(p *PrettyCfg) pretty.TableRow {
 	return tblRow
 }
 
+func (p *PrettyCfg) formatType(typ ResolvableTypeReference) pretty.Doc {
+	ctx := NewFmtCtx(p.fmtFlags())
+	ctx.FormatTypeReference(typ)
+	return pretty.Text(strings.TrimSpace(ctx.String()))
+}
+
 func (node *CheckConstraintTableDef) doc(p *PrettyCfg) pretty.Doc {
 	// Final layout:
 	//
@@ -2096,7 +2125,7 @@ func (node *ReferenceActions) doc(p *PrettyCfg) pretty.Doc {
 }
 
 func (node *Backup) doc(p *PrettyCfg) pretty.Doc {
-	items := make([]pretty.TableRow, 0, 6)
+	items := make([]pretty.TableRow, 0, 7)
 
 	items = append(items, p.row("BACKUP", pretty.Nil))
 	if node.Targets != nil {
@@ -2128,7 +2157,7 @@ func (node *Backup) doc(p *PrettyCfg) pretty.Doc {
 }
 
 func (node *Restore) doc(p *PrettyCfg) pretty.Doc {
-	items := make([]pretty.TableRow, 0, 5)
+	items := make([]pretty.TableRow, 0, 6)
 
 	items = append(items, p.row("RESTORE", pretty.Nil))
 	if node.DescriptorCoverage == RequestedDescriptors {
@@ -2243,7 +2272,7 @@ func (node *Import) doc(p *PrettyCfg) pretty.Doc {
 }
 
 func (node *Export) doc(p *PrettyCfg) pretty.Doc {
-	items := make([]pretty.TableRow, 0, 5)
+	items := make([]pretty.TableRow, 0, 4)
 	items = append(items, p.row("EXPORT", pretty.Nil))
 	items = append(items, p.row("INTO "+node.FileFormat, p.Doc(node.File)))
 	if node.Options != nil {
@@ -2322,7 +2351,7 @@ func (node *Prepare) docTable(p *PrettyCfg) []pretty.TableRow {
 	if len(node.Types) > 0 {
 		typs := make([]pretty.Doc, len(node.Types))
 		for i, t := range node.Types {
-			typs[i] = pretty.Text(t.SQLString())
+			typs[i] = p.formatType(t)
 		}
 		name = pretty.ConcatSpace(name,
 			p.bracket("(", p.commaSeparated(typs...), ")"),
@@ -2430,7 +2459,7 @@ func (p *PrettyCfg) jsonCast(sv *StrVal, op string, typ *types.T) pretty.Doc {
 	return pretty.Fold(pretty.Concat,
 		p.jsonString(sv.RawString()),
 		pretty.Text(op),
-		pretty.Text(typ.SQLString()),
+		p.formatType(typ),
 	)
 }
 

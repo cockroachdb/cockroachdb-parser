@@ -10,7 +10,7 @@
 
 syntax = "proto3";
 package cockroach.sql.sessiondatapb;
-option go_package = "sessiondatapb";
+option go_package = "github.com/cockroachdb/cockroach/pkg/sql/sessiondatapb";
 
 import "gogoproto/gogo.proto";
 
@@ -203,6 +203,9 @@ message LocalOnlySessionData {
   // InjectRetryErrorsEnabled causes statements inside an explicit
   // transaction to return a transaction retry error. It is intended for
   // developers to test their app's retry logic.
+  //
+  // Note that this session variable is **not** propagated to the internal
+  // executors - use InternalExecutorOverride for that.
   bool inject_retry_errors_enabled = 54;
   // NullOrderedLast controls whether NULL is ordered last. We default to
   // NULLS FIRST for ascending order by default, whereas postgres defaults
@@ -219,6 +222,8 @@ message LocalOnlySessionData {
   // AvoidBuffering indicates that the returned data should not be
   // buffered by conn executor.  This is currently used by replication primitives
   // to ensure the data is flushed to the consumer immediately.
+  //
+  // Does not apply to the InternalExecutor.
   bool avoid_buffering = 59;
   // CheckFunctionBodies indicates whether functions are validated during
   // creation.
@@ -295,6 +300,83 @@ message LocalOnlySessionData {
   // be allowed to consider lookup joins with inequality conditions, in
   // addition to the other restrictions on when they are planned.
   bool variable_inequality_lookup_join_enabled = 80;
+  // TransactionSessionTimeout is the duration a transaction is permitted to
+  // run before the transaction is canceled. If set to 0, there is no timeout.
+  int64 transaction_timeout = 81 [(gogoproto.casttype) = "time.Duration"];
+  // SystemIdentityProto is the original name of the client presented to pgwire
+  // before it was mapped to a SQL identifier.
+  string system_identity_proto = 82 [(gogoproto.casttype) = "github.com/cockroachdb/cockroach/pkg/security/username.SQLUsernameProto"];
+  // DescriptorValidationMode indicates whether to validate the descriptors at
+  // read and write time, at read time only, or never.
+  int64 descriptor_validation_mode = 83 [(gogoproto.casttype) = "DescriptorValidationMode"];
+  // ExperimentalHashGroupJoinEnabled indicates whether the physical planner
+  // will attempt to convert a hash join followed by a hash aggregator into a
+  // single hash group-join operation. At the moment, there is no optimizer
+  // support for this, so some things can be incorrect (e.g. EXPLAIN plans).
+  bool experimental_hash_group_join_enabled = 84;
+  // AllowOrdinalColumnReferences indicates whether the deprecated ordinal
+  // column reference syntax (e.g., `SELECT @1 FROM t`) is allowed.
+  bool allow_ordinal_column_references = 85;
+  // OptimizerUseImprovedDisjunctionStats, when true, indicates that the
+  // optimizer should use improved statistics calculations for disjunctive
+  // filters.
+  bool optimizer_use_improved_disjunction_stats = 86;
+  // OptimizerUseLimitOrderingForStreamingGroupBy enables the exploration rule
+  // which optimizes 'SELECT ... GROUP BY ... ORDER BY ... LIMIT n' queries.
+  // The rule uses the required ordering in the limit expression to inform an
+  // interesting ordering to require from the input to the group-by expression.
+  // This can potentially eliminate a top-k operation.
+  bool optimizer_use_limit_ordering_for_streaming_group_by = 88;
+  // CopyFromRetriesEnabled controls whether retries should be internally
+  // attempted for retriable errors.
+  bool copy_from_retries_enabled = 89;
+  // DeclareCursorStatementTimeoutEnabled controls whether statement timeouts
+  // apply during DECLARE CURSOR.
+  bool declare_cursor_statement_timeout_enabled = 90;
+  // OptimizerUseImprovedSplitDisjunctionForJoins enables the optimizer to split
+  // disjunctions (OR expressions) in more cases in join conditions by building a
+  // UNION of two join expressions. If this setting is true, all disjunctions in
+  // inner, semi, and anti joins will be split. If false, only disjunctions
+  // potentially containing an equijoin condition will be split.
+  bool optimizer_use_improved_split_disjunction_for_joins = 91;
+  // InjectRetryErrorsOnCommitEnabled causes statements inside an explicit
+  // transaction to return a transaction retry error just before transcation commit.
+  // It is intended for developers to test their app's retry logic.
+  bool inject_retry_errors_on_commit_enabled = 92;
+  // EnforceHomeRegionFollowerReadsEnabled, when true, allows the use of
+  // follower reads to dynamically detect and report a query's home region
+  // when the enforce_home_region session setting is also true.
+  bool enforce_home_region_follower_reads_enabled = 93;
+  // OptimizerAlwaysUseHistograms, when true, ensures that the optimizer
+  // always uses histograms to calculate statistics if available.
+  bool optimizer_always_use_histograms = 94;
+  // EnableCreateStatsUsingExtremes, when true, allows the use of CREATE
+  // STATISTICS .. USING EXTREMES.
+  bool enable_create_stats_using_extremes = 95;
+  // AllowRoleMembershipsToChangeDuringTransaction, when true, means that
+  // operations which consult the role membership cache do not retain their
+  // lease on that version of the cache throughout the transaction. The
+  // consequence of this is that the transaction may not experience a singular
+  // view of role membership, and it may be able to commit after the revocation
+  // of a role membership which the transaction relied on has successfully been
+  // committed and acknowledged to the user.
+  bool allow_role_memberships_to_change_during_transaction = 96;
+  // PreparedStatementsCacheSize, when not equal to 0, causes the LRU prepared
+  // statements in a session to be automatically deallocated when total prepared
+  // statement memory usage for that session is more than the cache size.
+  // Execution of these deallocated prepared statements will fail until they are
+  // prepared again.
+  int64 prepared_statements_cache_size = 97;
+  // StreamerEnabled controls whether the Streamer API can be used.
+  bool streamer_enabled = 98;
+  // DisableDropTenant causes errors when the client
+  // attempts to drop tenants or tenant records.
+  bool disable_drop_tenant = 99;
+  // MultipleActivePortalEnabled determines if the pgwire portal execution
+  // for certain queries can be paused. If true, portals with read-only SELECT
+  // query without sub/post queries can be executed in interleaving manner, but
+  // with a local execution plan.
+  bool multiple_active_portals_enabled = 100;
 
   ///////////////////////////////////////////////////////////////////////////
   // WARNING: consider whether a session parameter you're adding needs to  //
