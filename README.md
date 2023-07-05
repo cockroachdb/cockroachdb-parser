@@ -1,6 +1,7 @@
 # cockroachdb-parser
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/cockroachdb/cockroachdb-parser.svg)](https://pkg.go.dev/github.com/cockroachdb/cockroachdb-parser)
+[![Go](https://github.com/cockroachdb/cockroachdb-parser/actions/workflows/go.yml/badge.svg)](https://github.com/cockroachdb/cockroachdb-parser/actions/workflows/go.yml)
 
 `cockroachdb-parser` is a snapshot of the parser package and
 all its dependencies from the [CockroachDB repo][repo]. The
