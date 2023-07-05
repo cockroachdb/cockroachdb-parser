@@ -1,9 +1,13 @@
 # cockroachdb-parser
 
+[![Go Reference](https://pkg.go.dev/badge/github.com/cockroachdb/cockroachdb-parser.svg)](https://pkg.go.dev/github.com/cockroachdb/cockroachdb-parser)
+
 `cockroachdb-parser` is a snapshot of the parser package and
 all its dependencies from the [CockroachDB repo][repo]. The
 smaller package is Apache licensed and contains less dependencies
 to pull in when configuring compared to `go get github.com/cockroachdb/cockroach`.
+
+A README of usage of the parser library can be found [here][parserreadme].
 
 The SHA this is based off is available in `version`.
 
@@ -46,3 +50,4 @@ Ensure the [CockroachDB repo][repo] is cloned in your $GOPATH, and then type:
 ```
 
 [repo]: https://github.com/cockroachdb/cockroach
+[parserreadme]: pkg/sql/parser/README.md
