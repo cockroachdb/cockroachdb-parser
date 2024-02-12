@@ -19,6 +19,7 @@ import (
 
 	"github.com/cockroachdb/apd/v3"
 	"github.com/cockroachdb/cockroachdb-parser/pkg/sql/inverted"
+	"github.com/cockroachdb/cockroachdb-parser/pkg/util/encoding"
 	"github.com/cockroachdb/cockroachdb-parser/pkg/util/syncutil"
 	"github.com/cockroachdb/errors"
 )
@@ -583,9 +584,41 @@ func (j *jsonEncoded) AsBool() (bool, bool) {
 	return decoded.AsBool()
 }
 
-func (j *jsonEncoded) Compare(other JSON) (int, error) {
+func (j *jsonEncoded) AsArray() ([]JSON, bool) {
+	if dec := j.alreadyDecoded(); dec != nil {
+		return dec.AsArray()
+	}
+	decoded, err := j.decode()
+	if err != nil {
+		return nil, false
+	}
+	return decoded.AsArray()
+}
+
+func (j *jsonEncoded) AreKeysSorted() bool {
+	if dec := j.alreadyDecoded(); dec != nil {
+		return dec.AreKeysSorted()
+	}
+	decoded, err := j.decode()
+	if err != nil {
+		return false
+	}
+	return decoded.AreKeysSorted()
+}
+
+func (j *jsonEncoded) Compare(other JSON) (_ int, err error) {
 	if other == nil {
 		return -1, nil
+	}
+	// We must first check for the special case of empty arrays, which are the
+	// minimum JSON value.
+	switch {
+	case isEmptyArray(j) && isEmptyArray(other):
+		return 0, nil
+	case isEmptyArray(j):
+		return -1, nil
+	case isEmptyArray(other):
+		return 1, nil
 	}
 	if cmp := cmpJSONTypes(j.Type(), other.Type()); cmp != 0 {
 		return cmp, nil
@@ -737,6 +770,15 @@ func (j *jsonEncoded) Len() int {
 		return 0
 	}
 	return j.containerLen
+}
+
+// EncodeForwardIndex implements the JSON interface.
+func (j *jsonEncoded) EncodeForwardIndex(buf []byte, dir encoding.Direction) ([]byte, error) {
+	decoded, err := j.decode()
+	if err != nil {
+		return nil, err
+	}
+	return decoded.EncodeForwardIndex(buf, dir)
 }
 
 // EncodeInvertedIndexKeys implements the JSON interface.

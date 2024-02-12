@@ -13,6 +13,7 @@ package tree
 import (
 	"context"
 
+	"github.com/cockroachdb/cockroachdb-parser/pkg/sql/pgwire/pgcode"
 	"github.com/cockroachdb/cockroachdb-parser/pkg/sql/types"
 )
 
@@ -32,7 +33,7 @@ type RoutinePlanGenerator func(
 type RoutinePlanGeneratedFunc func(plan RoutinePlan, isFinalPlan bool) error
 
 // RoutinePlan represents a plan for a statement in a routine. It currently maps
-// to exec.Plan. We use the empty interface here rather then exec.Plan to avoid
+// to exec.Plan. We use the empty interface here rather than exec.Plan to avoid
 // import cycles.
 type RoutinePlan interface{}
 
@@ -105,6 +106,30 @@ type RoutineExpr struct {
 	// Strict non-set-returning routines are not invoked when their arguments
 	// are NULL because optbuilder wraps them in a CASE expressions.
 	CalledOnNullInput bool
+
+	// MultiColOutput is true if the function may return multiple columns.
+	MultiColOutput bool
+
+	// Generator is true if the function may output a set of rows.
+	Generator bool
+
+	// TailCall is true if the routine is in a tail-call position in a parent
+	// routine. This means that once execution reaches this routine, the parent
+	// routine will return the result of evaluating this routine with no further
+	// changes. For routines in a tail-call position we implement an optimization
+	// to avoid nesting execution. This is necessary for performant PLpgSQL loops.
+	TailCall bool
+
+	// Procedure is true if the routine is a procedure being invoked by CALL.
+	Procedure bool
+
+	// BlockState holds the information needed to coordinate error-handling
+	// between the sub-routines that make up a PLpgSQL exception block.
+	BlockState *BlockState
+
+	// CursorDeclaration contains the information needed to open a SQL cursor with
+	// the result of the *first* body statement. It may be unset.
+	CursorDeclaration *RoutineOpenCursor
 }
 
 // NewTypedRoutineExpr returns a new RoutineExpr that is well-typed.
@@ -115,6 +140,12 @@ func NewTypedRoutineExpr(
 	typ *types.T,
 	enableStepping bool,
 	calledOnNullInput bool,
+	multiColOutput bool,
+	generator bool,
+	tailCall bool,
+	procedure bool,
+	blockState *BlockState,
+	cursorDeclaration *RoutineOpenCursor,
 ) *RoutineExpr {
 	return &RoutineExpr{
 		Args:              args,
@@ -123,6 +154,12 @@ func NewTypedRoutineExpr(
 		EnableStepping:    enableStepping,
 		Name:              name,
 		CalledOnNullInput: calledOnNullInput,
+		MultiColOutput:    multiColOutput,
+		Generator:         generator,
+		TailCall:          tailCall,
+		Procedure:         procedure,
+		BlockState:        blockState,
+		CursorDeclaration: cursorDeclaration,
 	}
 }
 
@@ -149,4 +186,51 @@ func (node *RoutineExpr) Format(ctx *FmtCtx) {
 func (node *RoutineExpr) Walk(v Visitor) Expr {
 	// Cannot walk into a routine, so this is a no-op.
 	return node
+}
+
+// RoutineExceptionHandler encapsulates the information needed to match and
+// handle errors for the exception block of a routine defined with PLpgSQL.
+type RoutineExceptionHandler struct {
+	// Codes is a list of pgcode strings used to match exceptions. Note that as a
+	// special case, the code may be "OTHERS", which matches most error codes.
+	Codes []pgcode.Code
+
+	// Actions contains a routine to handle each error code.
+	Actions []*RoutineExpr
+}
+
+// RoutineOpenCursor stores the information needed to correctly open a cursor
+// with the output of a routine.
+type RoutineOpenCursor struct {
+	// NameArgIdx is the index of the routine argument that contains the name of
+	// the cursor that will be created.
+	NameArgIdx int
+
+	// Scroll is the scroll option for the cursor, if one was specified. The other
+	// cursor options are not valid in PLpgSQL.
+	Scroll CursorScrollOption
+
+	// CursorSQL is a formatted string used to associate the original SQL
+	// statement with the cursor.
+	CursorSQL string
+}
+
+// BlockState is shared state between all routines that make up a PLpgSQL block.
+// It allows for coordination between the routines for exception handling.
+type BlockState struct {
+	// ExceptionHandler is the exception handler for the current block, if any.
+	ExceptionHandler *RoutineExceptionHandler
+
+	// SavepointTok allows the exception handler to roll-back changes to database
+	// state if an error occurs during its execution. It currently maps to
+	// kv.SavepointToken. We use the empty interface here rather than
+	// kv.SavepointToken to avoid import cycles.
+	SavepointTok interface{}
+
+	// Cursors is a list of the names of cursors that have been opened within the
+	// current block. If the exception handler catches an exception, these cursors
+	// must be closed before the handler can proceed.
+	// TODO(111139): Once we support nested routine calls, we may have to track
+	// newly opened cursors differently.
+	Cursors []Name
 }

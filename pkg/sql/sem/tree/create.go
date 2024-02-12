@@ -32,6 +32,7 @@ import (
 	"github.com/cockroachdb/cockroachdb-parser/pkg/util/collatedstring"
 	"github.com/cockroachdb/cockroachdb-parser/pkg/util/pretty"
 	"github.com/cockroachdb/errors"
+	"github.com/cockroachdb/redact"
 	"golang.org/x/text/language"
 )
 
@@ -227,6 +228,11 @@ func (l *IndexElemList) doc(p *PrettyCfg) pretty.Doc {
 	return p.commaSeparated(d...)
 }
 
+type IndexInvisibility struct {
+	Value         float64
+	FloatProvided bool
+}
+
 // CreateIndex represents a CREATE INDEX statement.
 type CreateIndex struct {
 	Name        Name
@@ -243,7 +249,7 @@ type CreateIndex struct {
 	StorageParams    StorageParams
 	Predicate        Expr
 	Concurrently     bool
-	NotVisible       bool
+	Invisibility     IndexInvisibility
 }
 
 // Format implements the NodeFormatter interface.
@@ -295,7 +301,10 @@ func (node *CreateIndex) Format(ctx *FmtCtx) {
 		ctx.WriteString(" WHERE ")
 		ctx.FormatNode(node.Predicate)
 	}
-	if node.NotVisible {
+	switch {
+	case node.Invisibility.FloatProvided:
+		ctx.WriteString(" VISIBILITY " + fmt.Sprintf("%.2f", 1-node.Invisibility.Value))
+	case node.Invisibility.Value == 1.0:
 		ctx.WriteString(" NOT VISIBLE")
 	}
 }
@@ -328,6 +337,10 @@ func (n *EnumValue) Format(ctx *FmtCtx) {
 	f := ctx.flags
 	if f.HasFlags(FmtAnonymize) {
 		ctx.WriteByte('_')
+	} else if f.HasFlags(FmtMarkRedactionNode) {
+		ctx.WriteString(string(redact.StartMarker()))
+		lexbase.EncodeSQLString(&ctx.Buffer, string(*n))
+		ctx.WriteString(string(redact.EndMarker()))
 	} else {
 		lexbase.EncodeSQLString(&ctx.Buffer, string(*n))
 	}
@@ -463,9 +476,12 @@ const (
 // ColumnTableDef represents a column definition within a CREATE TABLE
 // statement.
 type ColumnTableDef struct {
-	Name              Name
-	Type              ResolvableTypeReference
-	IsSerial          bool
+	Name     Name
+	Type     ResolvableTypeReference
+	IsSerial bool
+	// IsCreateAs is set to true if the Type is resolved after parsing.
+	// CREATE AS statements must not display column types during formatting.
+	IsCreateAs        bool
 	GeneratedIdentity struct {
 		IsGeneratedAsIdentity   bool
 		GeneratedAsIdentityType GeneratedIdentityType
@@ -745,7 +761,7 @@ func (node *ColumnTableDef) Format(ctx *FmtCtx) {
 
 	// ColumnTableDef node type will not be specified if it represents a CREATE
 	// TABLE ... AS query.
-	if node.Type != nil {
+	if !node.IsCreateAs && node.Type != nil {
 		ctx.WriteByte(' ')
 		node.formatColumnType(ctx)
 	}
@@ -1023,7 +1039,7 @@ type IndexTableDef struct {
 	PartitionByIndex *PartitionByIndex
 	StorageParams    StorageParams
 	Predicate        Expr
-	NotVisible       bool
+	Invisibility     IndexInvisibility
 }
 
 // Format implements the NodeFormatter interface.
@@ -1059,7 +1075,10 @@ func (node *IndexTableDef) Format(ctx *FmtCtx) {
 		ctx.WriteString(" WHERE ")
 		ctx.FormatNode(node.Predicate)
 	}
-	if node.NotVisible {
+	switch {
+	case node.Invisibility.FloatProvided:
+		ctx.WriteString(" VISIBILITY " + fmt.Sprintf("%.2f", 1-node.Invisibility.Value))
+	case node.Invisibility.Value == 1.0:
 		ctx.WriteString(" NOT VISIBLE")
 	}
 }
@@ -1139,8 +1158,16 @@ func (node *UniqueConstraintTableDef) Format(ctx *FmtCtx) {
 		ctx.WriteString(" WHERE ")
 		ctx.FormatNode(node.Predicate)
 	}
-	if node.NotVisible {
+	switch {
+	case node.Invisibility.FloatProvided:
+		ctx.WriteString(" VISIBILITY " + fmt.Sprintf("%.2f", 1-node.Invisibility.Value))
+	case node.Invisibility.Value == 1.0:
 		ctx.WriteString(" NOT VISIBLE")
+	}
+	if node.StorageParams != nil {
+		ctx.WriteString(" WITH (")
+		ctx.FormatNode(&node.StorageParams)
+		ctx.WriteString(")")
 	}
 }
 
@@ -2154,7 +2181,7 @@ func (node *CreateExternalConnection) Format(ctx *FmtCtx) {
 	ctx.FormatNode(node.As)
 }
 
-// CreateTenant represents a CREATE TENANT statement.
+// CreateTenant represents a CREATE VIRTUAL CLUSTER statement.
 type CreateTenant struct {
 	IfNotExists bool
 	TenantSpec  *TenantSpec
@@ -2163,7 +2190,7 @@ type CreateTenant struct {
 
 // Format implements the NodeFormatter interface.
 func (node *CreateTenant) Format(ctx *FmtCtx) {
-	ctx.WriteString("CREATE TENANT ")
+	ctx.WriteString("CREATE VIRTUAL CLUSTER ")
 	if node.IfNotExists {
 		ctx.WriteString("IF NOT EXISTS ")
 	}
@@ -2171,7 +2198,7 @@ func (node *CreateTenant) Format(ctx *FmtCtx) {
 	ctx.FormatNode(node.Like)
 }
 
-// LikeTenantSpec represents a LIKE clause in CREATE TENANT.
+// LikeTenantSpec represents a LIKE clause in CREATE VIRTUAL CLUSTER.
 type LikeTenantSpec struct {
 	OtherTenant *TenantSpec
 }
@@ -2184,7 +2211,7 @@ func (node *LikeTenantSpec) Format(ctx *FmtCtx) {
 	ctx.FormatNode(node.OtherTenant)
 }
 
-// CreateTenantFromReplication represents a CREATE TENANT...FROM REPLICATION
+// CreateTenantFromReplication represents a CREATE VIRTUAL CLUSTER...FROM REPLICATION
 // statement.
 type CreateTenantFromReplication struct {
 	IfNotExists bool
@@ -2206,16 +2233,17 @@ type CreateTenantFromReplication struct {
 	Like *LikeTenantSpec
 }
 
-// TenantReplicationOptions  options for the CREATE TENANT FROM REPLICATION command.
+// TenantReplicationOptions  options for the CREATE VIRTUAL CLUSTER FROM REPLICATION command.
 type TenantReplicationOptions struct {
-	Retention Expr
+	Retention       Expr
+	ResumeTimestamp Expr
 }
 
 var _ NodeFormatter = &TenantReplicationOptions{}
 
 // Format implements the NodeFormatter interface.
 func (node *CreateTenantFromReplication) Format(ctx *FmtCtx) {
-	ctx.WriteString("CREATE TENANT ")
+	ctx.WriteString("CREATE VIRTUAL CLUSTER ")
 	if node.IfNotExists {
 		ctx.WriteString("IF NOT EXISTS ")
 	}
@@ -2228,7 +2256,15 @@ func (node *CreateTenantFromReplication) Format(ctx *FmtCtx) {
 		ctx.WriteString(" FROM REPLICATION OF ")
 		ctx.FormatNode(node.ReplicationSourceTenantName)
 		ctx.WriteString(" ON ")
+		_, canOmitParentheses := node.ReplicationSourceAddress.(alreadyDelimitedAsSyntacticDExpr)
+		if !canOmitParentheses {
+			ctx.WriteByte('(')
+		}
 		ctx.FormatNode(node.ReplicationSourceAddress)
+		if !canOmitParentheses {
+			ctx.WriteByte(')')
+		}
+
 	}
 	if !node.Options.IsDefault() {
 		ctx.WriteString(" WITH ")
@@ -2238,9 +2274,36 @@ func (node *CreateTenantFromReplication) Format(ctx *FmtCtx) {
 
 // Format implements the NodeFormatter interface
 func (o *TenantReplicationOptions) Format(ctx *FmtCtx) {
+	var addSep bool
+	maybeAddSep := func() {
+		if addSep {
+			ctx.WriteString(", ")
+		}
+		addSep = true
+	}
 	if o.Retention != nil {
+		maybeAddSep()
 		ctx.WriteString("RETENTION = ")
+		_, canOmitParentheses := o.Retention.(alreadyDelimitedAsSyntacticDExpr)
+		if !canOmitParentheses {
+			ctx.WriteByte('(')
+		}
 		ctx.FormatNode(o.Retention)
+		if !canOmitParentheses {
+			ctx.WriteByte(')')
+		}
+	}
+	if o.ResumeTimestamp != nil {
+		maybeAddSep()
+		ctx.WriteString("RESUME TIMESTAMP = ")
+		_, canOmitParentheses := o.ResumeTimestamp.(alreadyDelimitedAsSyntacticDExpr)
+		if !canOmitParentheses {
+			ctx.WriteByte('(')
+		}
+		ctx.FormatNode(o.ResumeTimestamp)
+		if !canOmitParentheses {
+			ctx.WriteByte(')')
+		}
 	}
 }
 
@@ -2254,13 +2317,23 @@ func (o *TenantReplicationOptions) CombineWith(other *TenantReplicationOptions) 
 	} else {
 		o.Retention = other.Retention
 	}
+
+	if o.ResumeTimestamp != nil {
+		if other.ResumeTimestamp != nil {
+			return errors.New("RESUME TIMESTAMP option specified multiple times")
+		}
+	} else {
+		o.ResumeTimestamp = other.ResumeTimestamp
+	}
+
 	return nil
 }
 
 // IsDefault returns true if this backup options struct has default value.
 func (o TenantReplicationOptions) IsDefault() bool {
 	options := TenantReplicationOptions{}
-	return o.Retention == options.Retention
+	return o.Retention == options.Retention &&
+		o.ResumeTimestamp == options.ResumeTimestamp
 }
 
 type SuperRegion struct {

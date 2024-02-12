@@ -14,28 +14,47 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/cockroachdb/cockroachdb-parser/pkg/kv/kvserver/concurrency/isolation"
 	"github.com/cockroachdb/cockroachdb-parser/pkg/sql/pgwire/pgcode"
 	"github.com/cockroachdb/cockroachdb-parser/pkg/sql/pgwire/pgerror"
+	"github.com/cockroachdb/redact"
 )
 
 // IsolationLevel holds the isolation level for a transaction.
 type IsolationLevel int
 
+var _ redact.SafeValue = IsolationLevel(0)
+
+// SafeValue makes Kind a redact.SafeValue.
+func (k IsolationLevel) SafeValue() {}
+
 // IsolationLevel values
 const (
 	UnspecifiedIsolation IsolationLevel = iota
+	ReadUncommittedIsolation
+	ReadCommittedIsolation
+	RepeatableReadIsolation
+	SnapshotIsolation
 	SerializableIsolation
 )
 
 var isolationLevelNames = [...]string{
-	UnspecifiedIsolation:  "UNSPECIFIED",
-	SerializableIsolation: "SERIALIZABLE",
+	UnspecifiedIsolation:     "UNSPECIFIED",
+	ReadUncommittedIsolation: "READ UNCOMMITTED",
+	ReadCommittedIsolation:   "READ COMMITTED",
+	RepeatableReadIsolation:  "REPEATABLE READ",
+	SnapshotIsolation:        "SNAPSHOT",
+	SerializableIsolation:    "SERIALIZABLE",
 }
 
 // IsolationLevelMap is a map from string isolation level name to isolation
 // level, in the lowercase format that set isolation_level supports.
 var IsolationLevelMap = map[string]IsolationLevel{
-	"serializable": SerializableIsolation,
+	"read uncommitted": ReadUncommittedIsolation,
+	"read committed":   ReadCommittedIsolation,
+	"repeatable read":  RepeatableReadIsolation,
+	"snapshot":         SnapshotIsolation,
+	"serializable":     SerializableIsolation,
 }
 
 func (i IsolationLevel) String() string {
@@ -43,6 +62,24 @@ func (i IsolationLevel) String() string {
 		return fmt.Sprintf("IsolationLevel(%d)", i)
 	}
 	return isolationLevelNames[i]
+}
+
+// IsolationLevelFromKVTxnIsolationLevel converts a kv level isolation.Level to
+// its SQL semantic equivalent.
+func IsolationLevelFromKVTxnIsolationLevel(level isolation.Level) IsolationLevel {
+	var ret IsolationLevel
+	switch level {
+	case isolation.Serializable:
+		ret = SerializableIsolation
+	case isolation.ReadCommitted:
+		ret = ReadCommittedIsolation
+	case isolation.Snapshot:
+		ret = SnapshotIsolation
+	default:
+		panic("What to do here? Log is a banned import")
+		// log.Fatalf(context.Background(), "unknown isolation level: %s", level)
+	}
+	return ret
 }
 
 // UserPriority holds the user priority for a transaction.
@@ -221,12 +258,20 @@ func (node *TransactionModes) Merge(other TransactionModes) error {
 
 // BeginTransaction represents a BEGIN statement
 type BeginTransaction struct {
-	Modes TransactionModes
+	// FormatWithStart says whether this statement must be formatted with
+	// "START" rather than "BEGIN". This is needed if this statement is in a
+	// BEGIN ATOMIC block of a procedure or function.
+	FormatWithStart bool
+	Modes           TransactionModes
 }
 
 // Format implements the NodeFormatter interface.
 func (node *BeginTransaction) Format(ctx *FmtCtx) {
-	ctx.WriteString("BEGIN TRANSACTION")
+	if node.FormatWithStart {
+		ctx.WriteString("START TRANSACTION")
+	} else {
+		ctx.WriteString("BEGIN TRANSACTION")
+	}
 	ctx.FormatNode(&node.Modes)
 }
 

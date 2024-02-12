@@ -40,22 +40,22 @@ func NewLockedSource(seed int64) rand.Source {
 
 func (rng *lockedSource) Int63() (n int64) {
 	rng.mu.Lock()
+	defer rng.mu.Unlock()
 	n = rng.src.Int63()
-	rng.mu.Unlock()
 	return
 }
 
 func (rng *lockedSource) Uint64() (n uint64) {
 	rng.mu.Lock()
+	defer rng.mu.Unlock()
 	n = rng.src.Uint64()
-	rng.mu.Unlock()
 	return
 }
 
 func (rng *lockedSource) Seed(seed int64) {
 	rng.mu.Lock()
+	defer rng.mu.Unlock()
 	rng.src.Seed(seed)
-	rng.mu.Unlock()
 }
 
 // globalSeed contains a pseudo random seed that should only be used in tests.
@@ -96,6 +96,12 @@ func NewPseudoSeed() int64 {
 func NewPseudoRand() (*rand.Rand, int64) {
 	seed := envutil.EnvOrDefaultInt64("COCKROACH_RANDOM_SEED", NewPseudoSeed())
 	return rand.New(rand.NewSource(seed)), seed
+}
+
+// Same as NewPseudoRand, but the returned Rand is using thread safe underlying source.
+func NewLockedPseudoRand() (*rand.Rand, int64) {
+	seed := envutil.EnvOrDefaultInt64("COCKROACH_RANDOM_SEED", NewPseudoSeed())
+	return rand.New(NewLockedSource(seed)), seed
 }
 
 // NewTestRand returns an instance of math/rand.Rand seeded from rng, which is
@@ -239,6 +245,7 @@ func RandString(rng *rand.Rand, length int, alphabet string) string {
 // value used. This function should be called from TestMain; individual tests
 // should not touch the seed of the global random number generator.
 func SeedForTests() {
+	//lint:ignore SA1019 deprecated
 	rand.Seed(globalSeed)
 	log.Printf("random seed: %v", globalSeed)
 }
