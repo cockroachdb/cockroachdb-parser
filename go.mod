@@ -1,8 +1,6 @@
 module github.com/cockroachdb/cockroachdb-parser
 
-go 1.21.1
-
-toolchain go1.21.3
+go 1.21
 
 require (
 	github.com/bazelbuild/rules_go v0.46.0
