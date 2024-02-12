@@ -38,6 +38,7 @@ sed -i.bak -e 's/compilerVersion/compilerVersionParser/g' pkg/build/*.go
 cp -R $COCKROACHDB_LOC/pkg/geo/geoprojbase/data $LOC/pkg/geo/geoprojbase/data
 # delete gitignores
 rm pkg/sql/lexbase/.gitignore pkg/sql/parser/.gitignore
+rm pkg/sql/plpgsql/parser/.gitignore pkg/sql/plpgsql/parser/lexbase/.gitignore
 # delete tests and testfiles
 find pkg -type f -name '*_test.go' | xargs rm
 # sed replace any instances of cockroachdb

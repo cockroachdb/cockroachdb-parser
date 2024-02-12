@@ -192,12 +192,12 @@ type UserDefinedTypeMetadata struct {
 	// Name is the resolved name of this type.
 	Name *UserDefinedTypeName
 
+	// EnumData is non-nil iff the metadata is for an ENUM type.
+	EnumData *EnumMetadata
+
 	// Version is the descriptor version of the descriptor used to construct
 	// this version of the type metadata.
 	Version uint32
-
-	// EnumData is non-nil iff the metadata is for an ENUM type.
-	EnumData *EnumMetadata
 
 	// ImplicitRecordType is true if the metadata is for an implicit record type
 	// for a table. Note: this can be deleted if we migrate implicit record types
@@ -458,6 +458,15 @@ var (
 		},
 	}
 
+	// PGLSN is the type representing a PostgreSQL LSN object.
+	PGLSN = &T{
+		InternalType: InternalType{
+			Family: PGLSNFamily,
+			Oid:    oid.T_pg_lsn,
+			Locale: &emptyLocale,
+		},
+	}
+
 	// Void is the type representing void.
 	Void = &T{
 		InternalType: InternalType{
@@ -498,6 +507,16 @@ var (
 		},
 	}
 
+	// RefCursor is the type for a variable representing the name of a cursor in a
+	// PLpgSQL routine. The underlying value is a string.
+	RefCursor = &T{
+		InternalType: InternalType{
+			Family: RefCursorFamily,
+			Oid:    oid.T_refcursor,
+			Locale: &emptyLocale,
+		},
+	}
+
 	// Scalar contains all types that meet this criteria:
 	//
 	//   1. Scalar type (no ArrayFamily or TupleFamily types).
@@ -521,6 +540,8 @@ var (
 		Oid,
 		Uuid,
 		INet,
+		PGLSN,
+		RefCursor,
 		Time,
 		TimeTZ,
 		Jsonb,
@@ -598,9 +619,17 @@ var (
 	UUIDArray = &T{InternalType: InternalType{
 		Family: ArrayFamily, ArrayContents: Uuid, Oid: oid.T__uuid, Locale: &emptyLocale}}
 
-	// TimeArray is the type of an array value having Date-typed elements.
+	// DateArray is the type of an array value having Date-typed elements.
 	DateArray = &T{InternalType: InternalType{
 		Family: ArrayFamily, ArrayContents: Date, Oid: oid.T__date, Locale: &emptyLocale}}
+
+	// PGLSNArray is the type of an array value having PGLSN-typed elements.
+	PGLSNArray = &T{InternalType: InternalType{
+		Family: ArrayFamily, ArrayContents: PGLSN, Oid: oid.T__pg_lsn, Locale: &emptyLocale}}
+
+	// RefCursorArray is the type of an array value having REFCURSOR-typed elements.
+	RefCursorArray = &T{InternalType: InternalType{
+		Family: ArrayFamily, ArrayContents: RefCursor, Oid: oid.T__refcursor, Locale: &emptyLocale}}
 
 	// TimeArray is the type of an array value having Time-typed elements.
 	TimeArray = &T{InternalType: InternalType{
@@ -1299,6 +1328,12 @@ func (t *T) TypeModifier() int32 {
 		if width := t.Width(); width != 0 {
 			return width
 		}
+	case TimestampFamily, TimestampTZFamily, TimeFamily, TimeTZFamily, IntervalFamily:
+		// For timestamp the precision is the type modifier value.
+		if !t.InternalType.TimePrecisionIsSet {
+			return -1
+		}
+		return t.Precision()
 	case DecimalFamily:
 		// attTypMod is calculated by putting the precision in the upper
 		// bits and the scale in the lower bits of a 32-bit int, and adding
@@ -1432,7 +1467,7 @@ func IsOIDUserDefinedType(o oid.Oid) bool {
 	return catid.IsOIDUserDefined(o)
 }
 
-var familyNames = map[Family]string{
+var familyNames = map[Family]redact.SafeString{
 	AnyFamily:            "any",
 	ArrayFamily:          "array",
 	BitFamily:            "bit",
@@ -1451,6 +1486,8 @@ var familyNames = map[Family]string{
 	IntervalFamily:       "interval",
 	JsonFamily:           "jsonb",
 	OidFamily:            "oid",
+	PGLSNFamily:          "pg_lsn",
+	RefCursorFamily:      "refcursor",
 	StringFamily:         "string",
 	TimeFamily:           "time",
 	TimestampFamily:      "timestamp",
@@ -1469,7 +1506,7 @@ var familyNames = map[Family]string{
 //
 // TODO(radu): investigate whether anything breaks if we use
 // enumvalue_customname and use String() instead.
-func (f Family) Name() string {
+func (f Family) Name() redact.SafeString {
 	ret, ok := familyNames[f]
 	if !ok {
 		panic(errors.AssertionFailedf("unexpected Family: %d", f))
@@ -1558,7 +1595,7 @@ func (t *T) Name() string {
 		return t.TypeMeta.Name.Basename()
 
 	default:
-		return fam.Name()
+		return string(fam.Name())
 	}
 }
 
@@ -1632,7 +1669,14 @@ func (t *T) SQLStandardNameWithTypmod(haveTypmod bool, typmod int) string {
 		case oid.T_int2vector:
 			return "int2vector"
 		}
-		return t.ArrayContents().SQLStandardName() + "[]"
+		// If we have a typemod specified then pass it down when
+		// formatting the array type.
+		if !haveTypmod {
+			return t.ArrayContents().SQLStandardName() + "[]"
+		} else {
+			ac := t.ArrayContents()
+			return ac.SQLStandardNameWithTypmod(haveTypmod, typmod) + "[]"
+		}
 	case BitFamily:
 		if t.Oid() == oid.T_varbit {
 			buf.WriteString("bit varying")
@@ -1692,10 +1736,10 @@ func (t *T) SQLStandardNameWithTypmod(haveTypmod bool, typmod int) string {
 			panic(errors.AssertionFailedf("programming error: unknown int width: %d", t.Width()))
 		}
 	case IntervalFamily:
-		// TODO(jordan): intervals can have typmods, but we don't support them in the same way.
-		// Masking is used to extract the precision (src/include/utils/timestamp.h), whereas
-		// we store it as `IntervalDurationField`.
-		return "interval"
+		if !haveTypmod || typmod < 0 {
+			return "interval"
+		}
+		return fmt.Sprintf("interval(%d)", typmod)
 	case JsonFamily:
 		// Only binary JSON is currently supported.
 		return "jsonb"
@@ -1718,6 +1762,10 @@ func (t *T) SQLStandardNameWithTypmod(haveTypmod bool, typmod int) string {
 		default:
 			panic(errors.AssertionFailedf("unexpected Oid: %v", errors.Safe(t.Oid())))
 		}
+	case PGLSNFamily:
+		return "pg_lsn"
+	case RefCursorFamily:
+		return "refcursor"
 	case StringFamily, CollatedStringFamily:
 		switch t.Oid() {
 		case oid.T_text:
@@ -1927,6 +1975,9 @@ func (t *T) SQLString() string {
 // SQLStringForError returns a version of SQLString that will preserve safe
 // information during redaction. It is suitable for usage in error messages.
 func (t *T) SQLStringForError() redact.RedactableString {
+	if t == nil {
+		return "<nil>"
+	}
 	if t.UserDefined() {
 		// Show the redacted SQLString output with an un-redacted prefix to indicate
 		// that the type is user defined (and possibly enum or record).
@@ -1951,7 +2002,7 @@ func (t *T) SQLStringForError() redact.RedactableString {
 		IntervalFamily, StringFamily, BytesFamily, TimestampTZFamily, CollatedStringFamily, OidFamily,
 		UnknownFamily, UuidFamily, INetFamily, TimeFamily, JsonFamily, TimeTZFamily, BitFamily,
 		GeometryFamily, GeographyFamily, Box2DFamily, VoidFamily, EncodedKeyFamily, TSQueryFamily,
-		TSVectorFamily, AnyFamily:
+		TSVectorFamily, AnyFamily, PGLSNFamily, RefCursorFamily:
 		// These types do not contain other types, and do not require redaction.
 		return redact.Sprint(redact.SafeString(t.SQLString()))
 	}
@@ -2138,7 +2189,7 @@ func (t *InternalType) Identical(other *InternalType) bool {
 		return false
 	}
 	if t.Locale != nil && other.Locale != nil {
-		if *t.Locale != *other.Locale {
+		if !lex.LocaleNamesAreEqual(*t.Locale, *other.Locale) {
 			return false
 		}
 	} else if t.Locale != nil {
@@ -2917,7 +2968,6 @@ var postgresPredefinedTypeIssues = map[string]int{
 	"macaddr8":      45813,
 	"money":         41578,
 	"path":          21286,
-	"pg_lsn":        -1,
 	"txid_snapshot": -1,
 	"xml":           43355,
 }

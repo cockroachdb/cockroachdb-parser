@@ -760,6 +760,9 @@ func (expr *DInterval) Walk(_ Visitor) Expr { return expr }
 func (expr *DBox2D) Walk(_ Visitor) Expr { return expr }
 
 // Walk implements the Expr interface.
+func (expr *DPGLSN) Walk(_ Visitor) Expr { return expr }
+
+// Walk implements the Expr interface.
 func (expr *DGeography) Walk(_ Visitor) Expr { return expr }
 
 // Walk implements the Expr interface.
@@ -1038,6 +1041,16 @@ func (n *AlterTenantReplication) walkStmt(v Visitor) Statement {
 			ret.Options.Retention = e
 		}
 	}
+	if n.Options.ResumeTimestamp != nil {
+		e, changed := WalkExpr(v, n.Options.ResumeTimestamp)
+		if changed {
+			if ret == n {
+				ret = n.copyNode()
+			}
+			ret.Options.ResumeTimestamp = e
+		}
+	}
+
 	return ret
 }
 
@@ -1101,6 +1114,16 @@ func (n *CreateTenantFromReplication) walkStmt(v Visitor) Statement {
 			ret.Options.Retention = e
 		}
 	}
+	if n.Options.ResumeTimestamp != nil {
+		e, changed := WalkExpr(v, n.Options.ResumeTimestamp)
+		if changed {
+			if ret == n {
+				ret = n.copyNode()
+			}
+			ret.Options.ResumeTimestamp = e
+		}
+	}
+
 	if n.Like.OtherTenant != nil {
 		ts, changed := walkTenantSpec(v, n.TenantSpec)
 		if changed {
@@ -1260,6 +1283,16 @@ func (stmt *Backup) walkStmt(v Visitor) Statement {
 				ret = stmt.copyNode()
 			}
 			ret.Options.IncludeAllSecondaryTenants = include
+		}
+	}
+
+	if stmt.Options.ExecutionLocality != nil {
+		rh, changed := WalkExpr(v, stmt.Options.ExecutionLocality)
+		if changed {
+			if ret == stmt {
+				ret = stmt.copyNode()
+			}
+			ret.Options.ExecutionLocality = rh
 		}
 	}
 
@@ -1541,6 +1574,16 @@ func (stmt *Restore) walkStmt(v Visitor) Statement {
 		}
 	}
 
+	if stmt.Options.ExecutionLocality != nil {
+		include, changed := WalkExpr(v, stmt.Options.ExecutionLocality)
+		if changed {
+			if ret == stmt {
+				ret = stmt.copyNode()
+			}
+			ret.Options.ExecutionLocality = include
+		}
+	}
+
 	return ret
 }
 
@@ -1588,6 +1631,16 @@ func (stmt *Select) copyNode() *Select {
 		}
 	}
 	return &stmtCopy
+}
+
+func (n *CopyTo) walkStmt(v Visitor) Statement {
+	if newStmt, changed := walkStmt(v, n.Statement); changed {
+		// Make a copy of the CopyTo statement.
+		stmtCopy := *n
+		ret := &(stmtCopy)
+		ret.Statement = newStmt
+	}
+	return n
 }
 
 // walkStmt is part of the walkableStmt interface.

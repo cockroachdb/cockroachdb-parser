@@ -30,6 +30,7 @@ import (
 	"github.com/cockroachdb/cockroachdb-parser/pkg/sql/inverted"
 	"github.com/cockroachdb/cockroachdb-parser/pkg/sql/pgwire/pgcode"
 	"github.com/cockroachdb/cockroachdb-parser/pkg/sql/pgwire/pgerror"
+	"github.com/cockroachdb/cockroachdb-parser/pkg/util/buildutil"
 	"github.com/cockroachdb/cockroachdb-parser/pkg/util/encoding"
 	"github.com/cockroachdb/cockroachdb-parser/pkg/util/intsets"
 	uniq "github.com/cockroachdb/cockroachdb-parser/pkg/util/unique"
@@ -73,8 +74,8 @@ func (t Type) String() string {
 const (
 	wordSize          = unsafe.Sizeof(big.Word(0))
 	decimalSize       = unsafe.Sizeof(apd.Decimal{})
-	stringHeaderSize  = unsafe.Sizeof(reflect.StringHeader{})
-	sliceHeaderSize   = unsafe.Sizeof(reflect.SliceHeader{})
+	stringHeaderSize  = unsafe.Sizeof(reflect.StringHeader{}) //lint:ignore SA1019 deprecated, but no clear replacement
+	sliceHeaderSize   = unsafe.Sizeof(reflect.SliceHeader{})  //lint:ignore SA1019 deprecated, but no clear replacement
 	keyValuePairSize  = unsafe.Sizeof(jsonKeyValuePair{})
 	jsonInterfaceSize = unsafe.Sizeof((JSON)(nil))
 )
@@ -94,6 +95,11 @@ type JSON interface {
 	Format(buf *bytes.Buffer)
 	// Size returns the size of the JSON document in bytes.
 	Size() uintptr
+
+	// EncodeForwardIndex implements forward indexing for JSONB values.
+	// The encoding depends on the direction of the encoding
+	// specified, using `dir`, and is appended to `buf` and returned.
+	EncodeForwardIndex(buf []byte, dir encoding.Direction) ([]byte, error)
 
 	// encodeInvertedIndexKeys takes in a key prefix and returns a slice of
 	// inverted index keys, one per path through the receiver.
@@ -181,6 +187,15 @@ type JSON interface {
 	// AsBool returns the JSON document as a boolean if it is a boolean type,
 	// and a boolean indicating if this JSON value is a bool type.
 	AsBool() (bool, bool)
+
+	// AsArray returns the JSON document as an Array if it is a array type,
+	// and a boolean indicating if this JSON value is a array type.
+	AsArray() ([]JSON, bool)
+
+	// AreKeysSorted returns if the keys in a JSON Object are sorted by
+	// increasing order. It returns false if the underlying JSON value
+	// is not a JSON object.
+	AreKeysSorted() bool
 
 	// Exists implements the `?` operator: does the string exist as a top-level
 	// key within the JSON value?
@@ -564,9 +579,29 @@ func cmpJSONTypes(a Type, b Type) int {
 	return 0
 }
 
-func (j jsonNull) Compare(other JSON) (int, error)  { return cmpJSONTypes(j.Type(), other.Type()), nil }
-func (j jsonFalse) Compare(other JSON) (int, error) { return cmpJSONTypes(j.Type(), other.Type()), nil }
-func (j jsonTrue) Compare(other JSON) (int, error)  { return cmpJSONTypes(j.Type(), other.Type()), nil }
+// isEmptyArray returns true if j is a JSON array with length 0.
+func isEmptyArray(j JSON) bool {
+	return j.Type() == ArrayJSONType && j.Len() == 0
+}
+
+func (j jsonNull) Compare(other JSON) (int, error) {
+	if isEmptyArray(other) {
+		return 1, nil
+	}
+	return cmpJSONTypes(j.Type(), other.Type()), nil
+}
+func (j jsonFalse) Compare(other JSON) (int, error) {
+	if isEmptyArray(other) {
+		return 1, nil
+	}
+	return cmpJSONTypes(j.Type(), other.Type()), nil
+}
+func (j jsonTrue) Compare(other JSON) (int, error) {
+	if isEmptyArray(other) {
+		return 1, nil
+	}
+	return cmpJSONTypes(j.Type(), other.Type()), nil
+}
 
 func decodeIfNeeded(j JSON) (JSON, error) {
 	if enc, ok := j.(*jsonEncoded); ok {
@@ -580,6 +615,9 @@ func decodeIfNeeded(j JSON) (JSON, error) {
 }
 
 func (j jsonNumber) Compare(other JSON) (int, error) {
+	if isEmptyArray(other) {
+		return 1, nil
+	}
 	cmp := cmpJSONTypes(j.Type(), other.Type())
 	if cmp != 0 {
 		return cmp, nil
@@ -594,6 +632,9 @@ func (j jsonNumber) Compare(other JSON) (int, error) {
 }
 
 func (j jsonString) Compare(other JSON) (int, error) {
+	if isEmptyArray(other) {
+		return 1, nil
+	}
 	cmp := cmpJSONTypes(j.Type(), other.Type())
 	if cmp != 0 {
 		return cmp, nil
@@ -614,6 +655,14 @@ func (j jsonString) Compare(other JSON) (int, error) {
 }
 
 func (j jsonArray) Compare(other JSON) (int, error) {
+	switch {
+	case isEmptyArray(j) && isEmptyArray(other):
+		return 0, nil
+	case isEmptyArray(j):
+		return -1, nil
+	case isEmptyArray(other):
+		return 1, nil
+	}
 	cmp := cmpJSONTypes(j.Type(), other.Type())
 	if cmp != 0 {
 		return cmp, nil
@@ -645,6 +694,8 @@ func (j jsonArray) Compare(other JSON) (int, error) {
 }
 
 func (j jsonObject) Compare(other JSON) (int, error) {
+	// NOTE: There is no need to check if other is an empty array because all
+	// arrays are less than all objects, so the type comparison is sufficient.
 	cmp := cmpJSONTypes(j.Type(), other.Type())
 	if cmp != 0 {
 		return cmp, nil
@@ -846,6 +897,66 @@ func (j jsonObject) Size() uintptr {
 		valSize += elem.v.Size()
 	}
 	return valSize
+}
+
+func (j jsonNull) AsArray() ([]JSON, bool) {
+	return nil, false
+}
+
+func (j jsonString) AsArray() ([]JSON, bool) {
+	return nil, false
+}
+
+func (j jsonFalse) AsArray() ([]JSON, bool) {
+	return nil, false
+}
+
+func (j jsonTrue) AsArray() ([]JSON, bool) {
+	return nil, false
+}
+
+func (j jsonObject) AsArray() ([]JSON, bool) {
+	return nil, false
+}
+
+func (j jsonArray) AsArray() ([]JSON, bool) {
+	return j, true
+}
+
+func (j jsonNumber) AsArray() ([]JSON, bool) {
+	return nil, false
+}
+
+func (j jsonNull) AreKeysSorted() bool {
+	return false
+}
+
+func (j jsonString) AreKeysSorted() bool {
+	return false
+}
+
+func (j jsonFalse) AreKeysSorted() bool {
+	return false
+}
+
+func (j jsonTrue) AreKeysSorted() bool {
+	return false
+}
+
+func (j jsonNumber) AreKeysSorted() bool {
+	return false
+}
+
+func (j jsonArray) AreKeysSorted() bool {
+	return false
+}
+
+func (j jsonObject) AreKeysSorted() bool {
+	keys := make([]string, 0, j.Len())
+	for _, a := range j {
+		keys = append(keys, a.k.String())
+	}
+	return sort.StringsAreSorted(keys)
 }
 
 // parseJSONGoStd parses json using encoding/json library.
@@ -1855,6 +1966,91 @@ func (j jsonObject) FetchValKey(key string) (JSON, error) {
 		return j[i].v, nil
 	}
 	return nil, nil
+}
+
+func (j jsonNull) EncodeForwardIndex(buf []byte, dir encoding.Direction) ([]byte, error) {
+	buf = encoding.EncodeJSONNullKeyMarker(buf, dir)
+	return buf, nil
+}
+
+func (j jsonString) EncodeForwardIndex(buf []byte, dir encoding.Direction) ([]byte, error) {
+	buf = encoding.EncodeJSONStringKeyMarker(buf, dir)
+
+	switch dir {
+	case encoding.Ascending:
+		buf = encoding.EncodeStringAscending(buf, string(j))
+	case encoding.Descending:
+		buf = encoding.EncodeStringDescending(buf, string(j))
+	default:
+		return nil, errors.AssertionFailedf("invalid direction")
+	}
+	buf = encoding.EncodeJSONKeyTerminator(buf, dir)
+	return buf, nil
+}
+
+func (j jsonNumber) EncodeForwardIndex(buf []byte, dir encoding.Direction) ([]byte, error) {
+	buf = encoding.EncodeJSONNumberKeyMarker(buf, dir)
+	var dec = apd.Decimal(j)
+	switch dir {
+	case encoding.Ascending:
+		buf = encoding.EncodeDecimalAscending(buf, &dec)
+	case encoding.Descending:
+		buf = encoding.EncodeDecimalDescending(buf, &dec)
+	default:
+		return nil, errors.AssertionFailedf("invalid direction")
+	}
+	buf = encoding.EncodeJSONKeyTerminator(buf, dir)
+	return buf, nil
+}
+
+func (j jsonFalse) EncodeForwardIndex(buf []byte, dir encoding.Direction) ([]byte, error) {
+	buf = encoding.EncodeJSONFalseKeyMarker(buf, dir)
+	return buf, nil
+}
+
+func (j jsonTrue) EncodeForwardIndex(buf []byte, dir encoding.Direction) ([]byte, error) {
+	buf = encoding.EncodeJSONTrueKeyMarker(buf, dir)
+	return buf, nil
+}
+
+func (j jsonArray) EncodeForwardIndex(buf []byte, dir encoding.Direction) ([]byte, error) {
+	buf = encoding.EncodeJSONArrayKeyMarker(buf, dir, int64(len(j)))
+	buf = encoding.EncodeJSONValueLength(buf, dir, int64(len(j)))
+
+	var err error
+	for _, a := range j {
+		buf, err = a.EncodeForwardIndex(buf, dir)
+		if err != nil {
+			return nil, err
+		}
+	}
+	buf = encoding.EncodeJSONKeyTerminator(buf, dir)
+	return buf, nil
+}
+
+func (j jsonObject) EncodeForwardIndex(buf []byte, dir encoding.Direction) ([]byte, error) {
+	buf = encoding.EncodeJSONObjectKeyMarker(buf, dir)
+	buf = encoding.EncodeJSONValueLength(buf, dir, int64(len(j)))
+
+	if buildutil.CrdbTestBuild {
+		if ordered := j.AreKeysSorted(); !ordered {
+			return nil, errors.AssertionFailedf("unexpectedly unordered keys in jsonObject %s", j)
+		}
+	}
+
+	var err error
+	for _, a := range j {
+		buf, err = a.k.EncodeForwardIndex(buf, dir)
+		if err != nil {
+			return nil, err
+		}
+		buf, err = a.v.EncodeForwardIndex(buf, dir)
+		if err != nil {
+			return nil, err
+		}
+	}
+	buf = encoding.EncodeJSONKeyTerminator(buf, dir)
+	return buf, nil
 }
 
 func (jsonNull) FetchValKey(string) (JSON, error)   { return nil, nil }

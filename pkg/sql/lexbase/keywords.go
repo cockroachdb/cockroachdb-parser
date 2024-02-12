@@ -34,6 +34,7 @@ var KeywordsCategories = map[string]string{
 "backup": "U",
 "backups": "U",
 "backward": "U",
+"batch": "U",
 "before": "U",
 "begin": "U",
 "between": "C",
@@ -47,6 +48,7 @@ var KeywordsCategories = map[string]string{
 "bundle": "U",
 "by": "U",
 "cache": "U",
+"call": "U",
 "called": "U",
 "cancel": "U",
 "cancelquery": "U",
@@ -63,6 +65,7 @@ var KeywordsCategories = map[string]string{
 "check_files": "U",
 "close": "U",
 "cluster": "U",
+"clusters": "U",
 "coalesce": "C",
 "collate": "R",
 "collation": "T",
@@ -202,6 +205,7 @@ var KeywordsCategories = map[string]string{
 "global": "U",
 "goal": "U",
 "grant": "R",
+"grantee": "U",
 "grants": "U",
 "greatest": "C",
 "group": "R",
@@ -226,6 +230,7 @@ var KeywordsCategories = map[string]string{
 "in": "R",
 "include": "U",
 "include_all_secondary_tenants": "U",
+"include_all_virtual_clusters": "U",
 "including": "U",
 "increment": "U",
 "incremental": "U",
@@ -334,6 +339,7 @@ var KeywordsCategories = map[string]string{
 "nomodifyclustersetting": "U",
 "none": "T",
 "nonvoters": "U",
+"noreplication": "U",
 "normal": "U",
 "nosqllogin": "U",
 "not": "R",
@@ -403,6 +409,8 @@ var KeywordsCategories = map[string]string{
 "prior": "U",
 "priority": "U",
 "privileges": "U",
+"procedure": "U",
+"procedures": "U",
 "public": "U",
 "publication": "U",
 "queries": "U",
@@ -427,6 +435,7 @@ var KeywordsCategories = map[string]string{
 "relative": "U",
 "release": "U",
 "relocate": "U",
+"remove_regions": "U",
 "rename": "U",
 "repeatable": "U",
 "replace": "U",
@@ -487,6 +496,7 @@ var KeywordsCategories = map[string]string{
 "show": "U",
 "similar": "T",
 "simple": "U",
+"size": "U",
 "skip": "U",
 "skip_localities_check": "U",
 "skip_missing_foreign_keys": "U",
@@ -571,6 +581,7 @@ var KeywordsCategories = map[string]string{
 "unsplit": "U",
 "until": "U",
 "update": "U",
+"updates_cluster_monitoring_metrics": "U",
 "upsert": "U",
 "use": "U",
 "user": "R",
@@ -592,6 +603,9 @@ var KeywordsCategories = map[string]string{
 "viewclustersetting": "U",
 "viewdebug": "U",
 "virtual": "C",
+"virtual_cluster": "U",
+"virtual_cluster_name": "U",
+"visibility": "U",
 "visible": "U",
 "volatile": "U",
 "voters": "U",
@@ -641,6 +655,7 @@ var KeywordNames = []string{
 "backup",
 "backups",
 "backward",
+"batch",
 "before",
 "begin",
 "between",
@@ -654,6 +669,7 @@ var KeywordNames = []string{
 "bundle",
 "by",
 "cache",
+"call",
 "called",
 "cancel",
 "cancelquery",
@@ -670,6 +686,7 @@ var KeywordNames = []string{
 "check_files",
 "close",
 "cluster",
+"clusters",
 "coalesce",
 "collate",
 "collation",
@@ -809,6 +826,7 @@ var KeywordNames = []string{
 "global",
 "goal",
 "grant",
+"grantee",
 "grants",
 "greatest",
 "group",
@@ -833,6 +851,7 @@ var KeywordNames = []string{
 "in",
 "include",
 "include_all_secondary_tenants",
+"include_all_virtual_clusters",
 "including",
 "increment",
 "incremental",
@@ -941,6 +960,7 @@ var KeywordNames = []string{
 "nomodifyclustersetting",
 "none",
 "nonvoters",
+"noreplication",
 "normal",
 "nosqllogin",
 "not",
@@ -1010,6 +1030,8 @@ var KeywordNames = []string{
 "prior",
 "priority",
 "privileges",
+"procedure",
+"procedures",
 "public",
 "publication",
 "queries",
@@ -1034,6 +1056,7 @@ var KeywordNames = []string{
 "relative",
 "release",
 "relocate",
+"remove_regions",
 "rename",
 "repeatable",
 "replace",
@@ -1094,6 +1117,7 @@ var KeywordNames = []string{
 "show",
 "similar",
 "simple",
+"size",
 "skip",
 "skip_localities_check",
 "skip_missing_foreign_keys",
@@ -1178,6 +1202,7 @@ var KeywordNames = []string{
 "unsplit",
 "until",
 "update",
+"updates_cluster_monitoring_metrics",
 "upsert",
 "use",
 "user",
@@ -1199,6 +1224,9 @@ var KeywordNames = []string{
 "viewclustersetting",
 "viewdebug",
 "virtual",
+"virtual_cluster",
+"virtual_cluster_name",
+"visibility",
 "visible",
 "volatile",
 "voters",
@@ -1253,6 +1281,7 @@ func GetKeywordID(k string) int32 {
 	case "backup": return BACKUP
 	case "backups": return BACKUPS
 	case "backward": return BACKWARD
+	case "batch": return BATCH
 	case "before": return BEFORE
 	case "begin": return BEGIN
 	case "between": return BETWEEN
@@ -1266,6 +1295,7 @@ func GetKeywordID(k string) int32 {
 	case "bundle": return BUNDLE
 	case "by": return BY
 	case "cache": return CACHE
+	case "call": return CALL
 	case "called": return CALLED
 	case "cancel": return CANCEL
 	case "cancelquery": return CANCELQUERY
@@ -1282,6 +1312,7 @@ func GetKeywordID(k string) int32 {
 	case "check_files": return CHECK_FILES
 	case "close": return CLOSE
 	case "cluster": return CLUSTER
+	case "clusters": return CLUSTERS
 	case "coalesce": return COALESCE
 	case "collate": return COLLATE
 	case "collation": return COLLATION
@@ -1421,6 +1452,7 @@ func GetKeywordID(k string) int32 {
 	case "global": return GLOBAL
 	case "goal": return GOAL
 	case "grant": return GRANT
+	case "grantee": return GRANTEE
 	case "grants": return GRANTS
 	case "greatest": return GREATEST
 	case "group": return GROUP
@@ -1445,6 +1477,7 @@ func GetKeywordID(k string) int32 {
 	case "in": return IN
 	case "include": return INCLUDE
 	case "include_all_secondary_tenants": return INCLUDE_ALL_SECONDARY_TENANTS
+	case "include_all_virtual_clusters": return INCLUDE_ALL_VIRTUAL_CLUSTERS
 	case "including": return INCLUDING
 	case "increment": return INCREMENT
 	case "incremental": return INCREMENTAL
@@ -1553,6 +1586,7 @@ func GetKeywordID(k string) int32 {
 	case "nomodifyclustersetting": return NOMODIFYCLUSTERSETTING
 	case "none": return NONE
 	case "nonvoters": return NONVOTERS
+	case "noreplication": return NOREPLICATION
 	case "normal": return NORMAL
 	case "nosqllogin": return NOSQLLOGIN
 	case "not": return NOT
@@ -1622,6 +1656,8 @@ func GetKeywordID(k string) int32 {
 	case "prior": return PRIOR
 	case "priority": return PRIORITY
 	case "privileges": return PRIVILEGES
+	case "procedure": return PROCEDURE
+	case "procedures": return PROCEDURES
 	case "public": return PUBLIC
 	case "publication": return PUBLICATION
 	case "queries": return QUERIES
@@ -1646,6 +1682,7 @@ func GetKeywordID(k string) int32 {
 	case "relative": return RELATIVE
 	case "release": return RELEASE
 	case "relocate": return RELOCATE
+	case "remove_regions": return REMOVE_REGIONS
 	case "rename": return RENAME
 	case "repeatable": return REPEATABLE
 	case "replace": return REPLACE
@@ -1706,6 +1743,7 @@ func GetKeywordID(k string) int32 {
 	case "show": return SHOW
 	case "similar": return SIMILAR
 	case "simple": return SIMPLE
+	case "size": return SIZE
 	case "skip": return SKIP
 	case "skip_localities_check": return SKIP_LOCALITIES_CHECK
 	case "skip_missing_foreign_keys": return SKIP_MISSING_FOREIGN_KEYS
@@ -1790,6 +1828,7 @@ func GetKeywordID(k string) int32 {
 	case "unsplit": return UNSPLIT
 	case "until": return UNTIL
 	case "update": return UPDATE
+	case "updates_cluster_monitoring_metrics": return UPDATES_CLUSTER_MONITORING_METRICS
 	case "upsert": return UPSERT
 	case "use": return USE
 	case "user": return USER
@@ -1811,6 +1850,9 @@ func GetKeywordID(k string) int32 {
 	case "viewclustersetting": return VIEWCLUSTERSETTING
 	case "viewdebug": return VIEWDEBUG
 	case "virtual": return VIRTUAL
+	case "virtual_cluster": return VIRTUAL_CLUSTER
+	case "virtual_cluster_name": return VIRTUAL_CLUSTER_NAME
+	case "visibility": return VISIBILITY
 	case "visible": return VISIBLE
 	case "volatile": return VOLATILE
 	case "voters": return VOTERS

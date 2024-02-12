@@ -10,6 +10,8 @@
 
 package tree
 
+import "fmt"
+
 // AlterIndex represents an ALTER INDEX statement.
 type AlterIndex struct {
 	IfExists bool
@@ -67,9 +69,9 @@ func (node *AlterIndexPartitionBy) Format(ctx *FmtCtx) {
 
 // AlterIndexVisible represents a ALTER INDEX ... [VISIBLE | NOT VISIBLE] statement.
 type AlterIndexVisible struct {
-	Index      TableIndexName
-	NotVisible bool
-	IfExists   bool
+	Index        TableIndexName
+	Invisibility IndexInvisibility
+	IfExists     bool
 }
 
 var _ Statement = &AlterIndexVisible{}
@@ -81,9 +83,12 @@ func (node *AlterIndexVisible) Format(ctx *FmtCtx) {
 		ctx.WriteString("IF EXISTS ")
 	}
 	ctx.FormatNode(&node.Index)
-	if node.NotVisible {
+	switch {
+	case node.Invisibility.FloatProvided:
+		ctx.WriteString(" VISIBILITY " + fmt.Sprintf("%.2f", 1-node.Invisibility.Value))
+	case node.Invisibility.Value == 1.0:
 		ctx.WriteString(" NOT VISIBLE")
-	} else {
+	default:
 		ctx.WriteString(" VISIBLE")
 	}
 }
