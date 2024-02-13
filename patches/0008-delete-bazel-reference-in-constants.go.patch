@@ -1,0 +1,36 @@
+From 0545dc256278ada86ce74cb5ea8c397ba434c64a Mon Sep 17 00:00:00 2001
+From: Jeremy Yang <jyang@cockroachlabs.com>
+Date: Tue, 13 Feb 2024 13:46:32 -0800
+Subject: [PATCH] delete bazel reference in constants.go
+
+---
+ pkg/util/constants.go | 6 ------
+ 1 file changed, 6 deletions(-)
+
+diff --git a/pkg/util/constants.go b/pkg/util/constants.go
+index 4e2e8b4..ede4b9d 100644
+--- a/pkg/util/constants.go
++++ b/pkg/util/constants.go
+@@ -15,7 +15,6 @@ import (
+ 	"math/rand"
+ 	"os"
+ 
+-	"github.com/cockroachdb/cockroachdb-parser/pkg/build/bazel"
+ 	"github.com/cockroachdb/cockroachdb-parser/pkg/util/buildutil"
+ 	"github.com/cockroachdb/cockroachdb-parser/pkg/util/randutil"
+ 	"github.com/cockroachdb/cockroachdb-parser/pkg/util/syncutil"
+@@ -98,11 +97,6 @@ func metamorphicEligible() bool {
+ 	if !buildutil.CrdbTestBuild {
+ 		return false
+ 	}
+-
+-	if bazel.InTestWrapper() {
+-		return false
+-	}
+-
+ 	return true
+ }
+ 
+-- 
+2.38.1
+

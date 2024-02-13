@@ -1,0 +1,58 @@
+From ec8f53eb035966d9545bf0250cba607028759f59 Mon Sep 17 00:00:00 2001
+From: Jeremy Yang <jyang@cockroachlabs.com>
+Date: Tue, 13 Feb 2024 09:41:51 -0800
+Subject: [PATCH] Update to grpc-gateway v2
+
+This commit applies the changes from https://github.com/cockroachdb/cockroachdb-parser/pull/9
+on top of the 23.2 snapshot.
+---
+ pkg/util/protoutil/jsonpb_marshal.go |  4 +-
+ pkg/util/protoutil/marshaler.go      |  4 +-
+
+diff --git a/pkg/util/protoutil/jsonpb_marshal.go b/pkg/util/protoutil/jsonpb_marshal.go
+index cd02994..22aa5c2 100644
+--- a/pkg/util/protoutil/jsonpb_marshal.go
++++ b/pkg/util/protoutil/jsonpb_marshal.go
+@@ -20,7 +20,7 @@ import (
+ 	"github.com/cockroachdb/errors"
+ 	"github.com/gogo/protobuf/jsonpb"
+ 	"github.com/gogo/protobuf/proto"
+-	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
++	gwruntime "github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
+ )
+ 
+ var _ gwruntime.Marshaler = (*JSONPb)(nil)
+@@ -31,7 +31,7 @@ var typeProtoMessage = reflect.TypeOf((*proto.Message)(nil)).Elem()
+ type JSONPb jsonpb.Marshaler
+ 
+ // ContentType implements gwruntime.Marshaler.
+-func (*JSONPb) ContentType() string {
++func (*JSONPb) ContentType(_ interface{}) string {
+ 	// NB: This is the same as httputil.JSONContentType which we can't use due to
+ 	// an import cycle.
+ 	const JSONContentType = "application/json"
+diff --git a/pkg/util/protoutil/marshaler.go b/pkg/util/protoutil/marshaler.go
+index 6d835ae..7dfae1e 100644
+--- a/pkg/util/protoutil/marshaler.go
++++ b/pkg/util/protoutil/marshaler.go
+@@ -15,7 +15,7 @@ import (
+ 
+ 	"github.com/cockroachdb/errors"
+ 	"github.com/gogo/protobuf/proto"
+-	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
++	gwruntime "github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
+ )
+ 
+ var _ gwruntime.Marshaler = (*ProtoPb)(nil)
+@@ -24,7 +24,7 @@ var _ gwruntime.Marshaler = (*ProtoPb)(nil)
+ type ProtoPb struct{}
+ 
+ // ContentType implements gwruntime.Marshaler.
+-func (*ProtoPb) ContentType() string {
++func (*ProtoPb) ContentType(_ interface{}) string {
+ 	// NB: This is the same as httputil.ProtoContentType which we can't use due
+ 	// to an import cycle.
+ 	const ProtoContentType = "application/x-protobuf"
+-- 
+2.38.1
+
