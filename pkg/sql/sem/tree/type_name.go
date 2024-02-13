@@ -48,7 +48,7 @@ func (t *TypeName) Format(ctx *FmtCtx) {
 // SQLString implements the ResolvableTypeReference interface.
 func (t *TypeName) SQLString() string {
 	// FmtBareIdentifiers prevents the TypeName string from being wrapped in quotations.
-	return AsStringWithFlags(t, FmtBareIdentifiers)
+	return AsStringWithFlags(t, FmtSimple)
 }
 
 func (t *TypeName) objectName() {}
@@ -240,13 +240,13 @@ func (node *ArrayTypeReference) Format(ctx *FmtCtx) {
 // SQLString implements the ResolvableTypeReference interface.
 func (node *ArrayTypeReference) SQLString() string {
 	// FmtBareIdentifiers prevents the TypeName string from being wrapped in quotations.
-	return AsStringWithFlags(node, FmtBareIdentifiers)
+	return AsStringWithFlags(node, FmtSimple)
 }
 
 // SQLString implements the ResolvableTypeReference interface.
 func (name *UnresolvedObjectName) SQLString() string {
 	// FmtBareIdentifiers prevents the TypeName string from being wrapped in quotations.
-	return AsStringWithFlags(name, FmtBareIdentifiers)
+	return AsStringWithFlags(name, FmtSimple)
 }
 
 // IsReferenceSerialType returns whether the input reference is a known

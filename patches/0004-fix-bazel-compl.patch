@@ -1,16 +1,16 @@
-From d300afb062569278ff9e770b4f7e0ed0d84f6f82 Mon Sep 17 00:00:00 2001
-From: Oliver Tan <otan@cockroachlabs.com>
-Date: Mon, 15 May 2023 14:21:32 +1000
+From fd8c124e5968547a82fecc92e6081fdd71a4b49a Mon Sep 17 00:00:00 2001
+From: Jeremy Yang <jyang@cockroachlabs.com>
+Date: Tue, 13 Feb 2024 10:17:56 -0800
 Subject: [PATCH] fix bazel compilation for grunning
 
 ---
  pkg/util/grunning/disabled.go |  5 -----
- pkg/util/grunning/enabled.go  | 28 ----------------------------
- 2 files changed, 33 deletions(-)
+ pkg/util/grunning/enabled.go  | 27 ---------------------------
+ 2 files changed, 32 deletions(-)
  delete mode 100644 pkg/util/grunning/enabled.go
 
 diff --git a/pkg/util/grunning/disabled.go b/pkg/util/grunning/disabled.go
-index 7fdc2f0..89fcb2d 100644
+index f175eb2..89fcb2d 100644
 --- a/pkg/util/grunning/disabled.go
 +++ b/pkg/util/grunning/disabled.go
 @@ -8,11 +8,6 @@
@@ -19,18 +19,18 @@ index 7fdc2f0..89fcb2d 100644
  
 -// See grunning.Supported() for an explanation behind this build tag.
 -//
--//go:build freebsd || (linux && s390x) || !bazel
--// +build freebsd linux,s390x !bazel
+-//go:build (linux && s390x) || !bazel
+-// +build linux,s390x !bazel
 -
  package grunning
  
  func grunningnanos() int64 { return 0 }
 diff --git a/pkg/util/grunning/enabled.go b/pkg/util/grunning/enabled.go
 deleted file mode 100644
-index ab12aae..0000000
+index f8cd1b5..0000000
 --- a/pkg/util/grunning/enabled.go
 +++ /dev/null
-@@ -1,28 +0,0 @@
+@@ -1,27 +0,0 @@
 -// Copyright 2022 The Cockroach Authors.
 -//
 -// Use of this software is governed by the Business Source License
@@ -43,8 +43,7 @@ index ab12aae..0000000
 -
 -// See grunning.Supported() for an explanation behind this build tag.
 -//
--//go:build !(freebsd || (linux && s390x) || !bazel)
--// +build !freebsd
+-//go:build !((linux && s390x) || !bazel)
 -// +build !linux !s390x
 -// +build bazel
 -
@@ -60,5 +59,5 @@ index ab12aae..0000000
 -
 -func supported() bool { return true }
 -- 
-2.39.2 (Apple Git-143)
+2.38.1
 

@@ -15,7 +15,6 @@ import (
 	"math/rand"
 	"os"
 
-	"github.com/cockroachdb/cockroachdb-parser/pkg/build/bazel"
 	"github.com/cockroachdb/cockroachdb-parser/pkg/util/buildutil"
 	"github.com/cockroachdb/cockroachdb-parser/pkg/util/randutil"
 	"github.com/cockroachdb/cockroachdb-parser/pkg/util/syncutil"
@@ -98,11 +97,6 @@ func metamorphicEligible() bool {
 	if !buildutil.CrdbTestBuild {
 		return false
 	}
-
-	if bazel.InTestWrapper() {
-		return false
-	}
-
 	return true
 }
 
