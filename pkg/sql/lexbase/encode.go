@@ -49,6 +49,11 @@ const (
 	// EncFirstFreeFlagBit needs to remain unused; it is used as base
 	// bit offset for tree.FmtFlags.
 	EncFirstFreeFlagBit
+
+	// EncAlwaysQuoted makes sure the string is always wrapped with quotes.
+	// This is used only to construct a statement against Oracle source,
+	// as Oracle is case insensitive if object name is not quoted.
+	EncAlwaysQuoted
 )
 
 // EncodeRestrictedSQLIdent writes the identifier in s to buf. The
@@ -56,7 +61,7 @@ const (
 // contains special characters, or the identifier is a reserved SQL
 // keyword.
 func EncodeRestrictedSQLIdent(buf *bytes.Buffer, s string, flags EncodeFlags) {
-	if flags.HasFlags(EncBareIdentifiers) || (!isReservedKeyword(s) && IsBareIdentifier(s)) {
+	if !flags.HasFlags(EncAlwaysQuoted) && (flags.HasFlags(EncBareIdentifiers) || (!isReservedKeyword(s) && IsBareIdentifier(s))) {
 		buf.WriteString(s)
 		return
 	}
@@ -67,7 +72,7 @@ func EncodeRestrictedSQLIdent(buf *bytes.Buffer, s string, flags EncodeFlags) {
 // The identifier is only quoted if the flags don't tell otherwise and
 // the identifier contains special characters.
 func EncodeUnrestrictedSQLIdent(buf *bytes.Buffer, s string, flags EncodeFlags) {
-	if flags.HasFlags(EncBareIdentifiers) || IsBareIdentifier(s) {
+	if !flags.HasFlags(EncAlwaysQuoted) && (flags.HasFlags(EncBareIdentifiers) || IsBareIdentifier(s)) {
 		buf.WriteString(s)
 		return
 	}
