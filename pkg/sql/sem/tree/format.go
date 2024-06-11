@@ -41,7 +41,8 @@ func (f FmtFlags) HasAnyFlags(subset FmtFlags) bool {
 
 // EncodeFlags returns the subset of the flags that are also lex encode flags.
 func (f FmtFlags) EncodeFlags() lexbase.EncodeFlags {
-	return lexbase.EncodeFlags(f) & (lexbase.EncFirstFreeFlagBit - 1)
+	encFlags := lexbase.EncodeFlags(f)
+	return encFlags & (lexbase.EncFirstFreeFlagBit - 1)
 }
 
 // Basic bit definitions for the FmtFlags bitmask.

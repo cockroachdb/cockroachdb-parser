@@ -35,7 +35,8 @@ func (n *Name) Format(ctx *FmtCtx) {
 	if f.HasFlags(FmtAnonymize) && !isArityIndicatorString(string(*n)) {
 		ctx.WriteByte('_')
 	} else {
-		lexbase.EncodeRestrictedSQLIdent(&ctx.Buffer, string(*n), f.EncodeFlags())
+		encFlags := f.EncodeFlags()
+		lexbase.EncodeRestrictedSQLIdent(&ctx.Buffer, string(*n), encFlags)
 	}
 }
 
