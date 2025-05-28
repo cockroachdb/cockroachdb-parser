@@ -1,18 +1,14 @@
 // Copyright 2019 The Cockroach Authors.
 //
-// Use of this software is governed by the Business Source License
-// included in the file licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with
-// the Business Source License, use of this software will be governed
-// by the Apache License, Version 2.0, included in the file
-// licenses/APL.txt.
+// Use of this software is governed by the CockroachDB Software License
+// included in the /LICENSE file.
 
 package pgerror
 
 import (
 	"fmt"
 
+	"github.com/cockroachdb/cockroachdb-parser/pkg/build"
 	"github.com/cockroachdb/errors"
 )
 
@@ -27,6 +23,6 @@ func NewInternalTrackingError(issue int, detail string) error {
 	key := fmt.Sprintf("#%d.%s", issue, detail)
 	err := errors.AssertionFailedWithDepthf(1, "%s", errors.Safe(key))
 	err = errors.WithTelemetry(err, key)
-	err = errors.WithIssueLink(err, errors.IssueLink{IssueURL: fmt.Sprintf("https://github.com/cockroachdb/cockroachdb-parser/issues/%d", issue)})
+	err = errors.WithIssueLink(err, errors.IssueLink{IssueURL: build.MakeIssueURL(issue)})
 	return err
 }

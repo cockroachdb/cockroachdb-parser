@@ -1,12 +1,7 @@
 // Copyright 2020 The Cockroach Authors.
 //
-// Use of this software is governed by the Business Source License
-// included in the file licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with
-// the Business Source License, use of this software will be governed
-// by the Apache License, Version 2.0, included in the file
-// licenses/APL.txt.
+// Use of this software is governed by the CockroachDB Software License
+// included in the /LICENSE file.
 
 package geopb
 
@@ -20,13 +15,19 @@ func (b *SpatialObject) EWKBHex() string {
 	return fmt.Sprintf("%X", b.EWKB)
 }
 
-// MemSize returns the size of the spatial object in memory.
-func (b *SpatialObject) MemSize() uintptr {
+// MemSize returns the size of the spatial object in memory. If deterministic is
+// true, then only length of EWKB slice is included - this option should only be
+// used when determinism is favored over precision.
+func (b *SpatialObject) MemSize(deterministic bool) uintptr {
 	var bboxSize uintptr
 	if bbox := b.BoundingBox; bbox != nil {
 		bboxSize = unsafe.Sizeof(*bbox)
 	}
-	return unsafe.Sizeof(*b) + bboxSize + uintptr(len(b.EWKB))
+	ewkbSize := uintptr(cap(b.EWKB))
+	if deterministic {
+		ewkbSize = uintptr(len(b.EWKB))
+	}
+	return unsafe.Sizeof(*b) + bboxSize + ewkbSize
 }
 
 // MultiType returns the corresponding multi-type for a shape type, or unset

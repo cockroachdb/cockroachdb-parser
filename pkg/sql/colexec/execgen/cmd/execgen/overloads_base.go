@@ -1,12 +1,7 @@
 // Copyright 2018 The Cockroach Authors.
 //
-// Use of this software is governed by the Business Source License
-// included in the file licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with
-// the Business Source License, use of this software will be governed
-// by the Apache License, Version 2.0, included in the file
-// licenses/APL.txt.
+// Use of this software is governed by the CockroachDB Software License
+// included in the /LICENSE file.
 
 package main
 
@@ -855,8 +850,8 @@ var supportedWidthsByCanonicalTypeFamily = map[types.Family][]int32{
 
 var numericCanonicalTypeFamilies = []types.Family{types.IntFamily, types.FloatFamily, types.DecimalFamily}
 
-// toVecMethod returns the method name from coldata.Vec interface that can be
-// used to get the well-typed underlying memory from a vector.
+// toVecMethod returns the method name from coldata.Vec struct that can be used
+// to get the well-typed underlying memory from a vector.
 func toVecMethod(canonicalTypeFamily types.Family, width int32) string {
 	switch canonicalTypeFamily {
 	case types.BoolFamily:

@@ -1,12 +1,7 @@
 // Copyright 2019 The Cockroach Authors.
 //
-// Use of this software is governed by the Business Source License
-// included in the file licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with
-// the Business Source License, use of this software will be governed
-// by the Apache License, Version 2.0, included in the file
-// licenses/APL.txt.
+// Use of this software is governed by the CockroachDB Software License
+// included in the /LICENSE file.
 
 package timetz
 
@@ -120,7 +115,7 @@ func ParseTimeTZ(
 		s = timeutil.ReplaceLibPQTimePrefix(s)
 	}
 
-	t, dependsOnContext, err := pgdate.ParseTimestamp(now, dateStyle, s)
+	t, dependsOnContext, err := pgdate.ParseTimestamp(now, dateStyle, s, nil /* h */)
 	if err != nil {
 		// Build our own error message to avoid exposing the dummy date.
 		return TimeTZ{}, false, pgerror.Newf(

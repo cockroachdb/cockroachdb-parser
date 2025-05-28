@@ -155,6 +155,7 @@ var reservedKeywords = map[string]struct{}{
 "varbit": {},
 "varchar": {},
 "variadic": {},
+"vector": {},
 "virtual": {},
 "when": {},
 "where": {},

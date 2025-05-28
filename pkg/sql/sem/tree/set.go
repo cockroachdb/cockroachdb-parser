@@ -7,13 +7,8 @@
 //
 // Copyright 2015 The Cockroach Authors.
 //
-// Use of this software is governed by the Business Source License
-// included in the file licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with
-// the Business Source License, use of this software will be governed
-// by the Apache License, Version 2.0, included in the file
-// licenses/APL.txt.
+// Use of this software is governed by the CockroachDB Software License
+// included in the /LICENSE file.
 
 // This code was derived from https://github.com/youtube/vitess.
 
@@ -101,6 +96,25 @@ type SetTransaction struct {
 func (node *SetTransaction) Format(ctx *FmtCtx) {
 	ctx.WriteString("SET TRANSACTION")
 	ctx.FormatNode(&node.Modes)
+}
+
+// copyNode makes a copy of this Statement.
+func (stmt *SetTransaction) copyNode() *SetTransaction {
+	stmtCopy := *stmt
+	return &stmtCopy
+}
+
+// walkStmt is part of the walkableStmt interface.
+func (stmt *SetTransaction) walkStmt(v Visitor) Statement {
+	ret := stmt
+	if stmt.Modes.AsOf.Expr != nil {
+		e, changed := WalkExpr(v, stmt.Modes.AsOf.Expr)
+		if changed {
+			ret = stmt.copyNode()
+			ret.Modes.AsOf.Expr = e
+		}
+	}
+	return ret
 }
 
 // SetSessionAuthorizationDefault represents a SET SESSION AUTHORIZATION DEFAULT

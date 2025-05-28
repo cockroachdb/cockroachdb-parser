@@ -1,12 +1,7 @@
 // Copyright 2021 The Cockroach Authors.
 //
-// Use of this software is governed by the Business Source License
-// included in the file licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with
-// the Business Source License, use of this software will be governed
-// by the Apache License, Version 2.0, included in the file
-// licenses/APL.txt.
+// Use of this software is governed by the CockroachDB Software License
+// included in the /LICENSE file.
 
 package main
 
@@ -271,7 +266,7 @@ func floatToInt(intWidth, floatWidth int32) castFunc {
 			if math.IsNaN(float64(%[2]s)) || %[2]s <= float%[4]d(math.MinInt%[3]d) || %[2]s >= float%[4]d(math.MaxInt%[3]d) {
 				colexecerror.ExpectedError(tree.ErrIntOutOfRange)
 			}
-			%[1]s = int%[3]d(%[2]s)
+			%[1]s = int%[3]d(math.RoundToEven(%[2]s))
 		`
 		if intWidth == anyWidth {
 			intWidth = 64
@@ -589,7 +584,8 @@ func getStringToTimestampCastFunc(withoutTimezone bool) castFunc {
 		_roundTo := tree.TimeFamilyPrecisionToRoundDuration(%[4]s.Precision())
 		_now := %[3]s.GetRelativeParseTime()
 		_dateStyle := %[3]s.GetDateStyle()
-		_t, _, err := pgdate.ParseTimestamp%[5]s(_now, _dateStyle, string(%[2]s))
+		_h := %[3]s.GetDateHelper()
+		_t, _, err := pgdate.ParseTimestamp%[5]s(_now, _dateStyle, string(%[2]s), _h)
 		if err != nil {
 			colexecerror.ExpectedError(err)
 		}

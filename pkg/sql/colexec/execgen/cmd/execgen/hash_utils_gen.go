@@ -1,12 +1,7 @@
 // Copyright 2020 The Cockroach Authors.
 //
-// Use of this software is governed by the Business Source License
-// included in the file licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with
-// the Business Source License, use of this software will be governed
-// by the Apache License, Version 2.0, included in the file
-// licenses/APL.txt.
+// Use of this software is governed by the CockroachDB Software License
+// included in the /LICENSE file.
 
 package main
 
@@ -25,14 +20,18 @@ func genHashUtils(inputFileContents string, wr io.Writer) error {
 		"_TYPE_WIDTH", typeWidthReplacement,
 		"_TYPE", "{{.VecMethod}}",
 		"TemplateType", "{{.VecMethod}}",
+		// Currently, github.com/dave/dst library used by execgen doesn't
+		// support the generics well, so we need to put the generic type clause
+		// manually.
+		"func rehash(", "func rehash[T uint32 | uint64](",
 	)
 	s := r.Replace(inputFileContents)
 
 	assignHash := makeFunctionRegex("_ASSIGN_HASH", 4)
 	s = assignHash.ReplaceAllString(s, makeTemplateFunctionCall("Global.AssignHash", 4))
 
-	rehash := makeFunctionRegex("_REHASH_BODY", 8)
-	s = rehash.ReplaceAllString(s, `{{template "rehashBody" buildDict "Global" . "HasSel" $6 "HasNulls" $7 "Uint64" $8}}`)
+	rehash := makeFunctionRegex("_REHASH_BODY", 7)
+	s = rehash.ReplaceAllString(s, `{{template "rehashBody" buildDict "Global" . "HasSel" $6 "HasNulls" $7}}`)
 
 	s = replaceManipulationFuncsAmbiguous(".Global", s)
 

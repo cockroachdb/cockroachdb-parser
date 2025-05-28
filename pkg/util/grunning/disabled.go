@@ -1,20 +1,14 @@
 // Copyright 2022 The Cockroach Authors.
 //
-// Use of this software is governed by the Business Source License
-// included in the file licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with
-// the Business Source License, use of this software will be governed
-// by the Apache License, Version 2.0, included in the file
-// licenses/APL.txt.
+// Use of this software is governed by the CockroachDB Software License
+// included in the /LICENSE file.
 
-// See grunning.Supported() for an explanation behind this build tag.
+// See grunning.Supported for an explanation behind this build tag.
 //
-//go:build (linux && s390x) || !bazel
-// +build linux,s390x !bazel
+//go:build !bazel
 
 package grunning
 
-func grunningnanos() int64 { return 0 }
+const supported = false
 
-func supported() bool { return false }
+func grunningnanos() int64 { return 0 }

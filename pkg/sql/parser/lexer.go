@@ -1,12 +1,7 @@
 // Copyright 2018 The Cockroach Authors.
 //
-// Use of this software is governed by the Business Source License
-// included in the file licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with
-// the Business Source License, use of this software will be governed
-// by the Apache License, Version 2.0, included in the file
-// licenses/APL.txt.
+// Use of this software is governed by the CockroachDB Software License
+// included in the /LICENSE file.
 
 package parser
 
@@ -144,6 +139,7 @@ func (l *lexer) Lex(lval *sqlSymType) int {
 		afterCommaOrParen := prevID == ',' || prevID == '('
 		afterCommaOrOPTIONS := prevID == ',' || prevID == OPTIONS
 		afterCommaOrParenThenINVERTED := prevID == INVERTED && (pprevID == ',' || pprevID == '(')
+		afterCommaOrParenThenVECTOR := prevID == VECTOR && (pprevID == ',' || pprevID == '(')
 		followedByParen := nextID == '('
 		followedByNonPunctThenParen := nextID > 255 /* non-punctuation */ && secondID == '('
 		if //
@@ -155,7 +151,10 @@ func (l *lexer) Lex(lval *sqlSymType) int {
 			(afterCommaOrOPTIONS && followedByParen) ||
 			// CREATE ... (INVERTED INDEX (
 			// CREATE ... (x INT, y INT, INVERTED INDEX (
-			(afterCommaOrParenThenINVERTED && followedByParen) {
+			(afterCommaOrParenThenINVERTED && followedByParen) ||
+			// CREATE ... (VECTOR INDEX (
+			// CREATE ... (x INT, y INT, VECTOR INDEX (
+			(afterCommaOrParenThenVECTOR && followedByParen) {
 			lval.id = INDEX_BEFORE_PAREN
 			break
 		}
@@ -165,7 +164,10 @@ func (l *lexer) Lex(lval *sqlSymType) int {
 		(afterCommaOrParen && followedByNonPunctThenParen) ||
 			// CREATE ... (INVERTED INDEX abc (
 			// CREATE ... (x INT, y INT, INVERTED INDEX abc (
-			(afterCommaOrParenThenINVERTED && followedByNonPunctThenParen) {
+			(afterCommaOrParenThenINVERTED && followedByNonPunctThenParen) ||
+			// CREATE ... (VECTOR INDEX abc (
+			// CREATE ... (x INT, y INT, VECTOR INDEX abc (
+			(afterCommaOrParenThenVECTOR && followedByNonPunctThenParen) {
 			lval.id = INDEX_BEFORE_NAME_THEN_PAREN
 			break
 		}
@@ -397,6 +399,16 @@ func (l *lexer) setErr(err error) {
 	err = pgerror.WithCandidateCode(err, pgcode.Syntax)
 	l.lastError = err
 	l.populateErrorDetails()
+}
+
+// setErrNoDetails is similar to setErr, but is used for an error that should
+// not be further annotated with details. If there is no candidate code for the
+// error, it is annotated with pgcode.Syntax.
+func (l *lexer) setErrNoDetails(err error) {
+	if !pgerror.HasCandidateCode(err) {
+		err = pgerror.WithCandidateCode(err, pgcode.Syntax)
+	}
+	l.lastError = err
 }
 
 func (l *lexer) Error(e string) {

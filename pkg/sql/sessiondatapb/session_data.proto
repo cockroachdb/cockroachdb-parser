@@ -1,12 +1,7 @@
 // Copyright 2020 The Cockroach Authors.
 //
-// Use of this software is governed by the Business Source License
-// included in the file licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with
-// the Business Source License, use of this software will be governed
-// by the Apache License, Version 2.0, included in the file
-// licenses/APL.txt.
+// Use of this software is governed by the CockroachDB Software License
+// included in the /LICENSE file.
 
 syntax = "proto3";
 package cockroach.sql.sessiondatapb;
@@ -142,6 +137,12 @@ message SessionData {
   // could be adopted by any node in the cluster (not necessarily the gateway)
   // and so we will need this information available on all nodes.
   int64 distsql_plan_gateway_bias = 31;
+  // StreamerEnabled controls whether the Streamer API can be used.
+  bool streamer_enabled = 32;
+  // DeadlockTimeout specifies the amount of time before pushing the lock holder
+  // for deadlock detection.
+  google.protobuf.Duration deadlock_timeout = 33 [(gogoproto.nullable) = false,
+    (gogoproto.stdduration) = true];
 }
 
 // DataConversionConfig contains the parameters that influence the output
@@ -160,7 +161,7 @@ message DataConversionConfig {
   util.timeutil.pgdate.DateStyle date_style = 4 [(gogoproto.nullable) = false];
 }
 
-// VectorizeExecMode controls if an when the Executor executes queries using
+// VectorizeExecMode controls if and when the Executor executes queries using
 // the columnar execution engine.
 enum VectorizeExecMode {
   option (gogoproto.goproto_enum_prefix) = false;
@@ -170,7 +171,10 @@ enum VectorizeExecMode {
   // the first enum value as zero is required by proto3. This is mapped to
   // VectorizeOn.
   unset = 0 [(gogoproto.enumvalue_customname) = "VectorizeUnset"];
-  reserved 1;
+  // DeprecatedVectorized201Auto is only possible for clusters that have been
+  // upgraded from v21.1 or older and had the old setting of "201auto" which
+  // was mapped to "on" in v21.1. It is now an alias for "on".
+  deprecated201auto = 1 [(gogoproto.enumvalue_customname) = "DeprecatedVectorize201Auto"];
   // VectorizeOn means that any supported queries will be run using the
   // columnar execution.
   on = 2 [(gogoproto.enumvalue_customname) = "VectorizeOn"];

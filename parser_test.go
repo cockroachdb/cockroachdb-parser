@@ -12,5 +12,5 @@ func TestParser(t *testing.T) {
 	p, err := parser.ParseOne("CREATE TABLE t (a TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP)")
 	require.NoError(t, err)
 	f := tree.DefaultPrettyCfg()
-	f.Pretty(p.AST)
+	t.Log(f.Pretty(p.AST))
 }
