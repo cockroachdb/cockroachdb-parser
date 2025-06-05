@@ -1,15 +1,9 @@
 // Copyright 2016 The Cockroach Authors.
 //
-// Use of this software is governed by the Business Source License
-// included in the file licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with
-// the Business Source License, use of this software will be governed
-// by the Apache License, Version 2.0, included in the file
-// licenses/APL.txt.
+// Use of this software is governed by the CockroachDB Software License
+// included in the /LICENSE file.
 
 //go:build !deadlock && race
-// +build !deadlock,race
 
 package syncutil
 
@@ -31,6 +25,15 @@ type Mutex struct {
 func (m *Mutex) Lock() {
 	m.mu.Lock()
 	atomic.StoreInt32(&m.wLocked, 1)
+}
+
+// TryLock tries to lock m and reports whether it succeeded.
+func (m *Mutex) TryLock() bool {
+	if !m.mu.TryLock() {
+		return false
+	}
+	atomic.StoreInt32(&m.wLocked, 1)
+	return true
 }
 
 // Unlock unlocks m.
@@ -55,33 +58,51 @@ func (m *Mutex) AssertHeld() {
 
 // An RWMutex is a reader/writer mutual exclusion lock.
 type RWMutex struct {
-	sync.RWMutex
+	mu      sync.RWMutex
 	wLocked int32 // updated atomically
 	rLocked int32 // updated atomically
 }
 
 // Lock locks rw for writing.
 func (rw *RWMutex) Lock() {
-	rw.RWMutex.Lock()
+	rw.mu.Lock()
 	atomic.StoreInt32(&rw.wLocked, 1)
+}
+
+// TryLock tries to lock rw for writing and reports whether it succeeded.
+func (rw *RWMutex) TryLock() bool {
+	if !rw.mu.TryLock() {
+		return false
+	}
+	atomic.StoreInt32(&rw.wLocked, 1)
+	return true
 }
 
 // Unlock unlocks rw for writing.
 func (rw *RWMutex) Unlock() {
 	atomic.StoreInt32(&rw.wLocked, 0)
-	rw.RWMutex.Unlock()
+	rw.mu.Unlock()
 }
 
 // RLock locks m for reading.
 func (rw *RWMutex) RLock() {
-	rw.RWMutex.RLock()
+	rw.mu.RLock()
 	atomic.AddInt32(&rw.rLocked, 1)
+}
+
+// TryRLock tries to lock rw for reading and reports whether it succeeded.
+func (rw *RWMutex) TryRLock() bool {
+	if !rw.mu.TryRLock() {
+		return false
+	}
+	atomic.AddInt32(&rw.rLocked, 1)
+	return true
 }
 
 // RUnlock undoes a single RLock call.
 func (rw *RWMutex) RUnlock() {
 	atomic.AddInt32(&rw.rLocked, -1)
-	rw.RWMutex.RUnlock()
+	rw.mu.RUnlock()
 }
 
 // RLocker returns a Locker interface that implements

@@ -7,13 +7,8 @@
 //
 // Copyright 2015 The Cockroach Authors.
 //
-// Use of this software is governed by the Business Source License
-// included in the file licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with
-// the Business Source License, use of this software will be governed
-// by the Apache License, Version 2.0, included in the file
-// licenses/APL.txt.
+// Use of this software is governed by the CockroachDB Software License
+// included in the /LICENSE file.
 
 // This code was derived from https://github.com/youtube/vitess.
 
@@ -29,6 +24,7 @@ import (
 
 	"github.com/cockroachdb/cockroachdb-parser/pkg/sql/pgwire/pgcode"
 	"github.com/cockroachdb/cockroachdb-parser/pkg/sql/pgwire/pgerror"
+	"github.com/cockroachdb/cockroachdb-parser/pkg/util/collatedstring"
 	"github.com/cockroachdb/errors"
 	"golang.org/x/text/language"
 )
@@ -47,8 +43,12 @@ func NormalizeLocaleName(s string) string {
 // need to be quoted, and they are considered equivalent to dash characters by
 // the CLDR standard: http://cldr.unicode.org/.
 func EncodeLocaleName(buf *bytes.Buffer, s string) {
-	// If possible, try to normalize the case of the locale name.
-	if normalized, err := language.Parse(s); err == nil {
+	// If possible, try to normalize the case of the locale name (only for non-default
+	// locales). Default locales will always be quoted so they can be parsed correctly.
+	isDefaultLocale := collatedstring.IsDefaultEquivalentCollation(s)
+	if isDefaultLocale {
+		s = fmt.Sprintf("%q", s)
+	} else if normalized, err := language.Parse(s); err == nil {
 		s = normalized.String()
 	}
 	for i, n := 0, len(s); i < n; i++ {

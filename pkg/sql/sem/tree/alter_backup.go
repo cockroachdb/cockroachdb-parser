@@ -1,12 +1,7 @@
 // Copyright 2022 The Cockroach Authors.
 //
-// Use of this software is governed by the Business Source License
-// included in the file licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with
-// the Business Source License, use of this software will be governed
-// by the Apache License, Version 2.0, included in the file
-// licenses/APL.txt.
+// Use of this software is governed by the CockroachDB Software License
+// included in the /LICENSE file.
 
 package tree
 
@@ -29,7 +24,7 @@ func (node *AlterBackup) Format(ctx *FmtCtx) {
 		ctx.WriteString(" IN ")
 	}
 
-	ctx.FormatNode(node.Backup)
+	ctx.FormatURI(node.Backup)
 	ctx.FormatNode(&node.Cmds)
 }
 
@@ -64,10 +59,10 @@ type AlterBackupKMS struct {
 // Format implements the NodeFormatter interface.
 func (node *AlterBackupKMS) Format(ctx *FmtCtx) {
 	ctx.WriteString(" ADD NEW_KMS=")
-	ctx.FormatNode(&node.KMSInfo.NewKMSURI)
+	ctx.FormatURIs(node.KMSInfo.NewKMSURI)
 
 	ctx.WriteString(" WITH OLD_KMS=")
-	ctx.FormatNode(&node.KMSInfo.OldKMSURI)
+	ctx.FormatURIs(node.KMSInfo.OldKMSURI)
 }
 
 // BackupKMS represents possible options used when altering a backup KMS

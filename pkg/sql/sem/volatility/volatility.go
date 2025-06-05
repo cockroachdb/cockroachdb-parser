@@ -1,12 +1,7 @@
 // Copyright 2020 The Cockroach Authors.
 //
-// Use of this software is governed by the Business Source License
-// included in the file licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with
-// the Business Source License, use of this software will be governed
-// by the Apache License, Version 2.0, included in the file
-// licenses/APL.txt.
+// Use of this software is governed by the CockroachDB Software License
+// included in the /LICENSE file.
 
 package volatility
 
@@ -46,13 +41,13 @@ const (
 	// Immutable means that the operator cannot modify the database, the
 	// transaction state, or any other state. It cannot depend on configuration
 	// settings and is guaranteed to return the same results given the same
-	// arguments in any context. ImmutableCopy operators can be constant folded.
+	// arguments in any context. Immutable operators can be constant folded.
 	// Examples: log, from_json.
 	Immutable
 	// Stable means that the operator cannot modify the database or the
 	// transaction state and is guaranteed to return the same results given the
-	// same arguments whenever it is evaluated within the same statement. Multiple
-	// calls to a stable operator can be optimized to a single call.
+	// same arguments whenever it is evaluated within the same statement.
+	// Multiple calls to a stable operator can be optimized to a single call.
 	// Examples: current_timestamp, current_date.
 	Stable
 	// Volatile means that the operator can do anything, including

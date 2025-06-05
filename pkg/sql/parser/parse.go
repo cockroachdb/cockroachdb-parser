@@ -7,13 +7,8 @@
 //
 // Copyright 2015 The Cockroach Authors.
 //
-// Use of this software is governed by the Business Source License
-// included in the file licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with
-// the Business Source License, use of this software will be governed
-// by the Apache License, Version 2.0, included in the file
-// licenses/APL.txt.
+// Use of this software is governed by the CockroachDB Software License
+// included in the /LICENSE file.
 
 // This code was derived from https://github.com/youtube/vitess.
 
@@ -68,19 +63,19 @@ func NakedIntTypeFromDefaultIntSize(defaultIntSize int32) *types.T {
 
 // Parse parses the sql and returns a list of statements.
 func (p *Parser) Parse(sql string) (statements.Statements, error) {
-	return p.parseWithDepth(1, sql, defaultNakedIntType)
+	return p.parseWithDepth(1, sql, defaultNakedIntType, discardComments)
 }
 
 // ParseWithInt parses a sql statement string and returns a list of
 // Statements. The INT token will result in the specified TInt type.
 func (p *Parser) ParseWithInt(sql string, nakedIntType *types.T) (statements.Statements, error) {
-	return p.parseWithDepth(1, sql, nakedIntType)
+	return p.parseWithDepth(1, sql, nakedIntType, discardComments)
 }
 
 func (p *Parser) parseOneWithInt(
-	sql string, nakedIntType *types.T,
+	sql string, nakedIntType *types.T, comments commentsMode,
 ) (statements.Statement[tree.Statement], error) {
-	stmts, err := p.parseWithDepth(1, sql, nakedIntType)
+	stmts, err := p.parseWithDepth(1, sql, nakedIntType, comments)
 	if err != nil {
 		return statements.Statement[tree.Statement]{}, err
 	}
@@ -144,11 +139,21 @@ func (p *Parser) scanOneStmt() (sql string, tokens []sqlSymType, done bool) {
 	}
 }
 
+type commentsMode bool
+
+const (
+	retainComments  commentsMode = true
+	discardComments commentsMode = false
+)
+
 func (p *Parser) parseWithDepth(
-	depth int, sql string, nakedIntType *types.T,
+	depth int, sql string, nakedIntType *types.T, cm commentsMode,
 ) (statements.Statements, error) {
 	stmts := statements.Statements(p.stmtBuf[:0])
 	p.scanner.Init(sql)
+	if cm == retainComments {
+		p.scanner.RetainComments()
+	}
 	defer p.scanner.Cleanup()
 	for {
 		sql, tokens, done := p.scanOneStmt()
@@ -232,17 +237,24 @@ func Parse(sql string) (statements.Statements, error) {
 // Statements. The INT token will result in the specified TInt type.
 func ParseWithInt(sql string, nakedIntType *types.T) (statements.Statements, error) {
 	var p Parser
-	return p.parseWithDepth(1, sql, nakedIntType)
+	return p.parseWithDepth(1, sql, nakedIntType, discardComments)
 }
 
 // ParseOne parses a sql statement string, ensuring that it contains only a
 // single statement, and returns that Statement. ParseOne will always
 // interpret the INT and SERIAL types as 64-bit types, since this is
 // used in various internal-execution paths where we might receive
-// bits of SQL from other nodes. In general,earwe expect that all
+// bits of SQL from other nodes. In general, we expect that all
 // user-generated SQL has been run through the ParseWithInt() function.
 func ParseOne(sql string) (statements.Statement[tree.Statement], error) {
 	return ParseOneWithInt(sql, defaultNakedIntType)
+}
+
+// ParseOneRetainComments is similar to ParseOne, but it retains scanned
+// comments in the returned statement's Comment field.
+func ParseOneRetainComments(sql string) (statements.Statement[tree.Statement], error) {
+	var p Parser
+	return p.parseOneWithInt(sql, defaultNakedIntType, retainComments)
 }
 
 // ParseOneWithInt is similar to ParseOn but interprets the INT and SERIAL
@@ -251,7 +263,7 @@ func ParseOneWithInt(
 	sql string, nakedIntType *types.T,
 ) (statements.Statement[tree.Statement], error) {
 	var p Parser
-	return p.parseOneWithInt(sql, nakedIntType)
+	return p.parseOneWithInt(sql, nakedIntType, discardComments)
 }
 
 // ParseQualifiedTableName parses a possibly qualified table name. The
@@ -288,6 +300,26 @@ func ParseTableName(sql string) (*tree.UnresolvedObjectName, error) {
 		return nil, errors.AssertionFailedf("expected an ALTER TABLE statement, but found %T", stmt)
 	}
 	return rename.Name, nil
+}
+
+// ParseFunctionName parses a function name. The function name must contain one
+// or more name parts, using the full input SQL syntax: each name
+// part containing special characters, or non-lowercase characters,
+// must be enclosed in double quote. The name may not be an invalid
+// function name (the caller is responsible for guaranteeing that only
+// valid function names are provided as input).
+func ParseFunctionName(sql string) (*tree.UnresolvedObjectName, error) {
+	// We wrap the name we want to parse into a dummy statement since our parser
+	// can only parse full statements.
+	stmt, err := ParseOne(fmt.Sprintf("ALTER FUNCTION %s RENAME TO x", sql))
+	if err != nil {
+		return nil, err
+	}
+	rename, ok := stmt.AST.(*tree.AlterRoutineRename)
+	if !ok {
+		return nil, errors.AssertionFailedf("expected an ALTER FUNCTION statement, but found %T", stmt)
+	}
+	return rename.Function.FuncName.ToUnresolvedObjectName(), nil
 }
 
 // ParseTablePattern parses a table pattern. The table name must contain one
@@ -417,17 +449,18 @@ func GetTypeFromCastOrCollate(expr tree.Expr) (tree.ResolvableTypeReference, err
 	return cast.Type, nil
 }
 
-var errBitLengthNotPositive = pgerror.WithCandidateCode(
-	errors.New("length for type bit must be at least 1"), pgcode.InvalidParameterValue)
+var errVarBitLengthNotPositive = pgerror.WithCandidateCode(
+	errors.New("length for type varbit must be at least 1"), pgcode.InvalidParameterValue)
 
 // newBitType creates a new BIT type with the given bit width.
 func newBitType(width int32, varying bool) (*types.T, error) {
-	if width < 1 {
-		return nil, errBitLengthNotPositive
-	}
 	if varying {
+		if width < 1 {
+			return nil, errVarBitLengthNotPositive
+		}
 		return types.MakeVarBit(width), nil
 	}
+	// The iconst32 pattern in the parser guarantees that the width is positive.
 	return types.MakeBit(width), nil
 }
 
@@ -469,12 +502,11 @@ func arrayOf(
 	// If the reference is a statically known type, then return an array type,
 	// rather than an array type reference.
 	if typ, ok := tree.GetStaticallyKnownType(ref); ok {
-		// Do not allow type unknown[]. This is consistent with Postgres' behavior.
-		if typ.Family() == types.UnknownFamily {
-			return nil, pgerror.Newf(pgcode.UndefinedObject, "type unknown[] does not exist")
-		}
-		if typ.Family() == types.VoidFamily {
-			return nil, pgerror.Newf(pgcode.UndefinedObject, "type void[] does not exist")
+		switch typ.Family() {
+		case types.UnknownFamily, types.VoidFamily, types.TriggerFamily:
+			// Do not allow arrays of these types. This is consistent with Postgres'
+			// behavior.
+			return nil, pgerror.Newf(pgcode.UndefinedObject, "type %s[] does not exist", typ.Name())
 		}
 		if err := types.CheckArrayElementType(typ); err != nil {
 			return nil, err
@@ -483,3 +515,6 @@ func arrayOf(
 	}
 	return &tree.ArrayTypeReference{ElementType: ref}, nil
 }
+
+// ParseDoBlockFn allows the SQL parser to parse a PL/pgSQL DO block body.
+var ParseDoBlockFn func(tree.DoBlockOptions) (tree.DoBlockBody, error)

@@ -1,12 +1,7 @@
 // Copyright 2019 The Cockroach Authors.
 //
-// Use of this software is governed by the Business Source License
-// included in the file licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with
-// the Business Source License, use of this software will be governed
-// by the Apache License, Version 2.0, included in the file
-// licenses/APL.txt.
+// Use of this software is governed by the CockroachDB Software License
+// included in the /LICENSE file.
 
 package pgcode
 
@@ -129,6 +124,20 @@ var (
 	InvalidXMLContent                     = MakeCode("2200N")
 	InvalidXMLComment                     = MakeCode("2200S")
 	InvalidXMLProcessingInstruction       = MakeCode("2200T")
+	InvalidSQLJSONSubscript               = MakeCode("22033")
+	MoreThanOneSQLJSONItem                = MakeCode("22034")
+	NoSQLJSONItem                         = MakeCode("22035")
+	NonNumericSQLJSONItem                 = MakeCode("22036")
+	NonUniqueKeysInJSONObject             = MakeCode("22037")
+	SingletonSQLJSONItemRequired          = MakeCode("22038")
+	SQLJSONArrayNotFound                  = MakeCode("22039")
+	SQLJSONMemberNotFound                 = MakeCode("2203A")
+	SQLJSONNumberNotFound                 = MakeCode("2203B")
+	SQLJSONObjectNotFound                 = MakeCode("2203C")
+	TooManyJSONArrayElements              = MakeCode("2203D")
+	TooManyJSONObjectMembers              = MakeCode("2203E")
+	SQLJSONScalarRequired                 = MakeCode("2203F")
+	SQLJSONItemCannotBeCastToTargetType   = MakeCode("2203G")
 	// Section: Class 23 - Integrity Constraint Violation
 	IntegrityConstraintViolation = MakeCode("23000")
 	RestrictViolation            = MakeCode("23001")

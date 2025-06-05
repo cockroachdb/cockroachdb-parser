@@ -1,17 +1,12 @@
 // Copyright 2022 The Cockroach Authors.
 //
-// Use of this software is governed by the Business Source License
-// included in the file licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with
-// the Business Source License, use of this software will be governed
-// by the Apache License, Version 2.0, included in the file
-// licenses/APL.txt.
+// Use of this software is governed by the CockroachDB Software License
+// included in the /LICENSE file.
 
 package json
 
 import (
-	"github.com/cockroachdb/cockroachdb-parser/pkg/util"
+	"github.com/cockroachdb/cockroachdb-parser/pkg/util/metamorphic"
 	"github.com/cockroachdb/errors"
 )
 
@@ -67,9 +62,9 @@ const (
 
 // default configuration for parsing JSON.
 var parseJSONDefaultConfig = func() (cfg parseConfig) {
-	cfg.impl = util.ConstantWithMetamorphicTestChoice(
+	cfg.impl = metamorphic.ConstantWithTestChoice(
 		"parse-json-impl", useFastJSONParser, useStdGoJSON,
-	).(parseJSONImplType)
+	)
 	return cfg
 }()
 

@@ -1,16 +1,12 @@
 // Copyright 2016 The Cockroach Authors.
 //
-// Use of this software is governed by the Business Source License
-// included in the file licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with
-// the Business Source License, use of this software will be governed
-// by the Apache License, Version 2.0, included in the file
-// licenses/APL.txt.
+// Use of this software is governed by the CockroachDB Software License
+// included in the /LICENSE file.
 
 package tree
 
 import (
+	"context"
 	"strings"
 
 	"github.com/cockroachdb/cockroachdb-parser/pkg/sql/pgwire/pgcode"
@@ -18,6 +14,7 @@ import (
 	"github.com/cockroachdb/cockroachdb-parser/pkg/sql/sem/catconstants"
 	"github.com/cockroachdb/cockroachdb-parser/pkg/sql/sem/catid"
 	"github.com/cockroachdb/cockroachdb-parser/pkg/sql/types"
+	"github.com/cockroachdb/cockroachdb-parser/pkg/util/errorutil/unimplemented"
 	"github.com/cockroachdb/errors"
 	"github.com/lib/pq/oid"
 )
@@ -46,7 +43,26 @@ type ResolvedFunctionDefinition struct {
 	// not qualified.
 	Name string
 
+	// Overloads is the set of overloads for this resolved function. It can be
+	// empty in which case UnsupportedWithIssue is set.
 	Overloads []QualifiedOverload
+
+	// UnsupportedWithIssue, if non-zero, indicates the built-in is not really
+	// supported and provides the issue number to link.
+	UnsupportedWithIssue uint
+}
+
+// MakeUnsupportedError returns an implemented error if UnsupportedWithIssue is
+// non-zero.
+func (fd *ResolvedFunctionDefinition) MakeUnsupportedError() error {
+	if fd.UnsupportedWithIssue == 0 {
+		return nil
+	}
+	const msg = "this function is not yet supported"
+	return pgerror.Wrapf(
+		unimplemented.NewWithIssueDetail(int(fd.UnsupportedWithIssue), fd.Name, msg),
+		pgcode.InvalidParameterValue, "%s()", fd.Name,
+	)
 }
 
 type qualifiedOverloads []QualifiedOverload
@@ -74,11 +90,9 @@ func MakeQualifiedOverload(schema string, overload *Overload) QualifiedOverload 
 // FunctionProperties defines the properties of the built-in
 // functions that are common across all overloads.
 type FunctionProperties struct {
-	// UnsupportedWithIssue, if non-zero indicates the built-in is not
-	// really supported; the name is a placeholder. Value -1 just says
-	// "not supported" without an issue to link; values > 0 provide an
-	// issue number to link.
-	UnsupportedWithIssue int
+	// UnsupportedWithIssue, if non-zero, indicates the built-in is not really
+	// supported and provides the issue number to link.
+	UnsupportedWithIssue uint
 
 	// Undocumented, when set to true, indicates that the built-in function is
 	// hidden from documentation. This is currently used to hide experimental
@@ -164,7 +178,7 @@ func NewFunctionDefinition(
 	overloads := make([]*Overload, len(def))
 
 	for i := range def {
-		if def[i].PreferredOverload {
+		if def[i].OverloadPreference == OverloadPreferencePreferred {
 			// Builtins with a preferred overload are always ambiguous.
 			props.AmbiguousReturnType = true
 			break
@@ -213,19 +227,22 @@ func (fd *FunctionDefinition) Format(ctx *FmtCtx) {
 func (fd *FunctionDefinition) String() string { return AsString(fd) }
 
 // Format implements the NodeFormatter interface.
-// ResolvedFunctionDefinitions should always be builtin functions, so we do not
-// need to anonymize them, even if the flag is set.
+//
+// ResolvedFunctionDefinitions can be builtin or user-defined, so we must
+// respect formatting flags.
 func (fd *ResolvedFunctionDefinition) Format(ctx *FmtCtx) {
 	// This is necessary when deserializing function expressions for SHOW CREATE
 	// statements. When deserializing a function expression with function OID
 	// references, it's guaranteed that there'll be always one overload resolved.
-	// There is no need to show prefix for builtin functions since we don't
-	// serialize them.
+	// There is no need to show prefix or use formatting flags for builtin
+	// functions since we don't serialize them.
 	if len(fd.Overloads) == 1 && catid.IsOIDUserDefined(fd.Overloads[0].Oid) {
-		ctx.WriteString(fd.Overloads[0].Schema)
+		ctx.FormatName(fd.Overloads[0].Schema)
 		ctx.WriteString(".")
+		ctx.FormatName(fd.Name)
+	} else {
+		ctx.WriteString(fd.Name)
 	}
-	ctx.WriteString(fd.Name)
 }
 
 // String implements the Stringer interface.
@@ -233,7 +250,7 @@ func (fd *ResolvedFunctionDefinition) String() string { return AsString(fd) }
 
 // MergeWith is used to merge two UDF definitions with same name.
 func (fd *ResolvedFunctionDefinition) MergeWith(
-	another *ResolvedFunctionDefinition,
+	another *ResolvedFunctionDefinition, path SearchPath,
 ) (*ResolvedFunctionDefinition, error) {
 	if fd == nil {
 		return another, nil
@@ -248,26 +265,121 @@ func (fd *ResolvedFunctionDefinition) MergeWith(
 
 	return &ResolvedFunctionDefinition{
 		Name:      fd.Name,
-		Overloads: combineOverloads(fd.Overloads, another.Overloads),
+		Overloads: combineOverloads(fd.Overloads, another.Overloads, path),
 	}, nil
 }
 
-// MatchOverload searches an overload which has exactly the same parameter
-// types. The overload from the most significant schema is returned. If
-// paramTypes==nil, an error is returned if the function name is not unique in
-// the most significant schema. If paramTypes is not nil, an error with
-// ErrRoutineUndefined cause is returned if not matched found. Overloads that
-// don't match the types in routineType are ignored.
+// MatchOverload searches an overload with the given signature. The overload
+// from the most significant schema is returned. If routineObj.Params==nil, an
+// error is returned if the function name is not unique in the most significant
+// schema. If routineObj.Params is not nil, an error with ErrRoutineUndefined
+// cause is returned if not matches found. Overloads that don't match the types
+// in routineType are ignored.
+//
+// If tryDefaultExprs is true, then routineObj.Params might specify the prefix
+// of the input types with remaining input types provided by the overload's
+// DEFAULT expressions.
 func (fd *ResolvedFunctionDefinition) MatchOverload(
-	paramTypes []*types.T, explicitSchema string, searchPath SearchPath, routineType RoutineType,
+	ctx context.Context,
+	typeRes TypeReferenceResolver,
+	routineObj *RoutineObj,
+	searchPath SearchPath,
+	routineType RoutineType,
+	inDropContext bool,
+	tryDefaultExprs bool,
 ) (QualifiedOverload, error) {
-	matched := func(ol QualifiedOverload, schema string) bool {
-		if ol.Type == UDFRoutine || ol.Type == ProcedureRoutine {
-			return schema == ol.Schema && (paramTypes == nil || ol.params().MatchIdentical(paramTypes))
+	// includeAll indicates whether all parameters, regardless of the class,
+	// should be included into the signature.
+	getSignatureTypes := func(includeAll bool) (_ []*types.T, onlyDefaultParamClass bool, _ error) {
+		if routineObj.Params == nil {
+			return nil, false, nil
 		}
-		return schema == ol.Schema && (paramTypes == nil || ol.params().Match(paramTypes))
+		typs := make([]*types.T, 0, len(routineObj.Params))
+		onlyDefaultParamClass = true
+		for _, param := range routineObj.Params {
+			if IsInParamClass(param.Class) || includeAll {
+				typ, err := ResolveType(ctx, param.Type, typeRes)
+				if err != nil {
+					return nil, false, err
+				}
+				typs = append(typs, typ)
+			}
+			onlyDefaultParamClass = onlyDefaultParamClass && param.Class == RoutineParamDefault
+		}
+		return typs, onlyDefaultParamClass, nil
 	}
-	typeNames := func() string {
+	paramTypes, onlyDefaultParamClass, err := getSignatureTypes(false /* includeAll */)
+	if err != nil {
+		return QualifiedOverload{}, err
+	}
+	// allParamTypes, if set, contains types of all parameters (including OUT).
+	var allParamTypes []*types.T
+	if onlyDefaultParamClass && inDropContext {
+		allParamTypes, _, err = getSignatureTypes(true /* includeAll */)
+		if err != nil {
+			return QualifiedOverload{}, err
+		}
+	}
+	// firstMatchParamTypes, if set, contains the type schema of the very first
+	// match.
+	var firstMatchParamTypes []*types.T
+	matched := func(ol QualifiedOverload, schema string) bool {
+		if schema != ol.Schema || paramTypes == nil {
+			// Fast-path for the simple case when we have a schema mismatch or
+			// all signatures are accepted.
+			return schema == ol.Schema && paramTypes == nil
+		}
+		if ol.Type != UDFRoutine && ol.Type != ProcedureRoutine {
+			return ol.params().Match(paramTypes)
+		}
+		// Special handling of routines.
+		//
+		// First, apply regular postgres resolution approach of using only
+		// the input types.
+		if ol.params().MatchOid(paramTypes) {
+			return true
+		}
+		if tryDefaultExprs && len(ol.defaultExprs()) > 0 {
+			// Check whether any of the input arguments might have been omitted.
+			// TODO(88947): this logic might need to change to support VARIADIC.
+			if inputTypes, ok := ol.Types.(ParamTypes); ok {
+				numOmittedExprs := len(inputTypes) - len(paramTypes)
+				if numOmittedExprs > 0 && numOmittedExprs <= len(inputTypes) {
+					inputTypes = inputTypes[:len(inputTypes)-numOmittedExprs]
+					if inputTypes.MatchOid(paramTypes) {
+						return true
+					}
+				}
+			}
+		}
+		// If we're not in a special code path for DROP PROCEDURE, it's not a
+		// match.
+		if ol.Type == UDFRoutine || !inDropContext || !onlyDefaultParamClass {
+			return false
+		}
+		// Special handling of SQL-compliant resolution logic for DROP
+		// PROCEDURE.
+		_, outParamOrdinals, outParamTypes := ol.outParamInfo()
+		if ol.Types.Length()+len(outParamOrdinals) != len(allParamTypes) {
+			return false
+		}
+		allParams := make(ParamTypes, len(allParamTypes))
+		var outParamsSeen int
+		for i := 0; i < len(allParams); i++ {
+			if outParamsSeen < len(outParamOrdinals) && outParamOrdinals[outParamsSeen] == int32(i) {
+				allParams[i] = ParamType{Typ: outParamTypes.GetAt(outParamsSeen)}
+				outParamsSeen++
+			} else {
+				allParams[i] = ParamType{Typ: ol.Types.GetAt(i - outParamsSeen)}
+			}
+		}
+		match := allParams.MatchOid(allParamTypes)
+		if firstMatchParamTypes == nil && match {
+			firstMatchParamTypes = allParamTypes
+		}
+		return match
+	}
+	typeNames := func(paramTypes []*types.T) string {
 		ns := make([]string, len(paramTypes))
 		for i, t := range paramTypes {
 			ns[i] = t.Name()
@@ -283,12 +395,15 @@ func (fd *ResolvedFunctionDefinition) MatchOverload(
 			if matched(fd.Overloads[i], schema) {
 				found = true
 				ret = append(ret, fd.Overloads[i])
+				if firstMatchParamTypes == nil {
+					firstMatchParamTypes = paramTypes
+				}
 			}
 		}
 	}
 
-	if explicitSchema != "" {
-		findMatches(explicitSchema)
+	if routineObj.FuncName.Schema() != "" {
+		findMatches(routineObj.FuncName.Schema())
 	} else {
 		for i, n := 0, searchPath.NumElements(); i < n; i++ {
 			if findMatches(searchPath.GetSchema(i)); found {
@@ -300,10 +415,10 @@ func (fd *ResolvedFunctionDefinition) MatchOverload(
 	if len(ret) == 1 && ret[0].Type&routineType == 0 {
 		if routineType == ProcedureRoutine {
 			return QualifiedOverload{}, pgerror.Newf(
-				pgcode.WrongObjectType, "%s(%s) is not a procedure", fd.Name, typeNames())
+				pgcode.WrongObjectType, "%s(%s) is not a procedure", fd.Name, typeNames(firstMatchParamTypes))
 		} else {
 			return QualifiedOverload{}, pgerror.Newf(
-				pgcode.WrongObjectType, "%s(%s) is not a function", fd.Name, typeNames())
+				pgcode.WrongObjectType, "%s(%s) is not a function", fd.Name, typeNames(firstMatchParamTypes))
 		}
 	}
 
@@ -322,32 +437,82 @@ func (fd *ResolvedFunctionDefinition) MatchOverload(
 	// Truncate the slice.
 	ret = ret[:i]
 
-	if len(ret) == 0 {
-		if routineType == ProcedureRoutine {
-			return QualifiedOverload{}, errors.Mark(
-				pgerror.Newf(pgcode.UndefinedFunction, "procedure %s(%s) does not exist", fd.Name, typeNames()),
-				ErrRoutineUndefined,
-			)
-		} else {
-			return QualifiedOverload{}, errors.Mark(
-				pgerror.Newf(pgcode.UndefinedFunction, "function %s(%s) does not exist", fd.Name, typeNames()),
-				ErrRoutineUndefined,
-			)
-		}
+	kind := "function"
+	if routineType == ProcedureRoutine {
+		kind = "procedure"
 	}
-
+	if len(ret) == 0 {
+		return QualifiedOverload{}, errors.Mark(
+			pgerror.Newf(pgcode.UndefinedFunction, "%s %s(%s) does not exist", kind, fd.Name, typeNames(paramTypes)),
+			ErrRoutineUndefined,
+		)
+	}
 	if len(ret) > 1 {
-		if routineType == ProcedureRoutine {
-			return QualifiedOverload{}, pgerror.Newf(pgcode.AmbiguousFunction, "procedure name %q is not unique", fd.Name)
-		} else {
-			return QualifiedOverload{}, pgerror.Newf(pgcode.AmbiguousFunction, "function name %q is not unique", fd.Name)
-		}
+		return QualifiedOverload{}, pgerror.Newf(pgcode.AmbiguousFunction, "%s name %q is not unique", kind, fd.Name)
 	}
 	return ret[0], nil
 }
 
-func combineOverloads(a, b []QualifiedOverload) []QualifiedOverload {
-	return append(append(make([]QualifiedOverload, 0, len(a)+len(b)), a...), b...)
+func combineOverloads(a, b []QualifiedOverload, path SearchPath) []QualifiedOverload {
+	// Corner case: if the path is empty, we can just append a and b.
+	if path == nil || path.NumElements() == 0 {
+		return append(append(make([]QualifiedOverload, 0, len(a)+len(b)), a...), b...)
+	}
+
+	result := make([]QualifiedOverload, 0, len(a)+len(b))
+
+	// Append overloads to the result according to the schema order in the path.
+	isSchemaInSearchPath := make(map[string]bool, path.NumElements())
+	for i := range path.NumElements() {
+		schema := path.GetSchema(i)
+		isSchemaInSearchPath[schema] = true
+
+		for _, overload := range a {
+			if overload.Schema == schema {
+				result = append(result, overload)
+			}
+		}
+
+		for _, overload := range b {
+			if overload.Schema == schema {
+				result = append(result, overload)
+			}
+		}
+	}
+
+	// Append any remaining overloads that are not in the path.
+	for _, overload := range a {
+		if _, ok := isSchemaInSearchPath[overload.Schema]; !ok {
+			result = append(result, overload)
+		}
+	}
+
+	for _, overload := range b {
+		if _, ok := isSchemaInSearchPath[overload.Schema]; !ok {
+			result = append(result, overload)
+		}
+	}
+
+	foundUDFOverload := false
+	for _, overload := range result {
+		if overload.Type == UDFRoutine {
+			foundUDFOverload = true
+		}
+	}
+	// When a UDF overload is found, reset the "preferred" attribute. We need to
+	// copy the overload to avoid modifying the hardcoded definition.
+	if foundUDFOverload {
+		for i, overload := range result {
+			copiedOverload := *overload.Overload
+			copiedOverload.OverloadPreference = OverloadPreferenceNone
+			result[i] = QualifiedOverload{
+				Schema:   overload.Schema,
+				Overload: &copiedOverload,
+			}
+		}
+	}
+
+	return result
 }
 
 // GetClass returns function class by checking each overload's Class and returns
@@ -358,8 +523,8 @@ func combineOverloads(a, b []QualifiedOverload) []QualifiedOverload {
 // method, function is resolved to one overload, so that we can get rid of this
 // function and similar methods below.
 func (fd *ResolvedFunctionDefinition) GetClass() (FunctionClass, error) {
-	if len(fd.Overloads) < 1 {
-		return 0, errors.AssertionFailedf("no overloads found for function %s", fd.Name)
+	if fd.UnsupportedWithIssue != 0 {
+		return 0, fd.MakeUnsupportedError()
 	}
 	ret := fd.Overloads[0].Class
 	for i := range fd.Overloads {
@@ -376,8 +541,8 @@ func (fd *ResolvedFunctionDefinition) GetClass() (FunctionClass, error) {
 // different length. This is good enough since we don't create UDF with
 // ReturnLabel.
 func (fd *ResolvedFunctionDefinition) GetReturnLabel() ([]string, error) {
-	if len(fd.Overloads) < 1 {
-		return nil, errors.AssertionFailedf("no overloads found for function %s", fd.Name)
+	if fd.UnsupportedWithIssue != 0 {
+		return nil, fd.MakeUnsupportedError()
 	}
 	ret := fd.Overloads[0].ReturnLabels
 	for i := range fd.Overloads {
@@ -392,8 +557,8 @@ func (fd *ResolvedFunctionDefinition) GetReturnLabel() ([]string, error) {
 // checking each overload's HasSequenceArguments flag. Ambiguous error is
 // returned if there is any overload has a different flag.
 func (fd *ResolvedFunctionDefinition) GetHasSequenceArguments() (bool, error) {
-	if len(fd.Overloads) < 1 {
-		return false, errors.AssertionFailedf("no overloads found for function %s", fd.Name)
+	if fd.UnsupportedWithIssue != 0 {
+		return false, fd.MakeUnsupportedError()
 	}
 	ret := fd.Overloads[0].HasSequenceArguments
 	for i := range fd.Overloads {
@@ -407,12 +572,21 @@ func (fd *ResolvedFunctionDefinition) GetHasSequenceArguments() (bool, error) {
 // QualifyBuiltinFunctionDefinition qualified all overloads in a function
 // definition with a schema name. Note that this function can only be used for
 // builtin function.
+//
+// It must be called during the initialization of the process.
 func QualifyBuiltinFunctionDefinition(
 	def *FunctionDefinition, schema string,
 ) *ResolvedFunctionDefinition {
+	if len(def.Definition) == 0 && def.UnsupportedWithIssue == 0 {
+		panic(errors.AssertionFailedf("function %s has no overloads yet UnsupportedWithIssue is not set", def.Name))
+	}
+	if len(def.Definition) > 0 && def.UnsupportedWithIssue != 0 {
+		panic(errors.AssertionFailedf("function %s has %d overloads yet UnsupportedWithIssue is set to %d", def.Name, len(def.Definition), def.UnsupportedWithIssue))
+	}
 	ret := &ResolvedFunctionDefinition{
-		Name:      def.Name,
-		Overloads: make([]QualifiedOverload, 0, len(def.Definition)),
+		Name:                 def.Name,
+		Overloads:            make([]QualifiedOverload, 0, len(def.Definition)),
+		UnsupportedWithIssue: def.UnsupportedWithIssue,
 	}
 	for _, o := range def.Definition {
 		ret.Overloads = append(

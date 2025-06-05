@@ -1,12 +1,7 @@
 // Copyright 2022 The Cockroach Authors.
 //
-// Use of this software is governed by the Business Source License
-// included in the file licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with
-// the Business Source License, use of this software will be governed
-// by the Apache License, Version 2.0, included in the file
-// licenses/APL.txt.
+// Use of this software is governed by the CockroachDB Software License
+// included in the /LICENSE file.
 
 package tree
 
@@ -59,6 +54,7 @@ func (*AlterBackupScheduleSetWith) alterBackupScheduleCmd()           {}
 func (*AlterBackupScheduleSetRecurring) alterBackupScheduleCmd()      {}
 func (*AlterBackupScheduleSetFullBackup) alterBackupScheduleCmd()     {}
 func (*AlterBackupScheduleSetScheduleOption) alterBackupScheduleCmd() {}
+func (*AlterBackupScheduleNextRun) alterBackupScheduleCmd()           {}
 
 var _ AlterBackupScheduleCmd = &AlterBackupScheduleSetLabel{}
 var _ AlterBackupScheduleCmd = &AlterBackupScheduleSetInto{}
@@ -66,6 +62,7 @@ var _ AlterBackupScheduleCmd = &AlterBackupScheduleSetWith{}
 var _ AlterBackupScheduleCmd = &AlterBackupScheduleSetRecurring{}
 var _ AlterBackupScheduleCmd = &AlterBackupScheduleSetFullBackup{}
 var _ AlterBackupScheduleCmd = &AlterBackupScheduleSetScheduleOption{}
+var _ AlterBackupScheduleCmd = &AlterBackupScheduleNextRun{}
 
 // AlterBackupScheduleSetLabel represents an ADD <label> command
 type AlterBackupScheduleSetLabel struct {
@@ -86,7 +83,7 @@ type AlterBackupScheduleSetInto struct {
 // Format implements the NodeFormatter interface.
 func (node *AlterBackupScheduleSetInto) Format(ctx *FmtCtx) {
 	ctx.WriteString("SET INTO ")
-	ctx.FormatNode(&node.Into)
+	ctx.FormatURIs(node.Into)
 }
 
 // AlterBackupScheduleSetWith represents an SET <options> command
@@ -148,5 +145,19 @@ func (node *AlterBackupScheduleSetScheduleOption) Format(ctx *FmtCtx) {
 	if o.Value != nil {
 		ctx.WriteString(` = `)
 		ctx.FormatNode(o.Value)
+	}
+}
+
+// AlterBackupScheduleRunNow represents a RUN NOW command.
+type AlterBackupScheduleNextRun struct {
+	Full bool
+}
+
+// Format implements the NodeFormatter interface.
+func (node *AlterBackupScheduleNextRun) Format(ctx *FmtCtx) {
+	if node.Full {
+		ctx.WriteString("EXECUTE FULL IMMEDIATELY")
+	} else {
+		ctx.WriteString("EXECUTE IMMEDIATELY")
 	}
 }

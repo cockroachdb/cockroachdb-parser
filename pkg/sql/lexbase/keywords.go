@@ -31,6 +31,7 @@ var KeywordsCategories = map[string]string{
 "authorization": "T",
 "automatic": "U",
 "availability": "U",
+"avoid_full_scan": "U",
 "backup": "U",
 "backups": "U",
 "backward": "U",
@@ -38,6 +39,7 @@ var KeywordsCategories = map[string]string{
 "before": "U",
 "begin": "U",
 "between": "C",
+"bidirectional": "U",
 "bigint": "C",
 "binary": "U",
 "bit": "C",
@@ -47,6 +49,7 @@ var KeywordsCategories = map[string]string{
 "bucket_count": "U",
 "bundle": "U",
 "by": "U",
+"bypassrls": "U",
 "cache": "U",
 "call": "U",
 "called": "U",
@@ -116,9 +119,7 @@ var KeywordsCategories = map[string]string{
 "databases": "U",
 "day": "U",
 "deallocate": "U",
-"debug_dump_metadata_sst": "U",
 "debug_ids": "U",
-"debug_pause_on": "U",
 "dec": "C",
 "decimal": "C",
 "declare": "U",
@@ -134,13 +135,16 @@ var KeywordsCategories = map[string]string{
 "destination": "U",
 "detached": "U",
 "details": "U",
+"disable": "U",
 "discard": "U",
 "distinct": "R",
 "do": "R",
 "domain": "U",
 "double": "U",
 "drop": "U",
+"each": "U",
 "else": "R",
+"enable": "U",
 "encoding": "U",
 "encrypted": "U",
 "encryption_info_dir": "U",
@@ -180,6 +184,7 @@ var KeywordsCategories = map[string]string{
 "for": "R",
 "force": "U",
 "force_index": "U",
+"force_inverted_index": "U",
 "force_not_null": "U",
 "force_null": "U",
 "force_quote": "U",
@@ -225,6 +230,7 @@ var KeywordsCategories = map[string]string{
 "ignore_foreign_keys": "U",
 "ilike": "T",
 "immediate": "U",
+"immediately": "U",
 "immutable": "U",
 "import": "U",
 "in": "R",
@@ -248,6 +254,7 @@ var KeywordsCategories = map[string]string{
 "input": "U",
 "insensitive": "U",
 "insert": "U",
+"instead": "U",
 "int": "C",
 "integer": "C",
 "intersect": "R",
@@ -295,6 +302,8 @@ var KeywordsCategories = map[string]string{
 "localtime": "R",
 "localtimestamp": "R",
 "locked": "U",
+"logical": "U",
+"logically": "U",
 "login": "U",
 "lookup": "U",
 "low": "U",
@@ -305,6 +314,7 @@ var KeywordsCategories = map[string]string{
 "method": "U",
 "minute": "U",
 "minvalue": "U",
+"mode": "U",
 "modifyclustersetting": "U",
 "modifysqlclustersetting": "U",
 "month": "U",
@@ -325,16 +335,19 @@ var KeywordsCategories = map[string]string{
 "nan": "U",
 "natural": "T",
 "never": "U",
+"new": "U",
 "new_db_name": "U",
 "new_kms": "U",
 "next": "U",
 "no": "U",
+"nobypassrls": "U",
 "nocancelquery": "U",
 "nocontrolchangefeed": "U",
 "nocontroljob": "U",
 "nocreatedb": "U",
 "nocreatelogin": "U",
 "nocreaterole": "U",
+"node": "U",
 "nologin": "U",
 "nomodifyclustersetting": "U",
 "none": "T",
@@ -361,6 +374,7 @@ var KeywordsCategories = map[string]string{
 "off": "U",
 "offset": "R",
 "oids": "U",
+"old": "U",
 "old_kms": "U",
 "on": "R",
 "only": "R",
@@ -387,6 +401,8 @@ var KeywordsCategories = map[string]string{
 "password": "U",
 "pause": "U",
 "paused": "U",
+"per": "U",
+"permissive": "U",
 "physical": "U",
 "placement": "U",
 "placing": "R",
@@ -396,6 +412,8 @@ var KeywordsCategories = map[string]string{
 "pointm": "U",
 "pointz": "U",
 "pointzm": "U",
+"policies": "U",
+"policy": "U",
 "polygon": "C",
 "polygonm": "U",
 "polygonz": "U",
@@ -404,6 +422,7 @@ var KeywordsCategories = map[string]string{
 "preceding": "U",
 "precision": "C",
 "prepare": "U",
+"prepared": "U",
 "preserve": "U",
 "primary": "R",
 "prior": "U",
@@ -427,6 +446,7 @@ var KeywordsCategories = map[string]string{
 "redact": "U",
 "ref": "U",
 "references": "R",
+"referencing": "U",
 "refresh": "U",
 "region": "U",
 "regional": "U",
@@ -439,12 +459,14 @@ var KeywordsCategories = map[string]string{
 "rename": "U",
 "repeatable": "U",
 "replace": "U",
+"replicated": "U",
 "replication": "U",
 "reset": "U",
 "restart": "U",
 "restore": "U",
 "restrict": "U",
 "restricted": "U",
+"restrictive": "U",
 "resume": "U",
 "retention": "U",
 "retry": "U",
@@ -507,12 +529,14 @@ var KeywordsCategories = map[string]string{
 "smallint": "C",
 "snapshot": "U",
 "some": "R",
+"source": "U",
 "split": "U",
 "sql": "U",
 "sqllogin": "U",
 "stable": "U",
 "start": "U",
 "state": "U",
+"statement": "U",
 "statements": "U",
 "statistics": "U",
 "status": "U",
@@ -523,9 +547,11 @@ var KeywordsCategories = map[string]string{
 "store": "U",
 "stored": "U",
 "storing": "U",
+"straight": "U",
 "stream": "U",
 "strict": "U",
 "string": "C",
+"subject": "U",
 "subscription": "U",
 "substring": "C",
 "super": "U",
@@ -563,6 +589,7 @@ var KeywordsCategories = map[string]string{
 "transform": "U",
 "treat": "C",
 "trigger": "U",
+"triggers": "U",
 "trim": "C",
 "true": "R",
 "truncate": "U",
@@ -571,6 +598,7 @@ var KeywordsCategories = map[string]string{
 "types": "U",
 "unbounded": "U",
 "uncommitted": "U",
+"unidirectional": "U",
 "union": "R",
 "unique": "R",
 "unknown": "U",
@@ -593,8 +621,10 @@ var KeywordsCategories = map[string]string{
 "values": "C",
 "varbit": "C",
 "varchar": "C",
+"variables": "U",
 "variadic": "R",
 "varying": "U",
+"vector": "C",
 "verify_backup_table_data": "U",
 "view": "U",
 "viewactivity": "U",
@@ -652,6 +682,7 @@ var KeywordNames = []string{
 "authorization",
 "automatic",
 "availability",
+"avoid_full_scan",
 "backup",
 "backups",
 "backward",
@@ -659,6 +690,7 @@ var KeywordNames = []string{
 "before",
 "begin",
 "between",
+"bidirectional",
 "bigint",
 "binary",
 "bit",
@@ -668,6 +700,7 @@ var KeywordNames = []string{
 "bucket_count",
 "bundle",
 "by",
+"bypassrls",
 "cache",
 "call",
 "called",
@@ -737,9 +770,7 @@ var KeywordNames = []string{
 "databases",
 "day",
 "deallocate",
-"debug_dump_metadata_sst",
 "debug_ids",
-"debug_pause_on",
 "dec",
 "decimal",
 "declare",
@@ -755,13 +786,16 @@ var KeywordNames = []string{
 "destination",
 "detached",
 "details",
+"disable",
 "discard",
 "distinct",
 "do",
 "domain",
 "double",
 "drop",
+"each",
 "else",
+"enable",
 "encoding",
 "encrypted",
 "encryption_info_dir",
@@ -801,6 +835,7 @@ var KeywordNames = []string{
 "for",
 "force",
 "force_index",
+"force_inverted_index",
 "force_not_null",
 "force_null",
 "force_quote",
@@ -846,6 +881,7 @@ var KeywordNames = []string{
 "ignore_foreign_keys",
 "ilike",
 "immediate",
+"immediately",
 "immutable",
 "import",
 "in",
@@ -869,6 +905,7 @@ var KeywordNames = []string{
 "input",
 "insensitive",
 "insert",
+"instead",
 "int",
 "integer",
 "intersect",
@@ -916,6 +953,8 @@ var KeywordNames = []string{
 "localtime",
 "localtimestamp",
 "locked",
+"logical",
+"logically",
 "login",
 "lookup",
 "low",
@@ -926,6 +965,7 @@ var KeywordNames = []string{
 "method",
 "minute",
 "minvalue",
+"mode",
 "modifyclustersetting",
 "modifysqlclustersetting",
 "month",
@@ -946,16 +986,19 @@ var KeywordNames = []string{
 "nan",
 "natural",
 "never",
+"new",
 "new_db_name",
 "new_kms",
 "next",
 "no",
+"nobypassrls",
 "nocancelquery",
 "nocontrolchangefeed",
 "nocontroljob",
 "nocreatedb",
 "nocreatelogin",
 "nocreaterole",
+"node",
 "nologin",
 "nomodifyclustersetting",
 "none",
@@ -982,6 +1025,7 @@ var KeywordNames = []string{
 "off",
 "offset",
 "oids",
+"old",
 "old_kms",
 "on",
 "only",
@@ -1008,6 +1052,8 @@ var KeywordNames = []string{
 "password",
 "pause",
 "paused",
+"per",
+"permissive",
 "physical",
 "placement",
 "placing",
@@ -1017,6 +1063,8 @@ var KeywordNames = []string{
 "pointm",
 "pointz",
 "pointzm",
+"policies",
+"policy",
 "polygon",
 "polygonm",
 "polygonz",
@@ -1025,6 +1073,7 @@ var KeywordNames = []string{
 "preceding",
 "precision",
 "prepare",
+"prepared",
 "preserve",
 "primary",
 "prior",
@@ -1048,6 +1097,7 @@ var KeywordNames = []string{
 "redact",
 "ref",
 "references",
+"referencing",
 "refresh",
 "region",
 "regional",
@@ -1060,12 +1110,14 @@ var KeywordNames = []string{
 "rename",
 "repeatable",
 "replace",
+"replicated",
 "replication",
 "reset",
 "restart",
 "restore",
 "restrict",
 "restricted",
+"restrictive",
 "resume",
 "retention",
 "retry",
@@ -1128,12 +1180,14 @@ var KeywordNames = []string{
 "smallint",
 "snapshot",
 "some",
+"source",
 "split",
 "sql",
 "sqllogin",
 "stable",
 "start",
 "state",
+"statement",
 "statements",
 "statistics",
 "status",
@@ -1144,9 +1198,11 @@ var KeywordNames = []string{
 "store",
 "stored",
 "storing",
+"straight",
 "stream",
 "strict",
 "string",
+"subject",
 "subscription",
 "substring",
 "super",
@@ -1184,6 +1240,7 @@ var KeywordNames = []string{
 "transform",
 "treat",
 "trigger",
+"triggers",
 "trim",
 "true",
 "truncate",
@@ -1192,6 +1249,7 @@ var KeywordNames = []string{
 "types",
 "unbounded",
 "uncommitted",
+"unidirectional",
 "union",
 "unique",
 "unknown",
@@ -1214,8 +1272,10 @@ var KeywordNames = []string{
 "values",
 "varbit",
 "varchar",
+"variables",
 "variadic",
 "varying",
+"vector",
 "verify_backup_table_data",
 "view",
 "viewactivity",
@@ -1278,6 +1338,7 @@ func GetKeywordID(k string) int32 {
 	case "authorization": return AUTHORIZATION
 	case "automatic": return AUTOMATIC
 	case "availability": return AVAILABILITY
+	case "avoid_full_scan": return AVOID_FULL_SCAN
 	case "backup": return BACKUP
 	case "backups": return BACKUPS
 	case "backward": return BACKWARD
@@ -1285,6 +1346,7 @@ func GetKeywordID(k string) int32 {
 	case "before": return BEFORE
 	case "begin": return BEGIN
 	case "between": return BETWEEN
+	case "bidirectional": return BIDIRECTIONAL
 	case "bigint": return BIGINT
 	case "binary": return BINARY
 	case "bit": return BIT
@@ -1294,6 +1356,7 @@ func GetKeywordID(k string) int32 {
 	case "bucket_count": return BUCKET_COUNT
 	case "bundle": return BUNDLE
 	case "by": return BY
+	case "bypassrls": return BYPASSRLS
 	case "cache": return CACHE
 	case "call": return CALL
 	case "called": return CALLED
@@ -1363,9 +1426,7 @@ func GetKeywordID(k string) int32 {
 	case "databases": return DATABASES
 	case "day": return DAY
 	case "deallocate": return DEALLOCATE
-	case "debug_dump_metadata_sst": return DEBUG_DUMP_METADATA_SST
 	case "debug_ids": return DEBUG_IDS
-	case "debug_pause_on": return DEBUG_PAUSE_ON
 	case "dec": return DEC
 	case "decimal": return DECIMAL
 	case "declare": return DECLARE
@@ -1381,13 +1442,16 @@ func GetKeywordID(k string) int32 {
 	case "destination": return DESTINATION
 	case "detached": return DETACHED
 	case "details": return DETAILS
+	case "disable": return DISABLE
 	case "discard": return DISCARD
 	case "distinct": return DISTINCT
 	case "do": return DO
 	case "domain": return DOMAIN
 	case "double": return DOUBLE
 	case "drop": return DROP
+	case "each": return EACH
 	case "else": return ELSE
+	case "enable": return ENABLE
 	case "encoding": return ENCODING
 	case "encrypted": return ENCRYPTED
 	case "encryption_info_dir": return ENCRYPTION_INFO_DIR
@@ -1427,6 +1491,7 @@ func GetKeywordID(k string) int32 {
 	case "for": return FOR
 	case "force": return FORCE
 	case "force_index": return FORCE_INDEX
+	case "force_inverted_index": return FORCE_INVERTED_INDEX
 	case "force_not_null": return FORCE_NOT_NULL
 	case "force_null": return FORCE_NULL
 	case "force_quote": return FORCE_QUOTE
@@ -1472,6 +1537,7 @@ func GetKeywordID(k string) int32 {
 	case "ignore_foreign_keys": return IGNORE_FOREIGN_KEYS
 	case "ilike": return ILIKE
 	case "immediate": return IMMEDIATE
+	case "immediately": return IMMEDIATELY
 	case "immutable": return IMMUTABLE
 	case "import": return IMPORT
 	case "in": return IN
@@ -1495,6 +1561,7 @@ func GetKeywordID(k string) int32 {
 	case "input": return INPUT
 	case "insensitive": return INSENSITIVE
 	case "insert": return INSERT
+	case "instead": return INSTEAD
 	case "int": return INT
 	case "integer": return INTEGER
 	case "intersect": return INTERSECT
@@ -1542,6 +1609,8 @@ func GetKeywordID(k string) int32 {
 	case "localtime": return LOCALTIME
 	case "localtimestamp": return LOCALTIMESTAMP
 	case "locked": return LOCKED
+	case "logical": return LOGICAL
+	case "logically": return LOGICALLY
 	case "login": return LOGIN
 	case "lookup": return LOOKUP
 	case "low": return LOW
@@ -1552,6 +1621,7 @@ func GetKeywordID(k string) int32 {
 	case "method": return METHOD
 	case "minute": return MINUTE
 	case "minvalue": return MINVALUE
+	case "mode": return MODE
 	case "modifyclustersetting": return MODIFYCLUSTERSETTING
 	case "modifysqlclustersetting": return MODIFYSQLCLUSTERSETTING
 	case "month": return MONTH
@@ -1572,16 +1642,19 @@ func GetKeywordID(k string) int32 {
 	case "nan": return NAN
 	case "natural": return NATURAL
 	case "never": return NEVER
+	case "new": return NEW
 	case "new_db_name": return NEW_DB_NAME
 	case "new_kms": return NEW_KMS
 	case "next": return NEXT
 	case "no": return NO
+	case "nobypassrls": return NOBYPASSRLS
 	case "nocancelquery": return NOCANCELQUERY
 	case "nocontrolchangefeed": return NOCONTROLCHANGEFEED
 	case "nocontroljob": return NOCONTROLJOB
 	case "nocreatedb": return NOCREATEDB
 	case "nocreatelogin": return NOCREATELOGIN
 	case "nocreaterole": return NOCREATEROLE
+	case "node": return NODE
 	case "nologin": return NOLOGIN
 	case "nomodifyclustersetting": return NOMODIFYCLUSTERSETTING
 	case "none": return NONE
@@ -1608,6 +1681,7 @@ func GetKeywordID(k string) int32 {
 	case "off": return OFF
 	case "offset": return OFFSET
 	case "oids": return OIDS
+	case "old": return OLD
 	case "old_kms": return OLD_KMS
 	case "on": return ON
 	case "only": return ONLY
@@ -1634,6 +1708,8 @@ func GetKeywordID(k string) int32 {
 	case "password": return PASSWORD
 	case "pause": return PAUSE
 	case "paused": return PAUSED
+	case "per": return PER
+	case "permissive": return PERMISSIVE
 	case "physical": return PHYSICAL
 	case "placement": return PLACEMENT
 	case "placing": return PLACING
@@ -1643,6 +1719,8 @@ func GetKeywordID(k string) int32 {
 	case "pointm": return POINTM
 	case "pointz": return POINTZ
 	case "pointzm": return POINTZM
+	case "policies": return POLICIES
+	case "policy": return POLICY
 	case "polygon": return POLYGON
 	case "polygonm": return POLYGONM
 	case "polygonz": return POLYGONZ
@@ -1651,6 +1729,7 @@ func GetKeywordID(k string) int32 {
 	case "preceding": return PRECEDING
 	case "precision": return PRECISION
 	case "prepare": return PREPARE
+	case "prepared": return PREPARED
 	case "preserve": return PRESERVE
 	case "primary": return PRIMARY
 	case "prior": return PRIOR
@@ -1674,6 +1753,7 @@ func GetKeywordID(k string) int32 {
 	case "redact": return REDACT
 	case "ref": return REF
 	case "references": return REFERENCES
+	case "referencing": return REFERENCING
 	case "refresh": return REFRESH
 	case "region": return REGION
 	case "regional": return REGIONAL
@@ -1686,12 +1766,14 @@ func GetKeywordID(k string) int32 {
 	case "rename": return RENAME
 	case "repeatable": return REPEATABLE
 	case "replace": return REPLACE
+	case "replicated": return REPLICATED
 	case "replication": return REPLICATION
 	case "reset": return RESET
 	case "restart": return RESTART
 	case "restore": return RESTORE
 	case "restrict": return RESTRICT
 	case "restricted": return RESTRICTED
+	case "restrictive": return RESTRICTIVE
 	case "resume": return RESUME
 	case "retention": return RETENTION
 	case "retry": return RETRY
@@ -1754,12 +1836,14 @@ func GetKeywordID(k string) int32 {
 	case "smallint": return SMALLINT
 	case "snapshot": return SNAPSHOT
 	case "some": return SOME
+	case "source": return SOURCE
 	case "split": return SPLIT
 	case "sql": return SQL
 	case "sqllogin": return SQLLOGIN
 	case "stable": return STABLE
 	case "start": return START
 	case "state": return STATE
+	case "statement": return STATEMENT
 	case "statements": return STATEMENTS
 	case "statistics": return STATISTICS
 	case "status": return STATUS
@@ -1770,9 +1854,11 @@ func GetKeywordID(k string) int32 {
 	case "store": return STORE
 	case "stored": return STORED
 	case "storing": return STORING
+	case "straight": return STRAIGHT
 	case "stream": return STREAM
 	case "strict": return STRICT
 	case "string": return STRING
+	case "subject": return SUBJECT
 	case "subscription": return SUBSCRIPTION
 	case "substring": return SUBSTRING
 	case "super": return SUPER
@@ -1810,6 +1896,7 @@ func GetKeywordID(k string) int32 {
 	case "transform": return TRANSFORM
 	case "treat": return TREAT
 	case "trigger": return TRIGGER
+	case "triggers": return TRIGGERS
 	case "trim": return TRIM
 	case "true": return TRUE
 	case "truncate": return TRUNCATE
@@ -1818,6 +1905,7 @@ func GetKeywordID(k string) int32 {
 	case "types": return TYPES
 	case "unbounded": return UNBOUNDED
 	case "uncommitted": return UNCOMMITTED
+	case "unidirectional": return UNIDIRECTIONAL
 	case "union": return UNION
 	case "unique": return UNIQUE
 	case "unknown": return UNKNOWN
@@ -1840,8 +1928,10 @@ func GetKeywordID(k string) int32 {
 	case "values": return VALUES
 	case "varbit": return VARBIT
 	case "varchar": return VARCHAR
+	case "variables": return VARIABLES
 	case "variadic": return VARIADIC
 	case "varying": return VARYING
+	case "vector": return VECTOR
 	case "verify_backup_table_data": return VERIFY_BACKUP_TABLE_DATA
 	case "view": return VIEW
 	case "viewactivity": return VIEWACTIVITY

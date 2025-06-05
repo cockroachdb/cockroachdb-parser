@@ -1,12 +1,7 @@
 // Copyright 2016 The Cockroach Authors.
 //
-// Use of this software is governed by the Business Source License
-// included in the file licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with
-// the Business Source License, use of this software will be governed
-// by the Apache License, Version 2.0, included in the file
-// licenses/APL.txt.
+// Use of this software is governed by the CockroachDB Software License
+// included in the /LICENSE file.
 
 package tree
 
@@ -62,6 +57,7 @@ type CopyOptions struct {
 	Escape      *StrVal
 	Header      bool
 	Quote       *StrVal
+	Encoding    *StrVal
 
 	// Additional flags are needed to keep track of whether explicit default
 	// values were already set.
@@ -117,6 +113,12 @@ func (o *CopyOptions) Format(ctx *FmtCtx) {
 		ctx.FormatNode(o.Delimiter)
 		addSep = true
 	}
+	if o.Encoding != nil {
+		maybeAddSep()
+		ctx.WriteString("ENCODING ")
+		ctx.FormatNode(o.Encoding)
+		addSep = true
+	}
 	if o.Null != nil {
 		maybeAddSep()
 		ctx.WriteString("NULL ")
@@ -129,7 +131,7 @@ func (o *CopyOptions) Format(ctx *FmtCtx) {
 		// by copy_file_upload.go, so this will provide backward
 		// compatibility with older servers.
 		ctx.WriteString("DESTINATION ")
-		ctx.FormatNode(o.Destination)
+		ctx.FormatURI(o.Destination)
 		addSep = true
 	}
 	if o.Escape != nil {
@@ -180,6 +182,12 @@ func (o *CopyOptions) CombineWith(other *CopyOptions) error {
 			return pgerror.Newf(pgcode.Syntax, "delimiter option specified multiple times")
 		}
 		o.Delimiter = other.Delimiter
+	}
+	if other.Encoding != nil {
+		if o.Encoding != nil {
+			return pgerror.Newf(pgcode.Syntax, "encoding option specified multiple times")
+		}
+		o.Encoding = other.Encoding
 	}
 	if other.Null != nil {
 		if o.Null != nil {

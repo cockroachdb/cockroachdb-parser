@@ -11,6 +11,7 @@ import (
 	io "io"
 	math "math"
 	math_bits "math/bits"
+	slices "slices"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -221,20 +222,29 @@ func (m *MigratableSession_PreparedStatement) MarshalToSizedBuffer(dAtA []byte) 
 		dAtA[i] = 0x1a
 	}
 	if len(m.PlaceholderTypeHints) > 0 {
-		dAtA4 := make([]byte, len(m.PlaceholderTypeHints)*10)
-		var j3 int
-		for _, num := range m.PlaceholderTypeHints {
-			for num >= 1<<7 {
-				dAtA4[j3] = uint8(uint64(num)&0x7f | 0x80)
-				num >>= 7
+		l := 0
+		for _, e := range m.PlaceholderTypeHints {
+			l += sovSessionMigration(uint64(e))
+		}
+		i -= l
+		if l == len(m.PlaceholderTypeHints) {
+			dest := dAtA[i : i+len(m.PlaceholderTypeHints)]
+			for k, num := range m.PlaceholderTypeHints {
+				dest[k] = uint8(num)
+			}
+		} else {
+			j3 := i
+			for _, num := range m.PlaceholderTypeHints {
+				for num >= 1<<7 {
+					dAtA[j3] = uint8(uint64(num)&0x7f | 0x80)
+					num >>= 7
+					j3++
+				}
+				dAtA[j3] = uint8(num)
 				j3++
 			}
-			dAtA4[j3] = uint8(num)
-			j3++
 		}
-		i -= j3
-		copy(dAtA[i:], dAtA4[:j3])
-		i = encodeVarintSessionMigration(dAtA, i, uint64(j3))
+		i = encodeVarintSessionMigration(dAtA, i, uint64(uint64(l)))
 		i--
 		dAtA[i] = 0x12
 	}
@@ -303,7 +313,7 @@ func (m *MigratableSession_PreparedStatement) Size() (n int) {
 }
 
 func sovSessionMigration(x uint64) (n int) {
-	return (math_bits.Len64(x|1) + 6) / 7
+	return int((uint32(math_bits.Len64(x|1)+6) * 37) >> 8)
 }
 func sozSessionMigration(x uint64) (n int) {
 	return sovSessionMigration(uint64((x << 1) ^ uint64((int64(x) >> 63))))
@@ -571,8 +581,12 @@ func (m *MigratableSession_PreparedStatement) Unmarshal(dAtA []byte) error {
 					}
 				}
 				elementCount = count
-				if elementCount != 0 && len(m.PlaceholderTypeHints) == 0 {
-					m.PlaceholderTypeHints = make([]github_com_lib_pq_oid.Oid, 0, elementCount)
+				if elementCount != 0 {
+					if m.PlaceholderTypeHints == nil {
+						m.PlaceholderTypeHints = make([]github_com_lib_pq_oid.Oid, 0, elementCount)
+					} else {
+						m.PlaceholderTypeHints = slices.Grow(m.PlaceholderTypeHints, elementCount)
+					}
 				}
 				for iNdEx < postIndex {
 					var v github_com_lib_pq_oid.Oid

@@ -1,12 +1,7 @@
 // Copyright 2022 The Cockroach Authors.
 //
-// Use of this software is governed by the Business Source License
-// included in the file licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with
-// the Business Source License, use of this software will be governed
-// by the Apache License, Version 2.0, included in the file
-// licenses/APL.txt.
+// Use of this software is governed by the CockroachDB Software License
+// included in the /LICENSE file.
 
 package timeutil
 
@@ -30,7 +25,7 @@ type CPUStopWatch struct {
 // NewCPUStopWatch returns a new CPUStopWatch if the grunning library is
 // supported. Otherwise, it returns nil.
 func NewCPUStopWatch() *CPUStopWatch {
-	if grunning.Supported() {
+	if grunning.Supported {
 		return &CPUStopWatch{}
 	}
 	return nil

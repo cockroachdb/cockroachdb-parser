@@ -10,6 +10,7 @@ COCKROACHDB_LOC=$GOPATH/src/github.com/cockroachdb/cockroach
 
 echo "Generating files in-line using dev build short"
 cd $COCKROACHDB_LOC
+./dev gen
 ./dev gen parser
 ./dev gen protobuf
 
@@ -63,5 +64,5 @@ done
 
 echo "Cleaning up go and testing everything works"
 go mod tidy
-echo "v0.0.0" > pkg/build/version.txt
+echo "v1.2.3" > pkg/build/version.txt
 go test .

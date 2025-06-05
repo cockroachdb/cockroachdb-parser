@@ -1,12 +1,7 @@
 // Copyright 2015 The Cockroach Authors.
 //
-// Use of this software is governed by the Business Source License
-// included in the file licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with
-// the Business Source License, use of this software will be governed
-// by the Apache License, Version 2.0, included in the file
-// licenses/APL.txt.
+// Use of this software is governed by the CockroachDB Software License
+// included in the /LICENSE file.
 
 package tree
 
@@ -44,7 +39,7 @@ type Expr interface {
 	// The semaCtx parameter defines the context in which to perform type checking.
 	// The desired parameter hints the desired type that the method's caller wants from
 	// the resulting TypedExpr. It is not valid to call TypeCheck with a nil desired
-	// type. Instead, call it with wildcard type types.Any if no specific type is
+	// type. Instead, call it with wildcard type types.AnyElement if no specific type is
 	// desired. This restriction is also true of most methods and functions related
 	// to type checking.
 	TypeCheck(ctx context.Context, semaCtx *SemaContext, desired *types.T) (TypedExpr, error)
@@ -428,7 +423,7 @@ func NewTypedCollateExpr(expr TypedExpr, locale string) *CollateExpr {
 		Expr:   expr,
 		Locale: locale,
 	}
-	node.typ = types.MakeCollatedString(types.String, locale)
+	node.typ = types.MakeCollatedType(expr.ResolvedType(), locale)
 	return node
 }
 
@@ -803,25 +798,17 @@ func NewPlaceholder(name string) (*Placeholder, error) {
 
 // Format implements the NodeFormatter interface.
 func (node *Placeholder) Format(ctx *FmtCtx) {
-	if ctx.HasFlags(FmtHideConstants) {
-		if ctx.placeholderFormat != nil {
-			ctx.placeholderFormat(ctx, node)
-			return
-		}
-		ctx.Printf("$%d", node.Idx+1)
-	} else {
-		if ctx.placeholderFormat != nil {
-			ctx.placeholderFormat(ctx, node)
-			return
-		}
-		ctx.Printf("$%d", node.Idx+1)
+	if ctx.placeholderFormat != nil {
+		ctx.placeholderFormat(ctx, node)
+		return
 	}
+	ctx.Printf("$%d", node.Idx+1)
 }
 
 // ResolvedType implements the TypedExpr interface.
 func (node *Placeholder) ResolvedType() *types.T {
 	if node.typ == nil {
-		return types.Any
+		return types.AnyElement
 	}
 	return node.typ
 }
@@ -979,7 +966,7 @@ type Subquery struct {
 // ResolvedType implements the TypedExpr interface.
 func (node *Subquery) ResolvedType() *types.T {
 	if node.typ == nil {
-		return types.Any
+		return types.AnyElement
 	}
 	return node.typ
 }
@@ -1058,6 +1045,7 @@ var binaryOpPrio = [...]int{
 	treebin.Bitxor: 6,
 	treebin.Bitor:  7,
 	treebin.Concat: 8, treebin.JSONFetchVal: 8, treebin.JSONFetchText: 8, treebin.JSONFetchValPath: 8, treebin.JSONFetchTextPath: 8,
+	treebin.Distance: 8, treebin.CosDistance: 8, treebin.NegInnerProduct: 8,
 }
 
 // binaryOpFullyAssoc indicates whether an operator is fully associative.
@@ -1071,6 +1059,7 @@ var binaryOpFullyAssoc = [...]bool{
 	treebin.Bitxor: true,
 	treebin.Bitor:  true,
 	treebin.Concat: true, treebin.JSONFetchVal: false, treebin.JSONFetchText: false, treebin.JSONFetchValPath: false, treebin.JSONFetchTextPath: false,
+	treebin.Distance: false, treebin.CosDistance: false, treebin.NegInnerProduct: false,
 }
 
 // BinaryExpr represents a binary value expression.
@@ -1388,7 +1377,11 @@ func (node *FuncExpr) Format(ctx *FmtCtx) {
 	// they are resolved. We conservatively redact function names if requested.
 	// TODO(111385): Investigate ways to identify built-in functions before
 	// type-checking.
-	ctx.WithFlags(ctx.flags|FmtBareIdentifiers, func() {
+	//
+	// Instruct the pretty-printer not to wrap reserved keywords in quotes. Only
+	// builtin functions can have reserved keywords as names, and it is not
+	// necessary (or desirable) to quote them.
+	ctx.WithFlags(ctx.flags|FmtBareReservedKeywords, func() {
 		ctx.FormatNode(&node.Func)
 	})
 
@@ -1750,6 +1743,7 @@ func (node *DGeometry) String() string        { return AsString(node) }
 func (node *DInt) String() string             { return AsString(node) }
 func (node *DInterval) String() string        { return AsString(node) }
 func (node *DJSON) String() string            { return AsString(node) }
+func (node *DJsonpath) String() string        { return AsString(node) }
 func (node *DUuid) String() string            { return AsString(node) }
 func (node *DIPAddr) String() string          { return AsString(node) }
 func (node *DString) String() string          { return AsString(node) }
@@ -1779,6 +1773,7 @@ func (node *NumVal) String() string           { return AsString(node) }
 func (node *OrExpr) String() string           { return AsString(node) }
 func (node *ParenExpr) String() string        { return AsString(node) }
 func (node *RangeCond) String() string        { return AsString(node) }
+func (node *TxnControlExpr) String() string   { return AsString(node) }
 func (node *StrVal) String() string           { return AsString(node) }
 func (node *Subquery) String() string         { return AsString(node) }
 func (node *RoutineExpr) String() string      { return AsString(node) }

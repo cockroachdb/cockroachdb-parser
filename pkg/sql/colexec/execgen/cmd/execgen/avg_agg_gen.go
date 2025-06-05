@@ -1,12 +1,7 @@
 // Copyright 2018 The Cockroach Authors.
 //
-// Use of this software is governed by the Business Source License
-// included in the file licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with
-// the Business Source License, use of this software will be governed
-// by the Apache License, Version 2.0, included in the file
-// licenses/APL.txt.
+// Use of this software is governed by the CockroachDB Software License
+// included in the /LICENSE file.
 
 package main
 
@@ -107,7 +102,7 @@ const avgAggTmpl = "pkg/sql/colexec/colexecagg/avg_agg_tmpl.go"
 
 func genAvgAgg(inputFileContents string, wr io.Writer) error {
 	r := strings.NewReplacer(
-		"_TYPE_FAMILY", "{{.TypeFamily}}",
+		"_CANONICAL_TYPE_FAMILY", "{{.TypeFamily}}",
 		"_TYPE_WIDTH", typeWidthReplacement,
 		"_RET_GOTYPESLICE", `{{.RetGoTypeSlice}}`,
 		"_RET_GOTYPE", `{{.RetGoType}}`,
@@ -147,9 +142,10 @@ func genAvgAgg(inputFileContents string, wr io.Writer) error {
 	for _, inputTypeFamily := range []types.Family{types.IntFamily, types.DecimalFamily, types.FloatFamily, types.IntervalFamily} {
 		tmplInfo := avgAggTypeTmplInfo{TypeFamily: familyToString(inputTypeFamily)}
 		for _, inputTypeWidth := range supportedWidthsByCanonicalTypeFamily[inputTypeFamily] {
-			// Note that we don't use execinfrapb.GetAggregateInfo because we don't
-			// want to bring in a dependency on that package to reduce the burden
-			// of regenerating execgen code when the protobufs get generated.
+			// Note that we don't use execinfrapb.GetAggregateOutputType because
+			// we don't want to bring in a dependency on that package to reduce
+			// the burden of regenerating execgen code when the protobufs get
+			// generated.
 			retTypeFamily, retTypeWidth := inputTypeFamily, inputTypeWidth
 			if inputTypeFamily == types.IntFamily {
 				// Average of integers is a decimal.
@@ -174,5 +170,8 @@ func genAvgAgg(inputFileContents string, wr io.Writer) error {
 }
 
 func init() {
-	registerAggGenerator(genAvgAgg, "avg_agg.eg.go", avgAggTmpl, true /* genWindowVariant */)
+	registerAggGenerator(
+		genAvgAgg, "avg_agg.eg.go", /* filenameSuffix */
+		avgAggTmpl, "avg" /* aggName */, true, /* genWindowVariant */
+	)
 }

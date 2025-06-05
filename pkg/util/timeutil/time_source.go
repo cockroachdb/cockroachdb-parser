@@ -1,12 +1,7 @@
 // Copyright 2020 The Cockroach Authors.
 //
-// Use of this software is governed by the Business Source License
-// included in the file licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with
-// the Business Source License, use of this software will be governed
-// by the Apache License, Version 2.0, included in the file
-// licenses/APL.txt.
+// Use of this software is governed by the CockroachDB Software License
+// included in the /LICENSE file.
 
 package timeutil
 
@@ -27,7 +22,7 @@ type TimerI interface {
 	// Reset will set the timer to notify on Ch() after duration.
 	Reset(duration time.Duration)
 
-	// Stop must only be called one time per timer.
+	// Stop prevents the Timer from firing.
 	Stop() bool
 
 	// Ch returns the channel which will be notified when the timer reaches its
@@ -71,7 +66,7 @@ func (DefaultTimeSource) Since(t time.Time) time.Duration {
 
 // NewTimer returns a TimerI wrapping *Timer.
 func (DefaultTimeSource) NewTimer() TimerI {
-	return (*timer)(NewTimer())
+	return (*timer)(new(Timer))
 }
 
 // NewTicker creates a new ticker.
