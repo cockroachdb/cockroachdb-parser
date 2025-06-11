@@ -46,14 +46,14 @@ const (
 	// without wrapping quotes.
 	EncBareReservedKeywords
 
-	// EncFirstFreeFlagBit needs to remain unused; it is used as base
-	// bit offset for tree.FmtFlags.
-	EncFirstFreeFlagBit
-
 	// EncAlwaysQuoted makes sure the string is always wrapped with quotes.
 	// This is used only to construct a statement against Oracle source,
 	// as Oracle is case insensitive if object name is not quoted.
 	EncAlwaysQuoted
+
+	// EncFirstFreeFlagBit needs to remain unused; it is used as base
+	// bit offset for tree.FmtFlags.
+	EncFirstFreeFlagBit
 )
 
 // EncodeRestrictedSQLIdent writes the identifier in s to buf. The
