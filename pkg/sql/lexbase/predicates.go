@@ -56,6 +56,12 @@ func init() {
 		"on",
 		"tenant",
 		"set",
+		"mod",
+		"abs",
+		"ceil",
+		"floor",
+		"round",
+		"trunc",
 	} {
 		reservedOrLookaheadKeywords[s] = struct{}{}
 	}
