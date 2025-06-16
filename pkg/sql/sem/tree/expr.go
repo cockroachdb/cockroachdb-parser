@@ -1364,6 +1364,19 @@ const (
 	OrderedSetAgg
 )
 
+// onlyNameFunc is the list of function who can be compiled with only the
+// name. This is for PG compatibility, where examples such as `CURRENT_TIMESTAMP()`
+// is not allowed, but `CURRENT_TIMESTAMP` is allowed.
+var onlyNameFunc = map[string]bool{
+	"current_timestamp": true,
+}
+
+func isOnlyNameFunc(f *FuncExpr) bool {
+	funcStr := f.Func.String()
+	_, ok := onlyNameFunc[funcStr]
+	return ok
+}
+
 // Format implements the NodeFormatter interface.
 func (node *FuncExpr) Format(ctx *FmtCtx) {
 	var typ string
@@ -1385,41 +1398,43 @@ func (node *FuncExpr) Format(ctx *FmtCtx) {
 		ctx.FormatNode(&node.Func)
 	})
 
-	ctx.WriteByte('(')
-	ctx.WriteString(typ)
-	ctx.FormatNode(&node.Exprs)
-	if node.AggType == GeneralAgg && len(node.OrderBy) > 0 {
-		ctx.WriteByte(' ')
-		ctx.FormatNode(&node.OrderBy)
-	}
-	ctx.WriteByte(')')
-	if ctx.HasFlags(FmtParsable) && node.typ != nil {
-		if node.fnProps.AmbiguousReturnType {
-			// There's no type annotation available for tuples.
-			// TODO(jordan,knz): clean this up. AmbiguousReturnType should be set only
-			// when we should and can put an annotation here. #28579
-			if node.typ.Family() != types.TupleFamily {
-				ctx.WriteString(":::")
-				ctx.Buffer.WriteString(node.typ.SQLString())
+	if !(ctx.HasFlags(FmtFuncOnlyName) && isOnlyNameFunc(node)) {
+		ctx.WriteByte('(')
+		ctx.WriteString(typ)
+		ctx.FormatNode(&node.Exprs)
+		if node.AggType == GeneralAgg && len(node.OrderBy) > 0 {
+			ctx.WriteByte(' ')
+			ctx.FormatNode(&node.OrderBy)
+		}
+		ctx.WriteByte(')')
+		if ctx.HasFlags(FmtParsable) && node.typ != nil {
+			if node.fnProps.AmbiguousReturnType {
+				// There's no type annotation available for tuples.
+				// TODO(jordan,knz): clean this up. AmbiguousReturnType should be set only
+				// when we should and can put an annotation here. #28579
+				if node.typ.Family() != types.TupleFamily {
+					ctx.WriteString(":::")
+					ctx.Buffer.WriteString(node.typ.SQLString())
+				}
 			}
 		}
-	}
-	if node.AggType == OrderedSetAgg && len(node.OrderBy) > 0 {
-		ctx.WriteString(" WITHIN GROUP (")
-		ctx.FormatNode(&node.OrderBy)
-		ctx.WriteString(")")
-	}
-	if node.Filter != nil {
-		ctx.WriteString(" FILTER (WHERE ")
-		ctx.FormatNode(node.Filter)
-		ctx.WriteString(")")
-	}
-	if window := node.WindowDef; window != nil {
-		ctx.WriteString(" OVER ")
-		if window.Name != "" {
-			ctx.FormatNode(&window.Name)
-		} else {
-			ctx.FormatNode(window)
+		if node.AggType == OrderedSetAgg && len(node.OrderBy) > 0 {
+			ctx.WriteString(" WITHIN GROUP (")
+			ctx.FormatNode(&node.OrderBy)
+			ctx.WriteString(")")
+		}
+		if node.Filter != nil {
+			ctx.WriteString(" FILTER (WHERE ")
+			ctx.FormatNode(node.Filter)
+			ctx.WriteString(")")
+		}
+		if window := node.WindowDef; window != nil {
+			ctx.WriteString(" OVER ")
+			if window.Name != "" {
+				ctx.FormatNode(&window.Name)
+			} else {
+				ctx.FormatNode(window)
+			}
 		}
 	}
 }
