@@ -51,6 +51,13 @@ const (
 	// as Oracle is case insensitive if object name is not quoted.
 	EncAlwaysQuoted
 
+	// EncSkipEscapeString indicates that the string should not be escaped,
+	// and non-ASCII characters are allowed.
+	// More specifically, it means that the tree.DString won't be wrapped
+	// with e'text' as the prefix and suffix, and single quotes within
+	// the string will not be escaped with a backslash.
+	EncSkipEscapeString
+
 	// EncFirstFreeFlagBit needs to remain unused; it is used as base
 	// bit offset for tree.FmtFlags.
 	EncFirstFreeFlagBit
@@ -147,6 +154,7 @@ func EscapeSQLString(in string) string {
 func EncodeSQLStringWithFlags(buf *bytes.Buffer, in string, flags EncodeFlags) {
 	// See http://www.postgresql.org/docs/9.4/static/sql-syntax-lexical.html
 	start := 0
+	skipEscape := flags.HasFlags(EncSkipEscapeString)
 	escapedString := false
 	bareStrings := flags.HasFlags(EncBareStrings)
 	// Loop through each unicode code point.
@@ -165,7 +173,13 @@ func EncodeSQLStringWithFlags(buf *bytes.Buffer, in string, flags EncodeFlags) {
 			}
 		}
 
-		if !escapedString {
+		// If non-ASCII characters are allowed,
+		// skip escaping and write the original UTF-8 character.
+		if r > maxPrintableChar && skipEscape {
+			continue
+		}
+
+		if !skipEscape && !escapedString {
 			buf.WriteString("e'") // begin e'xxx' string
 			escapedString = true
 		}
@@ -177,17 +191,19 @@ func EncodeSQLStringWithFlags(buf *bytes.Buffer, in string, flags EncodeFlags) {
 		} else {
 			start = i + ln
 		}
-		stringencoding.EncodeEscapedChar(buf, in, r, ch, i, '\'')
+		// If we skip escaping, we don't write the slash char before the
+		// quote char, so we will  write the quote char directly.
+		stringencoding.EncodeEscapedChar(buf, in, r, ch, i, '\'', !skipEscape)
 	}
 
-	quote := !escapedString && !bareStrings
+	quote := !escapedString && !bareStrings && !skipEscape
 	if quote {
 		buf.WriteByte('\'') // begin 'xxx' string if nothing was escaped
 	}
 	if start < len(in) {
 		buf.WriteString(in[start:])
 	}
-	if escapedString || quote {
+	if !skipEscape && (escapedString || quote) {
 		buf.WriteByte('\'')
 	}
 }
