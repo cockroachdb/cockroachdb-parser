@@ -6,12 +6,8 @@
 package debugutil
 
 import (
-	"os"
-	"path/filepath"
 	"runtime/debug"
 	"sync/atomic"
-
-	"github.com/elastic/gosigar"
 )
 
 // IsLaunchedByDebugger returns true in cases where the delve debugger
@@ -21,29 +17,6 @@ func IsLaunchedByDebugger() bool {
 }
 
 var isLaunchedByDebugger atomic.Bool
-
-func init() {
-	isLaunchedByDebugger.Store(func(maybeDelvePID int) bool {
-		// We loop in case there were intermediary processes like the gopls
-		// language server.
-		for maybeDelvePID != 0 {
-			var exe gosigar.ProcExe
-			if err := exe.Get(maybeDelvePID); err != nil {
-				break
-			}
-			switch filepath.Base(exe.Name) {
-			case "dlv":
-				return true
-			}
-			var state gosigar.ProcState
-			if err := state.Get(maybeDelvePID); err != nil {
-				break
-			}
-			maybeDelvePID = state.Ppid
-		}
-		return false
-	}(os.Getppid()))
-}
 
 // SafeStack is an alias for []byte that handles redaction. Use this type
 // instead of []byte when you are sure that the stack trace does not contain

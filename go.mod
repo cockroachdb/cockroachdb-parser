@@ -14,7 +14,6 @@ require (
 	github.com/cockroachdb/version v0.0.0-20250314144055-3860cd14adf2
 	github.com/dave/dst v0.27.2
 	github.com/dustin/go-humanize v1.0.0
-	github.com/elastic/gosigar v0.14.3
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/geo v0.0.0-20210211234256-740aa86cb551
 	github.com/google/go-cmp v0.7.0
