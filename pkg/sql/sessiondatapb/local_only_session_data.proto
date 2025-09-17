@@ -671,6 +671,23 @@ message LocalOnlySessionData {
   // OptimizerUseExistsFilterHoistRule, when true, causes the optimizer to apply
   // the HoistUnboundFilterFromExistsSubquery rule to EXISTS conditions.
   bool optimizer_use_exists_filter_hoist_rule = 170;
+  // InitialRetryBackoffForReadCommitted controls the initial backoff
+  // duration for automatic retries of statements in explicit READ COMMITTED
+  // transactions that see a transaction retry error. 0 disables backoff.
+  int64 initial_retry_backoff_for_read_committed = 171 [(gogoproto.casttype) = "time.Duration"];
+  // UseProcTxnControlExtendedProtocolFix, when true, enables the fix for
+  // PL/pgSQL transaction control statements (COMMIT, ROLLBACK) when the stored
+  // procedure is executed via a portal in the extended wire protocol.
+  bool use_proc_txn_control_extended_protocol_fix = 175;
+  // DisableOptimizerRules is a list of optimizer rules that should be disabled
+  // during query optimization. The names of the rules can be found in the
+  // opt/rule_name.og.go file.
+  repeated string disable_optimizer_rules = 184;
+  // UseSoftLimitForDistributeScan, if set, means that we'll use the soft limit
+  // hint - if available - when comparing against
+  // DistributeScanRowCountThreshold.
+  bool use_soft_limit_for_distribute_scan = 185;
+
   ///////////////////////////////////////////////////////////////////////////
   // WARNING: consider whether a session parameter you're adding needs to  //
   // be propagated to the remote nodes. If so, that parameter should live  //

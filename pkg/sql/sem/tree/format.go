@@ -195,6 +195,10 @@ const (
 	// FmtSkipAsOfSystemTimeClauses prevents the formatter from printing AS OF
 	// SYSTEM TIME clauses.
 	FmtSkipAsOfSystemTimeClauses
+
+	// FmtFuncOnlyName instructs the formating for a function only print
+	// its name, without printing the body of the function nor with the brackets.
+	FmtFuncOnlyName
 )
 
 const genericArityIndicator = "__more__"

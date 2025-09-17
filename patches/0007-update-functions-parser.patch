@@ -1,0 +1,218 @@
+diff --git a/pkg/sql/lexbase/encode.go b/pkg/sql/lexbase/encode.go
+index 4f7bc03..5b31fd0 100644
+--- a/pkg/sql/lexbase/encode.go
++++ b/pkg/sql/lexbase/encode.go
+@@ -51,6 +51,13 @@ const (
+ 	// as Oracle is case insensitive if object name is not quoted.
+ 	EncAlwaysQuoted
+ 
++	// EncSkipEscapeString indicates that the string should not be escaped,
++	// and non-ASCII characters are allowed.
++	// More specifically, it means that the tree.DString won't be wrapped
++	// with e'text' as the prefix and suffix, and single quotes within
++	// the string will not be escaped with a backslash.
++	EncSkipEscapeString
++
+ 	// EncFirstFreeFlagBit needs to remain unused; it is used as base
+ 	// bit offset for tree.FmtFlags.
+ 	EncFirstFreeFlagBit
+@@ -147,6 +154,7 @@ func EscapeSQLString(in string) string {
+ func EncodeSQLStringWithFlags(buf *bytes.Buffer, in string, flags EncodeFlags) {
+ 	// See http://www.postgresql.org/docs/9.4/static/sql-syntax-lexical.html
+ 	start := 0
++	skipEscape := flags.HasFlags(EncSkipEscapeString)
+ 	escapedString := false
+ 	bareStrings := flags.HasFlags(EncBareStrings)
+ 	// Loop through each unicode code point.
+@@ -165,7 +173,13 @@ func EncodeSQLStringWithFlags(buf *bytes.Buffer, in string, flags EncodeFlags) {
+ 			}
+ 		}
+ 
+-		if !escapedString {
++		// If non-ASCII characters are allowed,
++		// skip escaping and write the original UTF-8 character.
++		if r > maxPrintableChar && skipEscape {
++			continue
++		}
++
++		if !skipEscape && !escapedString {
+ 			buf.WriteString("e'") // begin e'xxx' string
+ 			escapedString = true
+ 		}
+@@ -177,17 +191,19 @@ func EncodeSQLStringWithFlags(buf *bytes.Buffer, in string, flags EncodeFlags) {
+ 		} else {
+ 			start = i + ln
+ 		}
+-		stringencoding.EncodeEscapedChar(buf, in, r, ch, i, '\'')
++		// If we skip escaping, we don't write the slash char before the
++		// quote char, so we will  write the quote char directly.
++		stringencoding.EncodeEscapedChar(buf, in, r, ch, i, '\'', !skipEscape)
+ 	}
+ 
+-	quote := !escapedString && !bareStrings
++	quote := !escapedString && !bareStrings && !skipEscape
+ 	if quote {
+ 		buf.WriteByte('\'') // begin 'xxx' string if nothing was escaped
+ 	}
+ 	if start < len(in) {
+ 		buf.WriteString(in[start:])
+ 	}
+-	if escapedString || quote {
++	if !skipEscape && (escapedString || quote) {
+ 		buf.WriteByte('\'')
+ 	}
+ }
+diff --git a/pkg/sql/sem/tree/expr.go b/pkg/sql/sem/tree/expr.go
+index 05d64e1..dabff21 100644
+--- a/pkg/sql/sem/tree/expr.go
++++ b/pkg/sql/sem/tree/expr.go
+@@ -1364,6 +1364,19 @@ const (
+ 	OrderedSetAgg
+ )
+ 
++// onlyNameFunc is the list of function who can be compiled with only the
++// name. This is for PG compatibility, where examples such as `CURRENT_TIMESTAMP()`
++// is not allowed, but `CURRENT_TIMESTAMP` is allowed.
++var onlyNameFunc = map[string]bool{
++	"current_timestamp": true,
++}
++
++func isOnlyNameFunc(f *FuncExpr) bool {
++	funcStr := f.Func.String()
++	_, ok := onlyNameFunc[funcStr]
++	return ok
++}
++
+ // Format implements the NodeFormatter interface.
+ func (node *FuncExpr) Format(ctx *FmtCtx) {
+ 	var typ string
+@@ -1385,41 +1398,43 @@ func (node *FuncExpr) Format(ctx *FmtCtx) {
+ 		ctx.FormatNode(&node.Func)
+ 	})
+ 
+-	ctx.WriteByte('(')
+-	ctx.WriteString(typ)
+-	ctx.FormatNode(&node.Exprs)
+-	if node.AggType == GeneralAgg && len(node.OrderBy) > 0 {
+-		ctx.WriteByte(' ')
+-		ctx.FormatNode(&node.OrderBy)
+-	}
+-	ctx.WriteByte(')')
+-	if ctx.HasFlags(FmtParsable) && node.typ != nil {
+-		if node.fnProps.AmbiguousReturnType {
+-			// There's no type annotation available for tuples.
+-			// TODO(jordan,knz): clean this up. AmbiguousReturnType should be set only
+-			// when we should and can put an annotation here. #28579
+-			if node.typ.Family() != types.TupleFamily {
+-				ctx.WriteString(":::")
+-				ctx.Buffer.WriteString(node.typ.SQLString())
++	if !(ctx.HasFlags(FmtFuncOnlyName) && isOnlyNameFunc(node)) {
++		ctx.WriteByte('(')
++		ctx.WriteString(typ)
++		ctx.FormatNode(&node.Exprs)
++		if node.AggType == GeneralAgg && len(node.OrderBy) > 0 {
++			ctx.WriteByte(' ')
++			ctx.FormatNode(&node.OrderBy)
++		}
++		ctx.WriteByte(')')
++		if ctx.HasFlags(FmtParsable) && node.typ != nil {
++			if node.fnProps.AmbiguousReturnType {
++				// There's no type annotation available for tuples.
++				// TODO(jordan,knz): clean this up. AmbiguousReturnType should be set only
++				// when we should and can put an annotation here. #28579
++				if node.typ.Family() != types.TupleFamily {
++					ctx.WriteString(":::")
++					ctx.Buffer.WriteString(node.typ.SQLString())
++				}
+ 			}
+ 		}
+-	}
+-	if node.AggType == OrderedSetAgg && len(node.OrderBy) > 0 {
+-		ctx.WriteString(" WITHIN GROUP (")
+-		ctx.FormatNode(&node.OrderBy)
+-		ctx.WriteString(")")
+-	}
+-	if node.Filter != nil {
+-		ctx.WriteString(" FILTER (WHERE ")
+-		ctx.FormatNode(node.Filter)
+-		ctx.WriteString(")")
+-	}
+-	if window := node.WindowDef; window != nil {
+-		ctx.WriteString(" OVER ")
+-		if window.Name != "" {
+-			ctx.FormatNode(&window.Name)
+-		} else {
+-			ctx.FormatNode(window)
++		if node.AggType == OrderedSetAgg && len(node.OrderBy) > 0 {
++			ctx.WriteString(" WITHIN GROUP (")
++			ctx.FormatNode(&node.OrderBy)
++			ctx.WriteString(")")
++		}
++		if node.Filter != nil {
++			ctx.WriteString(" FILTER (WHERE ")
++			ctx.FormatNode(node.Filter)
++			ctx.WriteString(")")
++		}
++		if window := node.WindowDef; window != nil {
++			ctx.WriteString(" OVER ")
++			if window.Name != "" {
++				ctx.FormatNode(&window.Name)
++			} else {
++				ctx.FormatNode(window)
++			}
+ 		}
+ 	}
+ }
+diff --git a/pkg/sql/sem/tree/format.go b/pkg/sql/sem/tree/format.go
+index 6832c7e..df15c15 100644
+--- a/pkg/sql/sem/tree/format.go
++++ b/pkg/sql/sem/tree/format.go
+@@ -195,6 +195,10 @@ const (
+ 	// FmtSkipAsOfSystemTimeClauses prevents the formatter from printing AS OF
+ 	// SYSTEM TIME clauses.
+ 	FmtSkipAsOfSystemTimeClauses
++
++	// FmtFuncOnlyName instructs the formating for a function only print
++	// its name, without printing the body of the function nor with the brackets.
++	FmtFuncOnlyName
+ )
+ 
+ const genericArityIndicator = "__more__"
+diff --git a/pkg/util/stringencoding/string_encoding.go b/pkg/util/stringencoding/string_encoding.go
+index fcb7fac..afa0090 100644
+--- a/pkg/util/stringencoding/string_encoding.go
++++ b/pkg/util/stringencoding/string_encoding.go
+@@ -73,6 +73,7 @@ func init() {
+ 
+ // EncodeEscapedChar is used internally to write out a character from a larger
+ // string that needs to be escaped to a buffer.
++// If slashedQuoteChar is true, it will write a backslash before the quoteChar.
+ func EncodeEscapedChar(
+ 	buf *bytes.Buffer,
+ 	entireString string,
+@@ -80,6 +81,7 @@ func EncodeEscapedChar(
+ 	currentByte byte,
+ 	currentIdx int,
+ 	quoteChar byte,
++	slashedQuoteChar bool,
+ ) {
+ 	ln := utf8.RuneLen(currentRune)
+ 	if currentRune == utf8.RuneError {
+@@ -94,10 +96,15 @@ func EncodeEscapedChar(
+ 	} else if ln == 1 {
+ 		// For single-byte runes, do the same as encodeSQLBytes.
+ 		if encodedChar := EncodeMap[currentByte]; encodedChar != DontEscape {
+-			buf.WriteByte('\\')
++			if slashedQuoteChar {
++				buf.WriteByte('\\')
++			}
++
+ 			buf.WriteByte(encodedChar)
+ 		} else if currentByte == quoteChar {
+-			buf.WriteByte('\\')
++			if slashedQuoteChar {
++				buf.WriteByte('\\')
++			}
+ 			buf.WriteByte(quoteChar)
+ 		} else {
+ 			// Escape non-printable characters.
