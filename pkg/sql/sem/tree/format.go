@@ -22,7 +22,7 @@ import (
 )
 
 // FmtFlags carries options for the pretty-printer.
-type FmtFlags int
+type FmtFlags int64
 
 // HasFlags tests whether the given flags are all set.
 func (f FmtFlags) HasFlags(subset FmtFlags) bool {
