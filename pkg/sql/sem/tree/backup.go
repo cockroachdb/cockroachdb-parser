@@ -1,12 +1,7 @@
 // Copyright 2016 The Cockroach Authors.
 //
-// Use of this software is governed by the Business Source License
-// included in the file licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with
-// the Business Source License, use of this software will be governed
-// by the Apache License, Version 2.0, included in the file
-// licenses/APL.txt.
+// Use of this software is governed by the CockroachDB Software License
+// included in the /LICENSE file.
 
 package tree
 
@@ -60,24 +55,17 @@ type Backup struct {
 	// the docs).
 	To StringOrPlaceholderOptList
 
-	// IncrementalFrom is only set for the old 'BACKUP .... TO ...' syntax.
-	IncrementalFrom Exprs
-
 	AsOf    AsOfClause
 	Options BackupOptions
-
-	// Nested is set to true when the user creates a backup with
-	//`BACKUP ... INTO... ` syntax.
-	Nested bool
 
 	// AppendToLatest is set to true if the user creates a backup with
 	//`BACKUP...INTO LATEST...`
 	AppendToLatest bool
 
 	// Subdir may be set by the parser when the SQL query is of the form `BACKUP
-	// INTO 'subdir' IN...`. Alternatively, if Nested is true but a subdir was not
-	// explicitly specified by the user, then this will be set during BACKUP
-	// planning once the destination has been resolved.
+	// INTO 'subdir' IN...`. Alternatively, if a subdir was not explicitly specified
+	// by the user, then this will be set during BACKUP planning once the destination
+	// has been resolved.
 	Subdir Expr
 }
 
@@ -90,25 +78,17 @@ func (node *Backup) Format(ctx *FmtCtx) {
 		ctx.FormatNode(node.Targets)
 		ctx.WriteString(" ")
 	}
-	if node.Nested {
-		ctx.WriteString("INTO ")
-		if node.Subdir != nil {
-			ctx.FormatNode(node.Subdir)
-			ctx.WriteString(" IN ")
-		} else if node.AppendToLatest {
-			ctx.WriteString("LATEST IN ")
-		}
-	} else {
-		ctx.WriteString("TO ")
+	ctx.WriteString("INTO ")
+	if node.Subdir != nil {
+		ctx.FormatNode(node.Subdir)
+		ctx.WriteString(" IN ")
+	} else if node.AppendToLatest {
+		ctx.WriteString("LATEST IN ")
 	}
-	ctx.FormatNode(&node.To)
+	ctx.FormatURIs(node.To)
 	if node.AsOf.Expr != nil {
 		ctx.WriteString(" ")
 		ctx.FormatNode(&node.AsOf)
-	}
-	if node.IncrementalFrom != nil {
-		ctx.WriteString(" INCREMENTAL FROM ")
-		ctx.FormatNode(&node.IncrementalFrom)
 	}
 
 	if !node.Options.IsDefault() {
@@ -138,9 +118,7 @@ type RestoreOptions struct {
 	SkipMissingUDFs                  bool
 	Detached                         bool
 	SkipLocalitiesCheck              bool
-	DebugPauseOn                     Expr
 	NewDBName                        Expr
-	IncludeAllSecondaryTenants       Expr
 	IncrementalStorage               StringOrPlaceholderOptList
 	AsTenant                         Expr
 	ForceTenantID                    Expr
@@ -149,7 +127,12 @@ type RestoreOptions struct {
 	UnsafeRestoreIncompatibleVersion bool
 	ExecutionLocality                Expr
 	ExperimentalOnline               bool
+	ExperimentalCopy                 bool
 	RemoveRegions                    bool
+}
+
+func (opts *RestoreOptions) OnlineImpl() bool {
+	return opts.ExperimentalCopy || opts.ExperimentalOnline
 }
 
 var _ NodeFormatter = &RestoreOptions{}
@@ -159,20 +142,16 @@ type Restore struct {
 	Targets            BackupTargetList
 	DescriptorCoverage DescriptorCoverage
 
-	// From contains the URIs for the backup(s) we seek to restore.
-	//   - len(From)>1 implies the user explicitly passed incremental backup paths,
-	//     which is only allowed using the old syntax, `RESTORE <targets> FROM <destination>.
-	//     In this case, From[0] contains the URI(s) for the full backup.
-	//   - len(From)==1 implies we'll have to look for incremental backups in planning
-	//   - len(From[0]) > 1 implies the backups are locality aware
-	//   - From[i][0] must be the default locality.
-	From    []StringOrPlaceholderOptList
+	// From contains the URIs for the backup we seek to restore.
+	//   - len(From) > 1 implies the backups are locality aware
+	//   - From[0] must be the default locality.
+	From    StringOrPlaceholderOptList
 	AsOf    AsOfClause
 	Options RestoreOptions
 
 	// Subdir may be set by the parser when the SQL query is of the form `RESTORE
-	// ... FROM 'from' IN 'subdir'...`. Alternatively, restore_planning.go will set
-	// it for the query `RESTORE ... FROM 'from' IN LATEST...`
+	// ... FROM 'subdir' IN 'from'...`. Alternatively, restore_planning.go will set
+	// it for the query `RESTORE ... FROM LATEST IN 'from'...`
 	Subdir Expr
 }
 
@@ -190,26 +169,15 @@ func (node *Restore) Format(ctx *FmtCtx) {
 		ctx.FormatNode(node.Subdir)
 		ctx.WriteString(" IN ")
 	}
-	for i := range node.From {
-		if i > 0 {
-			ctx.WriteString(", ")
-		}
-		ctx.FormatNode(&node.From[i])
-	}
+	ctx.FormatURIs(node.From)
 	if node.AsOf.Expr != nil {
 		ctx.WriteString(" ")
 		ctx.FormatNode(&node.AsOf)
 	}
 	if !node.Options.IsDefault() {
-		if ctx.HasFlags(FmtHideConstants) {
-			ctx.WriteString(" WITH OPTIONS (")
-			ctx.FormatNode(&node.Options)
-			ctx.WriteString(")")
-		} else {
-			ctx.WriteString(" WITH OPTIONS (")
-			ctx.FormatNode(&node.Options)
-			ctx.WriteString(")")
-		}
+		ctx.WriteString(" WITH OPTIONS (")
+		ctx.FormatNode(&node.Options)
+		ctx.WriteString(")")
 	}
 }
 
@@ -234,6 +202,13 @@ func (o *KVOptions) HasKey(key Name) bool {
 
 // Format implements the NodeFormatter interface.
 func (o *KVOptions) Format(ctx *FmtCtx) {
+	o.formatEach(ctx, func(n *KVOption, ctx *FmtCtx) {
+		ctx.FormatNode(n.Value)
+	})
+}
+
+// formatEach is like Format but allows custom formatting of the value part.
+func (o *KVOptions) formatEach(ctx *FmtCtx, formatValue func(*KVOption, *FmtCtx)) {
 	for i := range *o {
 		n := &(*o)[i]
 		if i > 0 {
@@ -246,7 +221,7 @@ func (o *KVOptions) Format(ctx *FmtCtx) {
 		})
 		if n.Value != nil {
 			ctx.WriteString(` = `)
-			ctx.FormatNode(n.Value)
+			formatValue(n, ctx)
 		}
 	}
 }
@@ -301,13 +276,13 @@ func (o *BackupOptions) Format(ctx *FmtCtx) {
 	if o.EncryptionKMSURI != nil {
 		maybeAddSep()
 		ctx.WriteString("kms = ")
-		ctx.FormatNode(&o.EncryptionKMSURI)
+		ctx.FormatURIs(o.EncryptionKMSURI)
 	}
 
 	if o.IncrementalStorage != nil {
 		maybeAddSep()
 		ctx.WriteString("incremental_location = ")
-		ctx.FormatNode(&o.IncrementalStorage)
+		ctx.FormatURIs(o.IncrementalStorage)
 	}
 
 	if o.ExecutionLocality != nil {
@@ -425,19 +400,13 @@ func (o *RestoreOptions) Format(ctx *FmtCtx) {
 	if o.DecryptionKMSURI != nil {
 		maybeAddSep()
 		ctx.WriteString("kms = ")
-		ctx.FormatNode(&o.DecryptionKMSURI)
+		ctx.FormatURIs(o.DecryptionKMSURI)
 	}
 
 	if o.IntoDB != nil {
 		maybeAddSep()
 		ctx.WriteString("into_db = ")
 		ctx.FormatNode(o.IntoDB)
-	}
-
-	if o.DebugPauseOn != nil {
-		maybeAddSep()
-		ctx.WriteString("debug_pause_on = ")
-		ctx.FormatNode(o.DebugPauseOn)
 	}
 
 	if o.SkipMissingFKs {
@@ -481,16 +450,10 @@ func (o *RestoreOptions) Format(ctx *FmtCtx) {
 		ctx.FormatNode(o.NewDBName)
 	}
 
-	if o.IncludeAllSecondaryTenants != nil {
-		maybeAddSep()
-		ctx.WriteString("include_all_virtual_clusters = ")
-		ctx.FormatNode(o.IncludeAllSecondaryTenants)
-	}
-
 	if o.IncrementalStorage != nil {
 		maybeAddSep()
 		ctx.WriteString("incremental_location = ")
-		ctx.FormatNode(&o.IncrementalStorage)
+		ctx.FormatURIs(o.IncrementalStorage)
 	}
 
 	if o.AsTenant != nil {
@@ -520,20 +483,19 @@ func (o *RestoreOptions) Format(ctx *FmtCtx) {
 	}
 
 	if o.ExecutionLocality != nil {
-		if ctx.HasFlags(FmtHideConstants) {
-			maybeAddSep()
-			ctx.WriteString("execution locality = ")
-			ctx.FormatNode(o.ExecutionLocality)
-		} else {
-			maybeAddSep()
-			ctx.WriteString("execution locality = ")
-			ctx.FormatNode(o.ExecutionLocality)
-		}
+		maybeAddSep()
+		ctx.WriteString("execution locality = ")
+		ctx.FormatNode(o.ExecutionLocality)
 	}
 
 	if o.ExperimentalOnline {
 		maybeAddSep()
 		ctx.WriteString("experimental deferred copy")
+	}
+
+	if o.ExperimentalCopy {
+		maybeAddSep()
+		ctx.WriteString("experimental copy")
 	}
 
 	if o.RemoveRegions {
@@ -620,12 +582,6 @@ func (o *RestoreOptions) CombineWith(other *RestoreOptions) error {
 		o.SkipLocalitiesCheck = other.SkipLocalitiesCheck
 	}
 
-	if o.DebugPauseOn == nil {
-		o.DebugPauseOn = other.DebugPauseOn
-	} else if other.DebugPauseOn != nil {
-		return errors.New("debug_pause_on specified multiple times")
-	}
-
 	if o.NewDBName == nil {
 		o.NewDBName = other.NewDBName
 	} else if other.NewDBName != nil {
@@ -665,14 +621,6 @@ func (o *RestoreOptions) CombineWith(other *RestoreOptions) error {
 		o.VerifyData = other.VerifyData
 	}
 
-	if o.IncludeAllSecondaryTenants != nil {
-		if other.IncludeAllSecondaryTenants != nil {
-			return errors.New("include_all_virtual_clusters specified multiple times")
-		}
-	} else {
-		o.IncludeAllSecondaryTenants = other.IncludeAllSecondaryTenants
-	}
-
 	if o.UnsafeRestoreIncompatibleVersion {
 		if other.UnsafeRestoreIncompatibleVersion {
 			return errors.New("unsafe_restore_incompatible_version specified multiple times")
@@ -693,6 +641,14 @@ func (o *RestoreOptions) CombineWith(other *RestoreOptions) error {
 		}
 	} else {
 		o.ExperimentalOnline = other.ExperimentalOnline
+	}
+
+	if o.ExperimentalCopy {
+		if other.ExperimentalCopy {
+			return errors.New("experimental copy specified multiple times")
+		}
+	} else {
+		o.ExperimentalCopy = other.ExperimentalCopy
 	}
 
 	if o.RemoveRegions {
@@ -719,17 +675,16 @@ func (o RestoreOptions) IsDefault() bool {
 		o.IntoDB == options.IntoDB &&
 		o.Detached == options.Detached &&
 		o.SkipLocalitiesCheck == options.SkipLocalitiesCheck &&
-		o.DebugPauseOn == options.DebugPauseOn &&
 		o.NewDBName == options.NewDBName &&
 		cmp.Equal(o.IncrementalStorage, options.IncrementalStorage) &&
 		o.AsTenant == options.AsTenant &&
 		o.ForceTenantID == options.ForceTenantID &&
 		o.SchemaOnly == options.SchemaOnly &&
 		o.VerifyData == options.VerifyData &&
-		o.IncludeAllSecondaryTenants == options.IncludeAllSecondaryTenants &&
 		o.UnsafeRestoreIncompatibleVersion == options.UnsafeRestoreIncompatibleVersion &&
 		o.ExecutionLocality == options.ExecutionLocality &&
 		o.ExperimentalOnline == options.ExperimentalOnline &&
+		o.ExperimentalCopy == options.ExperimentalCopy &&
 		o.RemoveRegions == options.RemoveRegions
 }
 

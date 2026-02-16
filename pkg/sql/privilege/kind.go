@@ -1,12 +1,7 @@
 // Copyright 2023 The Cockroach Authors.
 //
-// Use of this software is governed by the Business Source License
-// included in the file licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with
-// the Business Source License, use of this software will be governed
-// by the Apache License, Version 2.0, included in the file
-// licenses/APL.txt.
+// Use of this software is governed by the CockroachDB Software License
+// included in the /LICENSE file.
 
 package privilege
 
@@ -65,8 +60,12 @@ const (
 	CREATELOGIN              Kind = 33
 	CREATEDB                 Kind = 34
 	CONTROLJOB               Kind = 35
-	REPAIRCLUSTERMETADATA    Kind = 36
-	largestKind                   = REPAIRCLUSTERMETADATA
+	REPAIRCLUSTER            Kind = 36
+	TRIGGER                  Kind = 37
+	BYPASSRLS                Kind = 38
+	REPLICATIONDEST          Kind = 39
+	REPLICATIONSOURCE        Kind = 40
+	largestKind                   = REPLICATIONSOURCE
 )
 
 var isDeprecatedKind = map[Kind]bool{
@@ -77,6 +76,8 @@ var isDeprecatedKind = map[Kind]bool{
 // privilege internally. It is not visible to end-users.
 type KindInternalKey string
 
+// InternalKey returns the KindInternalKey for a Kind (see docs on
+// KindInternalKey). The InternalKey must not change between releases.
 func (k Kind) InternalKey() KindInternalKey {
 	switch k {
 	case ALL:
@@ -148,8 +149,16 @@ func (k Kind) InternalKey() KindInternalKey {
 		return "CREATEDB"
 	case CONTROLJOB:
 		return "CONTROLJOB"
-	case REPAIRCLUSTERMETADATA:
+	case REPAIRCLUSTER:
 		return "REPAIRCLUSTERMETADATA"
+	case TRIGGER:
+		return "TRIGGER"
+	case BYPASSRLS:
+		return "BYPASSRLS"
+	case REPLICATIONDEST:
+		return "REPLICATIONDEST"
+	case REPLICATIONSOURCE:
+		return "REPLICATIONSOURCE"
 	default:
 		panic(errors.AssertionFailedf("unhandled kind: %d", int(k)))
 	}
@@ -165,6 +174,8 @@ func (k Kind) DisplayName() KindDisplayName {
 	switch k {
 	case MANAGEVIRTUALCLUSTER:
 		return "MANAGEVIRTUALCLUSTER"
+	case REPAIRCLUSTER:
+		return "REPAIRCLUSTER"
 	default:
 		// Unless we have an exception above, the internal
 		// key is also a valid display name.

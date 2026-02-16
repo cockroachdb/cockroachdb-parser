@@ -1,17 +1,13 @@
 // Copyright 2015 The Cockroach Authors.
 //
-// Use of this software is governed by the Business Source License
-// included in the file licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with
-// the Business Source License, use of this software will be governed
-// by the Apache License, Version 2.0, included in the file
-// licenses/APL.txt.
+// Use of this software is governed by the CockroachDB Software License
+// included in the /LICENSE file.
 
 package tree
 
 import (
 	"regexp"
+	"regexp/syntax"
 
 	"github.com/cockroachdb/cockroachdb-parser/pkg/util/cache"
 	"github.com/cockroachdb/cockroachdb-parser/pkg/util/syncutil"
@@ -52,6 +48,22 @@ func NewRegexpCache(size int) *RegexpCache {
 // the given key, compiling the key's pattern if it is not already
 // in the cache.
 func (rc *RegexpCache) GetRegexp(key RegexpCacheKey) (*regexp.Regexp, error) {
+	// syntax.Perl is the default flag for regexp.Compile.
+	return rc.getRegexpInternal(key, syntax.Perl)
+}
+
+// GetRegexpWithFlags consults the cache for the regular expressions stored for
+// the given key, compiling the key's pattern with the given flags if it is not
+// already in the cache.
+func (rc *RegexpCache) GetRegexpWithFlags(
+	key RegexpCacheKey, flags syntax.Flags,
+) (*regexp.Regexp, error) {
+	return rc.getRegexpInternal(key, flags)
+}
+
+func (rc *RegexpCache) getRegexpInternal(
+	key RegexpCacheKey, flags syntax.Flags,
+) (*regexp.Regexp, error) {
 	if rc != nil {
 		re := rc.lookup(key)
 		if re != nil {
@@ -63,8 +75,19 @@ func (rc *RegexpCache) GetRegexp(key RegexpCacheKey) (*regexp.Regexp, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	re, err := regexp.Compile(pattern)
+	var re *regexp.Regexp
+	if flags == syntax.Perl {
+		// Avoid the redundant 'parse - stringify - parse (within Compile)'
+		// sequence in the common case.
+		re, err = regexp.Compile(pattern)
+	} else {
+		var parsed *syntax.Regexp
+		parsed, err = syntax.Parse(pattern, flags)
+		if err != nil {
+			return nil, err
+		}
+		re, err = regexp.Compile(parsed.String())
+	}
 	if err != nil {
 		return nil, err
 	}

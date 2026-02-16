@@ -1,12 +1,7 @@
 // Copyright 2017 The Cockroach Authors.
 //
-// Use of this software is governed by the Business Source License
-// included in the file licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with
-// the Business Source License, use of this software will be governed
-// by the Apache License, Version 2.0, included in the file
-// licenses/APL.txt.
+// Use of this software is governed by the CockroachDB Software License
+// included in the /LICENSE file.
 
 package tree
 
@@ -43,6 +38,20 @@ func (n *ControlJobs) Format(ctx *FmtCtx) {
 		ctx.WriteString(" WITH REASON = ")
 		ctx.FormatNode(n.Reason)
 	}
+}
+
+// AlterJobOwner represents an ALTER JOB OWNER TO statement.
+type AlterJobOwner struct {
+	Job   Expr
+	Owner RoleSpec
+}
+
+// Format implements the NodeFormatter interface.
+func (n *AlterJobOwner) Format(ctx *FmtCtx) {
+	ctx.WriteString("ALTER JOB ")
+	ctx.FormatNode(n.Job)
+	ctx.WriteString(" OWNER TO ")
+	ctx.FormatNode(&n.Owner)
 }
 
 // CancelQueries represents a CANCEL QUERIES statement.

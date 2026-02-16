@@ -1,8 +1,14 @@
 #!/usr/bin/env bash
 
-# This is used through bazel when generating sql.go and plpgsql.go.
-# Look at BUILD.bazel in pkg/sql/parser or pkg/plpgsql/parser for
-# usage.
+# Copyright 2022 The Cockroach Authors.
+#
+# Use of this software is governed by the CockroachDB Software License
+# included in the /LICENSE file.
+
+
+# This is used through bazel when generating sql.go, plpgsql.go, and jsonpath.go.
+# Look at BUILD.bazel in pkg/sql/parser, pkg/sql/plpgsql/parser, or
+# pkg/util/jsonpath/parser for usage.
 
 set -euo pipefail
 
@@ -17,7 +23,7 @@ GENYACC=$LANG-gen.y
         awk '{print $0")>_\\1 <union> /* <\\2> */_"}' > types_regex.tmp
 
     sed -E -f types_regex.tmp < $1 | \
-        if [ $LANG != plpgsql ] && [ $LANG != pgrepl ]; then \
+        if [ $LANG != plpgsql ] && [ $LANG != pgrepl ] && [ $LANG != jsonpath ]; then \
             awk -f $3 | \
           sed -Ee 's,//.*$$,,g;s,/[*]([^*]|[*][^/])*[*]/, ,g;s/ +$$//g' > $GENYACC
         else

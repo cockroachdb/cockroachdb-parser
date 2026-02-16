@@ -1,12 +1,7 @@
 // Copyright 2016 The Cockroach Authors.
 //
-// Use of this software is governed by the Business Source License
-// included in the file licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with
-// the Business Source License, use of this software will be governed
-// by the Apache License, Version 2.0, included in the file
-// licenses/APL.txt.
+// Use of this software is governed by the CockroachDB Software License
+// included in the /LICENSE file.
 
 package protoutil
 
@@ -15,6 +10,7 @@ import (
 
 	"github.com/cockroachdb/cockroachdb-parser/pkg/util/buildutil"
 	"github.com/gogo/protobuf/proto"
+	gproto "google.golang.org/protobuf/proto"
 )
 
 // Message extends the proto.Message interface with the MarshalTo and Size
@@ -73,4 +69,14 @@ func MarshalToSizedBuffer(pb Message, dest []byte) (int, error) {
 func Unmarshal(data []byte, pb Message) error {
 	pb.Reset()
 	return pb.Unmarshal(data)
+}
+
+// TODOMarshal is a short-term workaround for the linter in order to use the latest protobuf package
+func TODOMarshal(pb gproto.Message) ([]byte, error) {
+	return gproto.Marshal(pb)
+}
+
+// TODOUnmarshal is a short-term workaround for the linter in order to use the latest protobuf package
+func TODOUnmarshal(data []byte, pb gproto.Message) error {
+	return gproto.Unmarshal(data, pb)
 }

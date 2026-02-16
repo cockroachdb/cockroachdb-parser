@@ -7,13 +7,8 @@
 //
 // Copyright 2015 The Cockroach Authors.
 //
-// Use of this software is governed by the Business Source License
-// included in the file licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with
-// the Business Source License, use of this software will be governed
-// by the Apache License, Version 2.0, included in the file
-// licenses/APL.txt.
+// Use of this software is governed by the CockroachDB Software License
+// included in the /LICENSE file.
 
 // This code was derived from https://github.com/youtube/vitess.
 
@@ -91,8 +86,6 @@ const (
 	// BackupValidateDetails identifies a SHOW BACKUP VALIDATION
 	// statement.
 	BackupValidateDetails
-	// BackupConnectionTest identifies a SHOW BACKUP CONNECTION statement
-	BackupConnectionTest
 )
 
 // TODO (msbutler): 22.2 after removing old style show backup syntax, rename
@@ -111,9 +104,9 @@ type ShowBackup struct {
 
 // Format implements the NodeFormatter interface.
 func (node *ShowBackup) Format(ctx *FmtCtx) {
-	if node.InCollection != nil && node.Path == nil {
+	if node.Path == nil {
 		ctx.WriteString("SHOW BACKUPS IN ")
-		ctx.FormatNode(&node.InCollection)
+		ctx.FormatURIs(node.InCollection)
 		return
 	}
 	ctx.WriteString("SHOW BACKUP ")
@@ -125,8 +118,6 @@ func (node *ShowBackup) Format(ctx *FmtCtx) {
 		ctx.WriteString("FILES ")
 	case BackupSchemaDetails:
 		ctx.WriteString("SCHEMAS ")
-	case BackupConnectionTest:
-		ctx.WriteString("CONNECTION ")
 	}
 
 	if node.From {
@@ -134,10 +125,9 @@ func (node *ShowBackup) Format(ctx *FmtCtx) {
 	}
 
 	ctx.FormatNode(node.Path)
-	if node.InCollection != nil {
-		ctx.WriteString(" IN ")
-		ctx.FormatNode(&node.InCollection)
-	}
+	ctx.WriteString(" IN ")
+	ctx.FormatURIs(node.InCollection)
+
 	if !node.Options.IsDefault() {
 		ctx.WriteString(" WITH OPTIONS (")
 		ctx.FormatNode(&node.Options)
@@ -164,7 +154,6 @@ type ShowBackupOptions struct {
 	// `ENCRYPTION-INFO` file necessary to decode the incremental backup lives in
 	// the full backup dir.
 	EncryptionInfoDir Expr
-	DebugMetadataSST  bool
 
 	CheckConnectionTransferSize Expr
 	CheckConnectionDuration     Expr
@@ -205,7 +194,7 @@ func (o *ShowBackupOptions) Format(ctx *FmtCtx) {
 	if o.IncrementalStorage != nil {
 		maybeAddSep()
 		ctx.WriteString("incremental_location = ")
-		ctx.FormatNode(&o.IncrementalStorage)
+		ctx.FormatURIs(o.IncrementalStorage)
 	}
 
 	if o.Privileges {
@@ -221,15 +210,11 @@ func (o *ShowBackupOptions) Format(ctx *FmtCtx) {
 	if o.DecryptionKMSURI != nil {
 		maybeAddSep()
 		ctx.WriteString("kms = ")
-		ctx.FormatNode(&o.DecryptionKMSURI)
+		ctx.FormatURIs(o.DecryptionKMSURI)
 	}
 	if o.SkipSize {
 		maybeAddSep()
 		ctx.WriteString("skip size")
-	}
-	if o.DebugMetadataSST {
-		maybeAddSep()
-		ctx.WriteString("debug_dump_metadata_sst")
 	}
 
 	// The following are only used in connection-check SHOW.
@@ -260,7 +245,6 @@ func (o ShowBackupOptions) IsDefault() bool {
 		o.EncryptionPassphrase == options.EncryptionPassphrase &&
 		o.Privileges == options.Privileges &&
 		o.SkipSize == options.SkipSize &&
-		o.DebugMetadataSST == options.DebugMetadataSST &&
 		o.EncryptionInfoDir == options.EncryptionInfoDir &&
 		o.CheckConnectionTransferSize == options.CheckConnectionTransferSize &&
 		o.CheckConnectionDuration == options.CheckConnectionDuration &&
@@ -333,11 +317,6 @@ func (o *ShowBackupOptions) CombineWith(other *ShowBackupOptions) error {
 	if err != nil {
 		return err
 	}
-	o.DebugMetadataSST, err = combineBools(o.DebugMetadataSST, other.DebugMetadataSST,
-		"debug_dump_metadata_sst")
-	if err != nil {
-		return err
-	}
 	o.EncryptionInfoDir, err = combineExpr(o.EncryptionInfoDir, other.EncryptionInfoDir,
 		"encryption_info_dir")
 	if err != nil {
@@ -406,11 +385,17 @@ func (node *ShowEnums) Format(ctx *FmtCtx) {
 }
 
 // ShowTypes represents a SHOW TYPES statement.
-type ShowTypes struct{}
+type ShowTypes struct {
+	WithComment bool
+}
 
 // Format implements the NodeFormatter interface.
 func (node *ShowTypes) Format(ctx *FmtCtx) {
 	ctx.WriteString("SHOW TYPES")
+
+	if node.WithComment {
+		ctx.WriteString(" WITH COMMENT")
+	}
 }
 
 // ShowTraceType is an enum of SHOW TRACE variants.
@@ -652,7 +637,8 @@ func (node *ShowSessions) Format(ctx *FmtCtx) {
 
 // ShowSchemas represents a SHOW SCHEMAS statement.
 type ShowSchemas struct {
-	Database Name
+	Database    Name
+	WithComment bool
 }
 
 // Format implements the NodeFormatter interface.
@@ -661,6 +647,9 @@ func (node *ShowSchemas) Format(ctx *FmtCtx) {
 	if node.Database != "" {
 		ctx.WriteString(" FROM ")
 		ctx.FormatNode(&node.Database)
+	}
+	if node.WithComment {
+		ctx.WriteString(" WITH COMMENT")
 	}
 }
 
@@ -819,6 +808,10 @@ type ShowCreateFormatOption int
 const (
 	ShowCreateFormatOptionNone ShowCreateFormatOption = iota
 	ShowCreateFormatOptionRedactedValues
+	ShowCreateFormatOptionIgnoreFKs
+	// TODO(yuzefovich): consider adding an option that both has redacted values
+	// and ignores the FKs. This will require addition of a new column to
+	// crdb_internal.create_statements virtual table.
 )
 
 // ShowCreate represents a SHOW CREATE statement.
@@ -845,6 +838,8 @@ func (node *ShowCreate) Format(ctx *FmtCtx) {
 	switch node.FmtOpt {
 	case ShowCreateFormatOptionRedactedValues:
 		ctx.WriteString(" WITH REDACT")
+	case ShowCreateFormatOptionIgnoreFKs:
+		ctx.WriteString(" WITH IGNORE_FOREIGN_KEYS")
 	}
 }
 
@@ -967,6 +962,28 @@ type ShowUsers struct {
 // Format implements the NodeFormatter interface.
 func (node *ShowUsers) Format(ctx *FmtCtx) {
 	ctx.WriteString("SHOW USERS")
+}
+
+// ShowDefaultSessionVariablesForRole represents a SHOW DEFAULT SESSION VARIABLES FOR ROLE <name> statement.
+type ShowDefaultSessionVariablesForRole struct {
+	Name   RoleSpec
+	IsRole bool
+	All    bool
+}
+
+// Format implements the NodeFormatter interface.
+func (node *ShowDefaultSessionVariablesForRole) Format(ctx *FmtCtx) {
+	ctx.WriteString("SHOW DEFAULT SESSION VARIABLES FOR")
+	if node.IsRole {
+		ctx.WriteString(" ROLE ")
+	} else {
+		ctx.WriteString(" USER ")
+	}
+	if node.All {
+		ctx.WriteString("ALL")
+	} else {
+		ctx.FormatNode(&node.Name)
+	}
 }
 
 // ShowRoles represents a SHOW ROLES statement.
@@ -1108,6 +1125,8 @@ func (node *ShowRangeForRow) Format(ctx *FmtCtx) {
 type ShowFingerprints struct {
 	TenantSpec *TenantSpec
 	Table      *UnresolvedObjectName
+
+	Options ShowFingerprintOptions
 }
 
 // Format implements the NodeFormatter interface.
@@ -1119,7 +1138,75 @@ func (node *ShowFingerprints) Format(ctx *FmtCtx) {
 		ctx.WriteString("SHOW EXPERIMENTAL_FINGERPRINTS FROM VIRTUAL CLUSTER ")
 		ctx.FormatNode(node.TenantSpec)
 	}
+
+	if !node.Options.IsDefault() {
+		ctx.WriteString(" WITH OPTIONS (")
+		ctx.FormatNode(&node.Options)
+		ctx.WriteString(")")
+	}
 }
+
+// ShowFingerprintOptions describes options for the SHOW EXPERIMENTAL_FINGERPINT
+// execution.
+type ShowFingerprintOptions struct {
+	StartTimestamp      Expr
+	ExcludedUserColumns StringOrPlaceholderOptList
+}
+
+func (s *ShowFingerprintOptions) Format(ctx *FmtCtx) {
+	var addSep bool
+	maybeAddSep := func() {
+		if addSep {
+			ctx.WriteString(", ")
+		}
+		addSep = true
+	}
+
+	if s.StartTimestamp != nil {
+		maybeAddSep()
+		ctx.WriteString("START TIMESTAMP = ")
+		_, canOmitParentheses := s.StartTimestamp.(alreadyDelimitedAsSyntacticDExpr)
+		if !canOmitParentheses {
+			ctx.WriteByte('(')
+		}
+		ctx.FormatNode(s.StartTimestamp)
+		if !canOmitParentheses {
+			ctx.WriteByte(')')
+		}
+	}
+	if s.ExcludedUserColumns != nil {
+		maybeAddSep()
+		ctx.WriteString("EXCLUDE COLUMNS = ")
+		s.ExcludedUserColumns.Format(ctx)
+	}
+}
+
+// CombineWith merges other TenantReplicationOptions into this struct.
+// An error is returned if the same option merged multiple times.
+func (s *ShowFingerprintOptions) CombineWith(other *ShowFingerprintOptions) error {
+	if s.StartTimestamp != nil {
+		if other.StartTimestamp != nil {
+			return errors.New("START TIMESTAMP option specified multiple times")
+		}
+	} else {
+		s.StartTimestamp = other.StartTimestamp
+	}
+
+	var err error
+	s.ExcludedUserColumns, err = combineStringOrPlaceholderOptList(s.ExcludedUserColumns, other.ExcludedUserColumns, "excluded_user_columns")
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// IsDefault returns true if this backup options struct has default value.
+func (s ShowFingerprintOptions) IsDefault() bool {
+	options := ShowFingerprintOptions{}
+	return s.StartTimestamp == options.StartTimestamp && cmp.Equal(s.ExcludedUserColumns, options.ExcludedUserColumns)
+}
+
+var _ NodeFormatter = &ShowFingerprintOptions{}
 
 // ShowTableStats represents a SHOW STATISTICS FOR TABLE statement.
 type ShowTableStats struct {
@@ -1145,8 +1232,9 @@ func (node *ShowTableStats) Format(ctx *FmtCtx) {
 
 // ShowTenantOptions represents the WITH clause in SHOW VIRTUAL CLUSTER.
 type ShowTenantOptions struct {
-	WithReplication  bool
-	WithCapabilities bool
+	WithReplication      bool
+	WithPriorReplication bool
+	WithCapabilities     bool
 }
 
 // ShowTenant represents a SHOW VIRTUAL CLUSTER statement.
@@ -1164,12 +1252,34 @@ func (node *ShowTenant) Format(ctx *FmtCtx) {
 	if node.WithReplication {
 		withs = append(withs, "REPLICATION STATUS")
 	}
+	if node.WithPriorReplication {
+		withs = append(withs, "PRIOR REPLICATION DETAILS")
+	}
 	if node.WithCapabilities {
 		withs = append(withs, "CAPABILITIES")
 	}
 	if len(withs) > 0 {
 		ctx.WriteString(" WITH ")
 		ctx.WriteString(strings.Join(withs, ", "))
+	}
+}
+
+// ShowLogicalReplicationJobsOptions represents the WITH clause in SHOW LOGICAL REPLICATION JOBS.
+type ShowLogicalReplicationJobsOptions struct {
+	WithDetails bool
+}
+
+// ShowLogicalReplicationJobs represents a SHOW LOGICAL REPLICATION JOBS statement.
+type ShowLogicalReplicationJobs struct {
+	ShowLogicalReplicationJobsOptions
+}
+
+// Format implements the NodeFormatter interface.
+func (node *ShowLogicalReplicationJobs) Format(ctx *FmtCtx) {
+	ctx.WriteString("SHOW LOGICAL REPLICATION JOBS")
+
+	if node.WithDetails {
+		ctx.WriteString(" WITH DETAILS")
 	}
 }
 
@@ -1208,6 +1318,19 @@ func (node *ShowPartitions) Format(ctx *FmtCtx) {
 		ctx.FormatNode(node.Table)
 	}
 }
+
+// ShowPolicies represents a SHOW POLICIES statement.
+type ShowPolicies struct {
+	Table *UnresolvedObjectName
+}
+
+// Format implements the NodeFormatter interface.
+func (node *ShowPolicies) Format(ctx *FmtCtx) {
+	ctx.WriteString("SHOW POLICIES FOR ")
+	ctx.FormatNode(node.Table)
+}
+
+var _ Statement = &ShowPolicies{}
 
 // ScheduledJobExecutorType is a type identifying the names of
 // the supported scheduled job executors.
@@ -1455,3 +1578,49 @@ func (s ShowCommitTimestamp) Format(ctx *FmtCtx) {
 }
 
 var _ Statement = (*ShowCommitTimestamp)(nil)
+
+// ShowExternalConnections represents a SHOW EXTERNAL CONNECTIONS statement.
+type ShowExternalConnections struct {
+	ConnectionLabel Expr
+}
+
+// Format implements the NodeFormatter interface.
+func (node *ShowExternalConnections) Format(ctx *FmtCtx) {
+	if node.ConnectionLabel != nil {
+		ctx.WriteString("SHOW EXTERNAL CONNECTION ")
+		ctx.FormatNode(node.ConnectionLabel)
+		return
+	}
+	ctx.Printf("SHOW EXTERNAL CONNECTIONS")
+}
+
+var _ Statement = &ShowExternalConnections{}
+
+// ShowTriggers represents a SHOW TRIGGERS statement.
+type ShowTriggers struct {
+	Table *UnresolvedObjectName
+}
+
+// Format implements the NodeFormatter interface.
+func (node *ShowTriggers) Format(ctx *FmtCtx) {
+	ctx.WriteString("SHOW TRIGGERS FROM ")
+	ctx.FormatNode(node.Table)
+}
+
+var _ Statement = &ShowTriggers{}
+
+// ShowCreateTrigger represents a SHOW CREATE TRIGGER statement.
+type ShowCreateTrigger struct {
+	Name      Name
+	TableName *UnresolvedObjectName
+}
+
+// Format implements the NodeFormatter interface.
+func (node *ShowCreateTrigger) Format(ctx *FmtCtx) {
+	ctx.WriteString("SHOW CREATE TRIGGER ")
+	ctx.FormatNode(&node.Name)
+	ctx.WriteString(" ON ")
+	ctx.FormatNode(node.TableName)
+}
+
+var _ Statement = &ShowCreateTrigger{}

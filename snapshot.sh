@@ -10,6 +10,7 @@ COCKROACHDB_LOC=$GOPATH/src/github.com/cockroachdb/cockroach
 
 echo "Generating files in-line using dev build short"
 cd $COCKROACHDB_LOC
+./dev gen
 ./dev gen parser
 ./dev gen protobuf
 
@@ -34,8 +35,19 @@ echo "removing excess files, fixing up file paths"
 cd $LOC
 # replace compiler function to avoid conflicts.
 sed -i.bak -e 's/compilerVersion/compilerVersionParser/g' pkg/build/*.go
-# temporarily copy embedded data over
+# copy all geo subdirectories with embedded data and required functionality
 cp -R $COCKROACHDB_LOC/pkg/geo/geoprojbase/data $LOC/pkg/geo/geoprojbase/data
+cp -R $COCKROACHDB_LOC/pkg/geo/geoprojbase/embeddedproj $LOC/pkg/geo/geoprojbase/embeddedproj
+# ensure all geo subdirectories needed for geometry parsing/creation are included
+echo "Ensuring all geo dependencies are copied..."
+for geo_subdir in geodist geogen geogfn geographiclib geoindex geomfn geoproj geos geosegmentize geotest geotransform twkb; do
+  if [ -d "$COCKROACHDB_LOC/pkg/geo/$geo_subdir" ] && [ ! -d "$LOC/pkg/geo/$geo_subdir" ]; then
+    echo "Copying additional geo dependency: $geo_subdir"
+    cp -R "$COCKROACHDB_LOC/pkg/geo/$geo_subdir" "$LOC/pkg/geo/$geo_subdir"
+  fi
+done
+# copy the proj_api.h file
+cp $COCKROACHDB_LOC/c-deps/proj/src/proj_api.h $LOC/pkg/geo/geoproj/proj_api.h
 # delete gitignores
 rm pkg/sql/lexbase/.gitignore pkg/sql/parser/.gitignore
 rm pkg/sql/plpgsql/parser/.gitignore pkg/sql/plpgsql/parser/lexbase/.gitignore
@@ -63,5 +75,5 @@ done
 
 echo "Cleaning up go and testing everything works"
 go mod tidy
-echo "v0.0.0" > pkg/build/version.txt
+echo "v1.2.3" > pkg/build/version.txt
 go test .

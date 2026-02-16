@@ -1,12 +1,7 @@
 // Copyright 2020 The Cockroach Authors.
 //
-// Use of this software is governed by the Business Source License
-// included in the file licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with
-// the Business Source License, use of this software will be governed
-// by the Apache License, Version 2.0, included in the file
-// licenses/APL.txt.
+// Use of this software is governed by the CockroachDB Software License
+// included in the /LICENSE file.
 
 package tree
 
@@ -292,6 +287,11 @@ func (u *UnresolvedObjectName) toObjName() objName {
 // ToTableName converts the unresolved name to a table name.
 func (u *UnresolvedObjectName) ToTableName() TableName {
 	return TableName{u.toObjName()}
+}
+
+// ToTypeName converts the unresolved name to a table name.
+func (u *UnresolvedObjectName) ToTypeName() TypeName {
+	return TypeName{u.toObjName()}
 }
 
 // ToRoutineName converts the unresolved name to a function name.

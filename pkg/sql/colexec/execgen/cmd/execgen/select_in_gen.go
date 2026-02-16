@@ -1,12 +1,7 @@
 // Copyright 2019 The Cockroach Authors.
 //
-// Use of this software is governed by the Business Source License
-// included in the file licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with
-// the Business Source License, use of this software will be governed
-// by the Apache License, Version 2.0, included in the file
-// licenses/APL.txt.
+// Use of this software is governed by the CockroachDB Software License
+// included in the /LICENSE file.
 
 package main
 
@@ -25,6 +20,7 @@ func genSelectIn(inputFileContents string, wr io.Writer) error {
 		"_CANONICAL_TYPE_FAMILY", "{{.CanonicalTypeFamilyStr}}",
 		"_TYPE_WIDTH", typeWidthReplacement,
 		"_GOTYPESLICE", "{{.GoTypeSliceName}}",
+		"_GOTYPE_UPCAST_INT", `{{if or (eq .VecMethod "Int16") (eq .VecMethod "Int32")}}int64{{else}}{{.GoType}}{{end}}`,
 		"_GOTYPE", "{{.GoType}}",
 		"_TYPE", "{{.VecMethod}}",
 		"TemplateType", "{{.VecMethod}}",

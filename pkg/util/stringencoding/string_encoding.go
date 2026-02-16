@@ -7,13 +7,8 @@
 //
 // Copyright 2017 The Cockroach Authors.
 //
-// Use of this software is governed by the Business Source License
-// included in the file licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with
-// the Business Source License, use of this software will be governed
-// by the Apache License, Version 2.0, included in the file
-// licenses/APL.txt.
+// Use of this software is governed by the CockroachDB Software License
+// included in the /LICENSE file.
 
 // This code was derived from https://github.com/youtube/vitess.
 
@@ -78,6 +73,7 @@ func init() {
 
 // EncodeEscapedChar is used internally to write out a character from a larger
 // string that needs to be escaped to a buffer.
+// If slashedQuoteChar is true, it will write a backslash before the quoteChar.
 func EncodeEscapedChar(
 	buf *bytes.Buffer,
 	entireString string,
@@ -85,6 +81,7 @@ func EncodeEscapedChar(
 	currentByte byte,
 	currentIdx int,
 	quoteChar byte,
+	slashedQuoteChar bool,
 ) {
 	ln := utf8.RuneLen(currentRune)
 	if currentRune == utf8.RuneError {
@@ -99,10 +96,15 @@ func EncodeEscapedChar(
 	} else if ln == 1 {
 		// For single-byte runes, do the same as encodeSQLBytes.
 		if encodedChar := EncodeMap[currentByte]; encodedChar != DontEscape {
-			buf.WriteByte('\\')
+			if slashedQuoteChar {
+				buf.WriteByte('\\')
+			}
+
 			buf.WriteByte(encodedChar)
 		} else if currentByte == quoteChar {
-			buf.WriteByte('\\')
+			if slashedQuoteChar {
+				buf.WriteByte('\\')
+			}
 			buf.WriteByte(quoteChar)
 		} else {
 			// Escape non-printable characters.

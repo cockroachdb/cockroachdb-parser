@@ -1,12 +1,7 @@
 // Copyright 2016 The Cockroach Authors.
 //
-// Use of this software is governed by the Business Source License
-// included in the file licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with
-// the Business Source License, use of this software will be governed
-// by the Apache License, Version 2.0, included in the file
-// licenses/APL.txt.
+// Use of this software is governed by the CockroachDB Software License
+// included in the /LICENSE file.
 
 package tree
 
@@ -412,8 +407,8 @@ func (expr *NumVal) ResolveAsType(
 		if err != nil {
 			return nil, err
 		}
-		dInt := MustBeDInt(d)
-		return IntToOid(dInt)
+		o, err := IntToOid(MustBeDInt(d))
+		return NewDOid(o), err
 	default:
 		return nil, errors.AssertionFailedf("could not resolve %T %v into a %s", expr, expr, typ.SQLStringForError())
 	}
@@ -461,9 +456,6 @@ func commonConstantType(vals []Expr, idxs intsets.Fast) (*types.T, bool) {
 
 // StrVal represents a constant string value.
 type StrVal struct {
-	// We could embed a constant.Value here (like NumVal) and use the stringVal implementation,
-	// but that would have extra overhead without much of a benefit. However, it would make
-	// constant folding (below) a little more straightforward.
 	s string
 
 	// scannedAsBytes is true iff the input syntax was using b'...' or
@@ -512,6 +504,8 @@ var (
 		// default type that raw strings get parsed into, without any casts or type
 		// assertions.
 		types.String,
+		types.BPChar,
+		types.AnyCollatedString,
 		types.Bytes,
 		types.Bool,
 		types.Int,
@@ -542,8 +536,11 @@ var (
 		types.UUIDArray,
 		types.INet,
 		types.Jsonb,
+		types.Jsonpath,
 		types.PGLSN,
 		types.PGLSNArray,
+		types.PGVector,
+		types.PGVectorArray,
 		types.RefCursor,
 		types.RefCursorArray,
 		types.TSQuery,
@@ -555,6 +552,7 @@ var (
 		types.VarBitArray,
 		types.AnyTuple,
 		types.AnyTupleArray,
+		// TODO(normanchenn): Reevaluate conversions for jsonpath array.
 	}
 	// StrValAvailBytes is the set of types convertible to byte array.
 	StrValAvailBytes = []*types.T{types.Bytes, types.Uuid, types.String, types.AnyEnum}
@@ -629,13 +627,26 @@ func (expr *StrVal) ResolveAsType(
 
 	// Typing a string literal constant into some value type.
 	switch typ.Family() {
+	// If we don't care about output type, just pick the low effort conversion.
+	case types.AnyFamily:
+		fallthrough
 	case types.StringFamily:
-		if typ.Oid() == oid.T_name {
+		switch typ.Oid() {
+		case oid.T_name:
 			expr.resString = DString(expr.s)
 			return NewDNameFromDString(&expr.resString), nil
+		case oid.T_bpchar:
+			// TODO(mgartner): This should probably use the same logic in
+			// tree.AdjustValueToType and/or
+			// eval.performCastWithoutPrecisionTruncation. casts use (see the
+			// cast package). We might be able to replace this entire function
+			// with logic in those functions.
+			expr.resString = DString(strings.TrimRight(expr.s, " "))
+			return &expr.resString, nil
+		default:
+			expr.resString = DString(expr.s)
+			return &expr.resString, nil
 		}
-		expr.resString = DString(expr.s)
-		return &expr.resString, nil
 
 	case types.BytesFamily:
 		return ParseDByte(expr.s)

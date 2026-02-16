@@ -1,12 +1,7 @@
 // Copyright 2018 The Cockroach Authors.
 //
-// Use of this software is governed by the Business Source License
-// included in the file licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with
-// the Business Source License, use of this software will be governed
-// by the Apache License, Version 2.0, included in the file
-// licenses/APL.txt.
+// Use of this software is governed by the CockroachDB Software License
+// included in the /LICENSE file.
 
 package bitarray
 
@@ -587,8 +582,7 @@ func Next(d BitArray) BitArray {
 func (d BitArray) GetBitAtIndex(index int) (int, error) {
 	// Check whether index asked is inside BitArray.
 	if index < 0 || uint(index) >= d.BitLen() {
-		err := fmt.Errorf("GetBitAtIndex: bit index %d out of valid range (0..%d)", index, int(d.BitLen())-1)
-		return 0, pgerror.WithCandidateCode(err, pgcode.ArraySubscript)
+		return 0, pgerror.Newf(pgcode.ArraySubscript, "bit index %d out of valid range (0..%d)", index, int(d.BitLen())-1)
 	}
 	// To extract bit at the given index, we have to determine the
 	// position within words array, i.e. index/numBitsPerWord after
@@ -604,8 +598,7 @@ func (d BitArray) SetBitAtIndex(index, toSet int) (BitArray, error) {
 	res := d.Clone()
 	// Check whether index asked is inside BitArray.
 	if index < 0 || uint(index) >= res.BitLen() {
-		err := fmt.Errorf("SetBitAtIndex: bit index %d out of valid range (0..%d)", index, int(res.BitLen())-1)
-		return BitArray{}, pgerror.WithCandidateCode(err, pgcode.ArraySubscript)
+		return BitArray{}, pgerror.Newf(pgcode.ArraySubscript, "bit index %d out of valid range (0..%d)", index, int(res.BitLen())-1)
 	}
 	// To update bit at the given index, we have to determine the
 	// position within words array, i.e. index/numBitsPerWord after

@@ -7,13 +7,8 @@
 //
 // Copyright 2020 The Cockroach Authors.
 //
-// Use of this software is governed by the Business Source License
-// included in the file licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with
-// the Business Source License, use of this software will be governed
-// by the Apache License, Version 2.0, included in the file
-// licenses/APL.txt.
+// Use of this software is governed by the CockroachDB Software License
+// included in the /LICENSE file.
 
 // This code was derived from https://github.com/youtube/vitess.
 
@@ -47,6 +42,22 @@ const (
 	// without wrapping quotes.
 	EncBareIdentifiers
 
+	// EncBareReservedKeywords indicates that reserved keywords will be rendered
+	// without wrapping quotes.
+	EncBareReservedKeywords
+
+	// EncAlwaysQuoted makes sure the string is always wrapped with quotes.
+	// This is used only to construct a statement against Oracle source,
+	// as Oracle is case insensitive if object name is not quoted.
+	EncAlwaysQuoted
+
+	// EncSkipEscapeString indicates that the string should not be escaped,
+	// and non-ASCII characters are allowed.
+	// More specifically, it means that the tree.DString won't be wrapped
+	// with e'text' as the prefix and suffix, and single quotes within
+	// the string will not be escaped with a backslash.
+	EncSkipEscapeString
+
 	// EncFirstFreeFlagBit needs to remain unused; it is used as base
 	// bit offset for tree.FmtFlags.
 	EncFirstFreeFlagBit
@@ -57,7 +68,7 @@ const (
 // contains special characters, or the identifier is a reserved SQL
 // keyword.
 func EncodeRestrictedSQLIdent(buf *bytes.Buffer, s string, flags EncodeFlags) {
-	if flags.HasFlags(EncBareIdentifiers) || (!isReservedKeyword(s) && IsBareIdentifier(s)) {
+	if !flags.HasFlags(EncAlwaysQuoted) && (flags.HasFlags(EncBareIdentifiers) || (!isReservedKeyword(s) && IsBareIdentifier(s))) {
 		buf.WriteString(s)
 		return
 	}
@@ -68,7 +79,7 @@ func EncodeRestrictedSQLIdent(buf *bytes.Buffer, s string, flags EncodeFlags) {
 // The identifier is only quoted if the flags don't tell otherwise and
 // the identifier contains special characters.
 func EncodeUnrestrictedSQLIdent(buf *bytes.Buffer, s string, flags EncodeFlags) {
-	if flags.HasFlags(EncBareIdentifiers) || IsBareIdentifier(s) {
+	if !flags.HasFlags(EncAlwaysQuoted) && (flags.HasFlags(EncBareIdentifiers) || IsBareIdentifier(s)) {
 		buf.WriteString(s)
 		return
 	}
@@ -108,7 +119,12 @@ func EncodeEscapedSQLIdent(buf *bytes.Buffer, s string) {
 	buf.WriteByte('"')
 }
 
-var mustQuoteMap = map[byte]bool{
+const (
+	minPrintableChar = 0x20 // ' '
+	maxPrintableChar = 0x7E // '~'
+)
+
+var mustQuoteMap = [maxPrintableChar + 1]bool{
 	' ': true,
 	',': true,
 	'{': true,
@@ -138,6 +154,7 @@ func EscapeSQLString(in string) string {
 func EncodeSQLStringWithFlags(buf *bytes.Buffer, in string, flags EncodeFlags) {
 	// See http://www.postgresql.org/docs/9.4/static/sql-syntax-lexical.html
 	start := 0
+	skipEscape := flags.HasFlags(EncSkipEscapeString)
 	escapedString := false
 	bareStrings := flags.HasFlags(EncBareStrings)
 	// Loop through each unicode code point.
@@ -146,7 +163,7 @@ func EncodeSQLStringWithFlags(buf *bytes.Buffer, in string, flags EncodeFlags) {
 			continue
 		}
 		ch := byte(r)
-		if r >= 0x20 && r < 0x7F {
+		if r >= minPrintableChar && r <= maxPrintableChar {
 			if mustQuoteMap[ch] {
 				// We have to quote this string - ignore bareStrings setting
 				bareStrings = false
@@ -156,28 +173,37 @@ func EncodeSQLStringWithFlags(buf *bytes.Buffer, in string, flags EncodeFlags) {
 			}
 		}
 
-		if !escapedString {
+		// If non-ASCII characters are allowed,
+		// skip escaping and write the original UTF-8 character.
+		if r > maxPrintableChar && skipEscape {
+			continue
+		}
+
+		if !skipEscape && !escapedString {
 			buf.WriteString("e'") // begin e'xxx' string
 			escapedString = true
 		}
 		buf.WriteString(in[start:i])
+
 		ln := utf8.RuneLen(r)
 		if ln < 0 {
 			start = i + 1
 		} else {
 			start = i + ln
 		}
-		stringencoding.EncodeEscapedChar(buf, in, r, ch, i, '\'')
+		// If we skip escaping, we don't write the slash char before the
+		// quote char, so we will  write the quote char directly.
+		stringencoding.EncodeEscapedChar(buf, in, r, ch, i, '\'', !skipEscape)
 	}
 
-	quote := !escapedString && !bareStrings
+	quote := !escapedString && !bareStrings && !skipEscape
 	if quote {
 		buf.WriteByte('\'') // begin 'xxx' string if nothing was escaped
 	}
 	if start < len(in) {
 		buf.WriteString(in[start:])
 	}
-	if escapedString || quote {
+	if !skipEscape && (escapedString || quote) {
 		buf.WriteByte('\'')
 	}
 }

@@ -1,12 +1,7 @@
 // Copyright 2020 The Cockroach Authors.
 //
-// Use of this software is governed by the Business Source License
-// included in the file licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with
-// the Business Source License, use of this software will be governed
-// by the Apache License, Version 2.0, included in the file
-// licenses/APL.txt.
+// Use of this software is governed by the CockroachDB Software License
+// included in the /LICENSE file.
 
 // Package oidext contains oids that are not in `github.com/lib/pq/oid`
 // as they are not shipped by default with postgres.
@@ -34,6 +29,15 @@ const (
 	T__geography = oid.Oid(90003)
 	T_box2d      = oid.Oid(90004)
 	T__box2d     = oid.Oid(90005)
+	T_pgvector   = oid.Oid(90006)
+	T__pgvector  = oid.Oid(90007)
+)
+
+// OIDs in this block are not extensions of postgres, but are not supported in
+// github.com/lib/pq/oid. See postgres/src/include/catalog/pg_type.dat for oids.
+const (
+	T_jsonpath  = oid.Oid(4072)
+	T__jsonpath = oid.Oid(4073)
 )
 
 // ExtensionTypeName returns a mapping from extension oids
@@ -45,6 +49,10 @@ var ExtensionTypeName = map[oid.Oid]string{
 	T__geography: "_GEOGRAPHY",
 	T_box2d:      "BOX2D",
 	T__box2d:     "_BOX2D",
+	T_pgvector:   "VECTOR",
+	T__pgvector:  "_VECTOR",
+	T_jsonpath:   "JSONPATH",
+	T__jsonpath:  "_JSONPATH",
 }
 
 // TypeName checks the name for a given type by first looking up oid.TypeName

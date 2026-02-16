@@ -1,12 +1,7 @@
 // Copyright 2019 The Cockroach Authors.
 //
-// Use of this software is governed by the Business Source License
-// included in the file licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with
-// the Business Source License, use of this software will be governed
-// by the Apache License, Version 2.0, included in the file
-// licenses/APL.txt.
+// Use of this software is governed by the CockroachDB Software License
+// included in the /LICENSE file.
 
 package coldata
 
@@ -276,7 +271,8 @@ func (b *Bytes) copyElements(srcElementsToCopy []element, src *Bytes, destIdx in
 			// append the new value to b.buffer.
 			*e = element{}
 			//gcassert:bce
-			e.setNonInlined(srcElementsToCopy[i].getNonInlined(src), b)
+			srcElement := srcElementsToCopy[i]
+			e.setNonInlined(srcElement.getNonInlined(src), b)
 		}
 	}
 }
@@ -645,7 +641,7 @@ func (b *Bytes) Deserialize(data []byte, offsets []int32) {
 
 // ProportionalSize calls the method of the same name on bytes-like vectors,
 // panicking if not bytes-like.
-func ProportionalSize(v Vec, length int64) int64 {
+func ProportionalSize(v *Vec, length int64) int64 {
 	family := v.CanonicalTypeFamily()
 	switch family {
 	case types.BytesFamily:
@@ -659,7 +655,7 @@ func ProportionalSize(v Vec, length int64) int64 {
 }
 
 // ResetIfBytesLike calls Reset on v if it is bytes-like, noop otherwise.
-func ResetIfBytesLike(v Vec) {
+func ResetIfBytesLike(v *Vec) {
 	switch v.CanonicalTypeFamily() {
 	case types.BytesFamily:
 		v.Bytes().Reset()

@@ -1,18 +1,13 @@
 // Copyright 2021 The Cockroach Authors.
 //
-// Use of this software is governed by the Business Source License
-// included in the file licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with
-// the Business Source License, use of this software will be governed
-// by the Apache License, Version 2.0, included in the file
-// licenses/APL.txt.
+// Use of this software is governed by the CockroachDB Software License
+// included in the /LICENSE file.
 
 package util
 
 import (
-	"golang.org/x/exp/constraints"
-	"golang.org/x/exp/slices"
+	"cmp"
+	"slices"
 )
 
 // CombineUnique merges two ordered slices. If both slices have unique elements
@@ -25,7 +20,7 @@ import (
 // has mostly the same elements as the other. If the two slices are large and
 // don't have many duplicates, this function should be avoided, because of the
 // usage of `copy` that can increase CPU.
-func CombineUnique[T constraints.Ordered](a, b []T) []T {
+func CombineUnique[T cmp.Ordered](a, b []T) []T {
 	// We want b to be the smaller slice, so there are fewer elements to be added.
 	if len(b) > len(a) {
 		b, a = a, b
@@ -104,4 +99,25 @@ func MapFrom[T any, K comparable, V any](collection []T, fn func(T) (K, V)) map[
 		out[key] = value
 	}
 	return out
+}
+
+// InsertUnique inserts an element into an ordered slice if the element is not
+// already present while maintaining the ordering property. Possibly updated
+// slice is returned.
+func InsertUnique[T cmp.Ordered](s []T, v T) []T {
+	idx, found := slices.BinarySearch(s, v)
+	if found {
+		return s
+	}
+	return slices.Insert(s, idx, v)
+}
+
+// Reduce applies a function against an accumulator and each element of a
+// collection, reducing it to a single value.
+func Reduce[T any, U any](collection []T, fn func(acc U, el T, idx int) U, init U) U {
+	acc := init
+	for idx, el := range collection {
+		acc = fn(acc, el, idx)
+	}
+	return acc
 }

@@ -1,12 +1,7 @@
 // Copyright 2016 The Cockroach Authors.
 //
-// Use of this software is governed by the Business Source License
-// included in the file licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with
-// the Business Source License, use of this software will be governed
-// by the Apache License, Version 2.0, included in the file
-// licenses/APL.txt.
+// Use of this software is governed by the CockroachDB Software License
+// included in the /LICENSE file.
 
 package tree
 
@@ -18,16 +13,22 @@ import (
 	"github.com/cockroachdb/cockroachdb-parser/pkg/sql/pgwire/pgcode"
 	"github.com/cockroachdb/cockroachdb-parser/pkg/sql/pgwire/pgerror"
 	"github.com/cockroachdb/cockroachdb-parser/pkg/sql/types"
+	"github.com/cockroachdb/redact"
 )
 
 // PlaceholderIdx is the 0-based index of a placeholder. Placeholder "$1"
 // has PlaceholderIdx=0.
 type PlaceholderIdx uint16
 
+var _ redact.SafeValue = PlaceholderIdx(0)
+
 // MaxPlaceholderIdx is the maximum allowed value of a PlaceholderIdx.
 // The pgwire protocol is limited to 2^16 placeholders, so we limit the IDs to
 // this range as well.
 const MaxPlaceholderIdx = math.MaxUint16
+
+// SafeValue implements the redact.SafeValue interface.
+func (idx PlaceholderIdx) SafeValue() {}
 
 // String returns the index as a placeholder string representation ($1, $2 etc).
 func (idx PlaceholderIdx) String() string {
@@ -154,7 +155,7 @@ type PlaceholderInfo struct {
 
 // Init initializes a PlaceholderInfo structure appropriate for the given number
 // of placeholders, and with the given (optional) type hints.
-func (p *PlaceholderInfo) Init(numPlaceholders int, typeHints PlaceholderTypes) error {
+func (p *PlaceholderInfo) Init(numPlaceholders int, typeHints PlaceholderTypes) {
 	if typeHints == nil {
 		p.TypeHints = make(PlaceholderTypes, numPlaceholders)
 		p.Types = make(PlaceholderTypes, numPlaceholders)
@@ -163,17 +164,16 @@ func (p *PlaceholderInfo) Init(numPlaceholders int, typeHints PlaceholderTypes) 
 		p.TypeHints = typeHints
 	}
 	p.Values = nil
-	return nil
 }
 
 // Assign resets the PlaceholderInfo to the contents of src.
 // If src is nil, a new structure is initialized.
-func (p *PlaceholderInfo) Assign(src *PlaceholderInfo, numPlaceholders int) error {
+func (p *PlaceholderInfo) Assign(src *PlaceholderInfo, numPlaceholders int) {
 	if src != nil {
 		*p = *src
-		return nil
+		return
 	}
-	return p.Init(numPlaceholders, nil /* typeHints */)
+	p.Init(numPlaceholders, nil /* typeHints */)
 }
 
 // MaybeExtendTypes is to fill the nil types with the type hints, if exists.

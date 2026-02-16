@@ -1,18 +1,12 @@
 // Copyright 2017 The Cockroach Authors.
 //
-// Use of this software is governed by the Business Source License
-// included in the file licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with
-// the Business Source License, use of this software will be governed
-// by the Apache License, Version 2.0, included in the file
-// licenses/APL.txt.
+// Use of this software is governed by the CockroachDB Software License
+// included in the /LICENSE file.
 
 package json
 
 import (
 	"bytes"
-	"fmt"
 	"sort"
 	"strconv"
 	"unsafe"
@@ -595,17 +589,6 @@ func (j *jsonEncoded) AsArray() ([]JSON, bool) {
 	return decoded.AsArray()
 }
 
-func (j *jsonEncoded) AreKeysSorted() bool {
-	if dec := j.alreadyDecoded(); dec != nil {
-		return dec.AreKeysSorted()
-	}
-	decoded, err := j.decode()
-	if err != nil {
-		return false
-	}
-	return decoded.AreKeysSorted()
-}
-
 func (j *jsonEncoded) Compare(other JSON) (_ int, err error) {
 	if other == nil {
 		return -1, nil
@@ -695,15 +678,6 @@ func (j *jsonEncoded) FetchValKeyOrIdx(key string) (JSON, error) {
 		return j.FetchValIdx(idx)
 	}
 	return nil, nil
-}
-
-func (j *jsonEncoded) Format(buf *bytes.Buffer) {
-	decoded, err := j.decode()
-	if err != nil {
-		fmt.Fprintf(buf, `<corrupt JSON data: %s>`, err.Error())
-	} else {
-		decoded.Format(buf)
-	}
 }
 
 // RemoveIndex implements the JSON interface.
@@ -823,12 +797,12 @@ func (j *jsonEncoded) numInvertedIndexEntries() (int, error) {
 	return decoded.numInvertedIndexEntries()
 }
 
-func (j *jsonEncoded) allPaths() ([]JSON, error) {
+func (j *jsonEncoded) allPathsWithDepth(depth int) ([]JSON, error) {
 	decoded, err := j.decode()
 	if err != nil {
 		return nil, err
 	}
-	return decoded.allPaths()
+	return decoded.allPathsWithDepth(depth)
 }
 
 // HasContainerLeaf implements the JSON interface.

@@ -151,7 +151,7 @@ func (m *CommonEventDetails) Size() (n int) {
 }
 
 func sovEvent(x uint64) (n int) {
-	return (math_bits.Len64(x|1) + 6) / 7
+	return int((uint32(math_bits.Len64(x|1)+6) * 37) >> 8)
 }
 func sozEvent(x uint64) (n int) {
 	return sovEvent(uint64((x << 1) ^ uint64((int64(x) >> 63))))

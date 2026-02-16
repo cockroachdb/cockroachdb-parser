@@ -1,20 +1,20 @@
 // Copyright 2022 The Cockroach Authors.
 //
-// Use of this software is governed by the Business Source License
-// included in the file licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with
-// the Business Source License, use of this software will be governed
-// by the Apache License, Version 2.0, included in the file
-// licenses/APL.txt.
+// Use of this software is governed by the CockroachDB Software License
+// included in the /LICENSE file.
 
 package admissionpb
 
 import (
+	"fmt"
 	"math"
 
+	"github.com/cockroachdb/cockroachdb-parser/pkg/util/humanizeutil"
+	"github.com/cockroachdb/cockroachdb-parser/pkg/util/tracing"
 	"github.com/cockroachdb/errors"
 	"github.com/cockroachdb/redact"
+	"github.com/gogo/protobuf/proto"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 // WorkPriority represents the priority of work. In an WorkQueue, it is only
@@ -27,8 +27,8 @@ type WorkPriority int8
 const (
 	// LowPri is low priority work.
 	LowPri WorkPriority = math.MinInt8
-	// TTLLowPri is low priority work from TTL internal submissions.
-	TTLLowPri WorkPriority = -100
+	// BulkLowPri is low priority work from internal bulk submissions.
+	BulkLowPri WorkPriority = -100
 	// UserLowPri is low priority work from user submissions (SQL).
 	UserLowPri WorkPriority = -50
 	// BulkNormalPri is bulk priority work from bulk jobs, which could be run due
@@ -57,7 +57,7 @@ func (w WorkPriority) String() string {
 // SafeFormat implements the redact.SafeFormatter interface.
 func (w WorkPriority) SafeFormat(p redact.SafePrinter, verb rune) {
 	if s, ok := WorkPriorityDict[w]; ok {
-		p.Print(s)
+		p.SafeString(redact.SafeString(s))
 		return
 	}
 	p.Printf("custom-pri=%d", int8(w))
@@ -67,7 +67,7 @@ func (w WorkPriority) SafeFormat(p redact.SafePrinter, verb rune) {
 // name is used as the suffix on exported work queue metrics.
 var WorkPriorityDict = map[WorkPriority]string{
 	LowPri:           "low-pri",
-	TTLLowPri:        "ttl-low-pri",
+	BulkLowPri:       "bulk-low-pri",
 	UserLowPri:       "user-low-pri",
 	BulkNormalPri:    "bulk-normal-pri",
 	NormalPri:        "normal-pri",
@@ -104,7 +104,7 @@ func init() {
 
 	orderedPris := []WorkPriority{
 		LowPri,
-		TTLLowPri,
+		BulkLowPri,
 		UserLowPri,
 		BulkNormalPri,
 		NormalPri,
@@ -189,6 +189,37 @@ const (
 	NumWorkClasses
 )
 
+// StoreWorkType represents the type of work,
+type StoreWorkType int8
+
+const (
+	// RegularStoreWorkType is for type of store-specific work that corresponds to
+	// RegularWorkClass.
+	RegularStoreWorkType StoreWorkType = iota
+	// SnapshotIngestStoreWorkType is for snapshot work type. It is classified as
+	// ElasticWorkClass, but is prioritized higher than other work of that class.
+	SnapshotIngestStoreWorkType = 1
+	// ElasticStoreWorkType is for store-specific work that corresponds to
+	// ElasticWorkClass, excluding SnapshotIngestStoreWorkType.
+	ElasticStoreWorkType = 2
+	// NumStoreWorkTypes is the number of store work types.
+	NumStoreWorkTypes = 3
+)
+
+// WorkClassFromStoreWorkType translates StoreWorkType to a WorkClass
+func WorkClassFromStoreWorkType(workType StoreWorkType) WorkClass {
+	var class WorkClass
+	switch workType {
+	case RegularStoreWorkType:
+		class = RegularWorkClass
+	case ElasticStoreWorkType:
+		class = ElasticWorkClass
+	case SnapshotIngestStoreWorkType:
+		class = ElasticWorkClass
+	}
+	return class
+}
+
 // WorkClassFromPri translates a WorkPriority to its given WorkClass.
 func WorkClassFromPri(pri WorkPriority) WorkClass {
 	class := RegularWorkClass
@@ -206,17 +237,100 @@ func (w WorkClass) String() string {
 func (w WorkClass) SafeFormat(p redact.SafePrinter, verb rune) {
 	switch w {
 	case RegularWorkClass:
-		p.Printf("regular")
+		p.SafeString("regular")
 	case ElasticWorkClass:
-		p.Printf("elastic")
+		p.SafeString("elastic")
 	default:
-		p.Printf("<unknown-class>")
+		p.SafeString("<unknown-class>")
+	}
+}
+
+var _ tracing.AggregatorEvent = &AdmissionWorkQueueStats{}
+
+// Identity implements the tracing.AggregatorEvent interface.
+func (s *AdmissionWorkQueueStats) Identity() tracing.AggregatorEvent {
+	return &AdmissionWorkQueueStats{WorkPriority: int32(HighPri)}
+}
+
+// Combine implements the tracing.AggregatorEvent interface.
+func (s *AdmissionWorkQueueStats) Combine(other tracing.AggregatorEvent) {
+	otherStats, ok := other.(*AdmissionWorkQueueStats)
+	if !ok {
+		panic(errors.Newf("`other` is not of type AdmissionWorkQueueStats: %T", other))
+	}
+	s.WaitDurationNanos += otherStats.WaitDurationNanos
+	s.DeadlineExceededCount += otherStats.DeadlineExceededCount
+	s.WorkPriority = min(s.WorkPriority, otherStats.WorkPriority)
+
+	if s.QueueKind == "" {
+		s.QueueKind = otherStats.QueueKind
+	} else if s.QueueKind != otherStats.QueueKind {
+		s.QueueKind = "multiple-queues"
+		// TODO(dt): consider adding a map of queue kinds to counts, e.g.:
+		/*
+			if s.Agg == nil {
+				s.Agg = make(map[string]*AdmissionWorkQueueStats)
+				s.Agg[otherStats.QueueKind] = otherStats
+			} else if perQueue, ok := s.Agg[otherStats.QueueKind]; !ok {
+				s.Agg[otherStats.QueueKind] = otherStats
+			} else {
+				perQueue.Combine(otherStats)
+			}
+		*/
+	}
+}
+
+// ProtoName implements the tracing.AggregatorEvent interface.
+func (s *AdmissionWorkQueueStats) ProtoName() string {
+	return proto.MessageName(s)
+}
+
+func (s *AdmissionWorkQueueStats) ToText() []byte {
+	return []byte(s.String())
+}
+
+func (s *AdmissionWorkQueueStats) String() string {
+	return fmt.Sprintf("queue (%s/%s) wait: %s",
+		redact.SafeString(s.QueueKind),
+		WorkPriority(s.WorkPriority),
+		humanizeutil.Duration(s.WaitDurationNanos),
+	)
+
+	// TODO(dt): consider supporting a map over multiple queues when aggregating
+	// into a single stat, e.g. treat the above as a fast-path if the map is nil
+	// but otherwise do something like this:
+	/*
+		var b strings.Builder
+		fmt.Fprintf(&b, "queue (%s/%s) wait: %s (",
+			redact.SafeString(s.QueueKind),
+			WorkPriority(s.WorkPriority),
+			humanizeutil.Duration(s.WaitDurationNanos),
+		)
+
+		for _, v := range s.Agg {
+			fmt.Fprintf(&b, "%s[%s]: %s;",
+				redact.SafeString(v.QueueKind),
+				WorkPriority(s.WorkPriority),
+				humanizeutil.Duration(v.WaitDurationNanos),
+			)
+		}
+		b.WriteString(")")
+		return b.String()
+	*/
+}
+
+// Render implements the AggregatorEvent interface.
+func (s *AdmissionWorkQueueStats) Render() []attribute.KeyValue {
+	return []attribute.KeyValue{
+		{Key: "queue_wait", Value: attribute.StringValue(string(humanizeutil.Duration(s.WaitDurationNanos)))},
+		{Key: "queue_kind", Value: attribute.StringValue(s.QueueKind)},
+		{Key: "queue_priority", Value: attribute.StringValue(WorkPriority(s.WorkPriority).String())},
 	}
 }
 
 // Prevent the linter from emitting unused warnings.
 var _ = LowPri
-var _ = TTLLowPri
+var _ = BulkLowPri
 var _ = UserLowPri
 var _ = NormalPri
 var _ = UserHighPri

@@ -1,12 +1,7 @@
 // Copyright 2022 The Cockroach Authors.
 //
-// Use of this software is governed by the Business Source License
-// included in the file licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with
-// the Business Source License, use of this software will be governed
-// by the Apache License, Version 2.0, included in the file
-// licenses/APL.txt.
+// Use of this software is governed by the CockroachDB Software License
+// included in the /LICENSE file.
 
 package tree
 
@@ -46,6 +41,22 @@ func (node *ReferenceActions) Format(ctx *FmtCtx) {
 		ctx.WriteString(" ON UPDATE ")
 		ctx.WriteString(node.Update.String())
 	}
+}
+
+// HasUpdateAction returns true if any update action is set.
+func (node *ReferenceActions) HasUpdateAction() bool {
+	// NoAction and Restrict are currently equivalent.
+	return node.Update != NoAction && node.Update != Restrict
+}
+
+// HasDisallowedActionForComputedFKCol return true if an action is set that
+// isn't compatible with an FK over computed columns.
+func (node *ReferenceActions) HasDisallowedActionForComputedFKCol() bool {
+	// We disallow any actions that modify column values. NoAction and Restrict
+	// are equivalent and always allowed. 'ON DELETE CASCADE' is also allowed
+	// since it removes the entire row instead of modifying the computed column.
+	return node.HasUpdateAction() ||
+		(node.Delete != NoAction && node.Delete != Restrict && node.Delete != Cascade)
 }
 
 // ForeignKeyReferenceActionType allows the conversion between a

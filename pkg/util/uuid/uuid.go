@@ -1,12 +1,7 @@
 // Copyright 2019 The Cockroach Authors.
 //
-// Use of this software is governed by the Business Source License
-// included in the file licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with
-// the Business Source License, use of this software will be governed
-// by the Apache License, Version 2.0, included in the file
-// licenses/APL.txt.
+// Use of this software is governed by the CockroachDB Software License
+// included in the /LICENSE file.
 
 // Copyright (C) 2013-2018 by Maxim Bublis <b@codemonkey.ru>
 // Use of this source code is governed by a MIT-style
@@ -26,6 +21,7 @@ import (
 	"github.com/cockroachdb/cockroachdb-parser/pkg/util/timeutil"
 	"github.com/cockroachdb/cockroachdb-parser/pkg/util/uint128"
 	"github.com/cockroachdb/errors"
+	"github.com/cockroachdb/redact"
 )
 
 // Size of a UUID in bytes.
@@ -38,6 +34,11 @@ const RFC4122StrSize = 36
 // encoding of a UUID.
 type Bytes []byte
 
+var _ redact.SafeValue = Bytes{}
+
+// SafeValue implements the redact.SafeValue interface.
+func (b Bytes) SafeValue() {}
+
 // GetUUID constructs a UUID from the bytes. If the data is not valid, a zero
 // value will be returned.
 func (b Bytes) GetUUID() UUID { return FromBytesOrNil(b) }
@@ -49,6 +50,11 @@ func (b Bytes) String() string {
 
 // UUID is an array type to represent the value of a UUID, as defined in RFC-4122.
 type UUID [Size]byte
+
+var _ redact.SafeValue = UUID{}
+
+// SafeValue implements the redact.SafeValue interface.
+func (u UUID) SafeValue() {}
 
 // UUID versions.
 const (
@@ -72,6 +78,11 @@ const (
 // 15 October 1582 within a V1 UUID. This type has no meaning for V2-V5
 // UUIDs since they don't have an embedded timestamp.
 type Timestamp uint64
+
+var _ redact.SafeValue = Timestamp(0)
+
+// SafeValue implements the redact.SafeValue interface.
+func (t Timestamp) SafeValue() {}
 
 const _100nsPerSecond = 10000000
 

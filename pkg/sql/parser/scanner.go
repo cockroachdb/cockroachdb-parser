@@ -1,12 +1,7 @@
 // Copyright 2021 The Cockroach Authors.
 //
-// Use of this software is governed by the Business Source License
-// included in the file licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with
-// the Business Source License, use of this software will be governed
-// by the Apache License, Version 2.0, included in the file
-// licenses/APL.txt.
+// Use of this software is governed by the CockroachDB Software License
+// included in the /LICENSE file.
 
 package parser
 
@@ -54,21 +49,6 @@ func Tokens(sql string) (tokens []TokenString, ok bool) {
 		tokens = append(tokens, TokenString{TokenID: lval.ID(), Str: lval.Str()})
 	}
 	return tokens, true
-}
-
-// TokensIgnoreErrors decomposes the input into lexical tokens and
-// ignores errors.
-func TokensIgnoreErrors(sql string) (tokens []TokenString) {
-	s := makeSQLScanner(sql)
-	for {
-		var lval = &sqlSymType{}
-		s.Scan(lval)
-		if lval.ID() == 0 {
-			break
-		}
-		tokens = append(tokens, TokenString{TokenID: lval.ID(), Str: lval.Str()})
-	}
-	return tokens
 }
 
 // TokenString is the unit value returned by Tokens.

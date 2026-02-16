@@ -1,12 +1,7 @@
 // Copyright 2020 The Cockroach Authors.
 //
-// Use of this software is governed by the Business Source License
-// included in the file licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with
-// the Business Source License, use of this software will be governed
-// by the Apache License, Version 2.0, included in the file
-// licenses/APL.txt.
+// Use of this software is governed by the CockroachDB Software License
+// included in the /LICENSE file.
 
 package geo
 
@@ -32,8 +27,10 @@ import (
 	"github.com/twpayne/go-geom/encoding/wkt"
 )
 
-// DefaultGeoJSONDecimalDigits is the default number of digits coordinates in GeoJSON.
-const DefaultGeoJSONDecimalDigits = 9
+// FullPrecisionGeoJSON, when used in place of max decimal digits in
+// GeoJSON functions, indicates to GeoJSON that it should use full
+// precision when encoding JSON.
+const FullPrecisionGeoJSON = -1
 
 // SpatialObjectToWKT transforms a given SpatialObject to WKT.
 func SpatialObjectToWKT(so geopb.SpatialObject, maxDecimalDigits int) (geopb.WKT, error) {

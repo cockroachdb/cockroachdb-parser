@@ -1,12 +1,7 @@
 // Copyright 2016 The Cockroach Authors.
 //
-// Use of this software is governed by the Business Source License
-// included in the file licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with
-// the Business Source License, use of this software will be governed
-// by the Apache License, Version 2.0, included in the file
-// licenses/APL.txt.
+// Use of this software is governed by the CockroachDB Software License
+// included in the /LICENSE file.
 
 package envutil
 
@@ -169,7 +164,7 @@ func GetEnvVarsUsed() (result []redact.RedactableString) {
 		_, crdbVar := envVarRegistry.cache[string(varName)]
 		_, safeVar := safeVarRegistry[varName]
 		if crdbVar || safeVar {
-			result = append(result, redact.Sprintf("%s=%s", varName, redact.Safe(allVarsValues[varName])))
+			result = append(result, redact.Sprintf("%s=%s", varName, redact.SafeString(allVarsValues[varName])))
 		} else if _, reportable := valueReportableUnsafeVarRegistry[varName]; reportable {
 			result = append(result, redact.Sprintf("%s=%s", varName, allVarsValues[varName]))
 		} else if _, reportable := nameReportableUnsafeVarRegistry[varName]; reportable {
@@ -192,9 +187,14 @@ var safeVarRegistry = map[redact.SafeString]struct{}{
 	"GOMAXPROCS":  {},
 	"GOTRACEBACK": {},
 	"GOMEMLIMIT":  {},
+	// Jemalloc configuration override.
+	"MALLOC_CONF": {},
 	// gRPC.
 	"GRPC_GO_LOG_SEVERITY_LEVEL":  {},
 	"GRPC_GO_LOG_VERBOSITY_LEVEL": {},
+	// general
+	"LANG": {},
+	"TERM": {},
 }
 
 // valueReportableUnsafeVarRegistry is the list of variables where we can

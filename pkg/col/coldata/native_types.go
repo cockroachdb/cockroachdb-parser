@@ -1,12 +1,7 @@
 // Copyright 2020 The Cockroach Authors.
 //
-// Use of this software is governed by the Business Source License
-// included in the file licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with
-// the Business Source License, use of this software will be governed
-// by the Apache License, Version 2.0, included in the file
-// licenses/APL.txt.
+// Use of this software is governed by the CockroachDB Software License
+// included in the /LICENSE file.
 
 package coldata
 
@@ -215,7 +210,7 @@ func (c Float64s) CopySlice(src Float64s, destIdx, srcStartIdx, srcEndIdx int) {
 // destIdx.
 //
 // Note that this method is usually inlined, but it isn't in case of the
-// memColumn.Copy generated code (probably because of the size of that
+// Vec.Copy generated code (probably because of the size of that
 // function), so we don't assert the inlining with the GCAssert linter.
 func (c Decimals) CopySlice(src Decimals, destIdx, srcStartIdx, srcEndIdx int) {
 	srcSlice := src[srcStartIdx:srcEndIdx]

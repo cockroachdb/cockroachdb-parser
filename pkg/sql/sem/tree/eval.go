@@ -1,16 +1,12 @@
 // Copyright 2015 The Cockroach Authors.
 //
-// Use of this software is governed by the Business Source License
-// included in the file licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with
-// the Business Source License, use of this software will be governed
-// by the Apache License, Version 2.0, included in the file
-// licenses/APL.txt.
+// Use of this software is governed by the CockroachDB Software License
+// included in the /LICENSE file.
 
 package tree
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/cockroachdb/cockroachdb-parser/pkg/geo"
@@ -82,8 +78,16 @@ func (op *UnaryOp) returnType() ReturnTyper {
 	return op.retType
 }
 
-func (*UnaryOp) preferred() bool {
-	return false
+func (*UnaryOp) preference() OverloadPreference {
+	return OverloadPreferenceNone
+}
+
+func (*UnaryOp) outParamInfo() (RoutineType, []int32, TypeList) {
+	return BuiltinRoutine, nil, nil
+}
+
+func (op *UnaryOp) defaultExprs() Exprs {
+	return nil
 }
 
 func unaryOpFixups(
@@ -236,7 +240,7 @@ type BinOp struct {
 	CalledOnNullInput bool
 	EvalOp            BinaryEvalOp
 	Volatility        volatility.V
-	PreferredOverload bool
+	OverloadPreference
 
 	types   TypeList
 	retType ReturnTyper
@@ -256,8 +260,16 @@ func (op *BinOp) returnType() ReturnTyper {
 	return op.retType
 }
 
-func (op *BinOp) preferred() bool {
-	return op.PreferredOverload
+func (op *BinOp) preference() OverloadPreference {
+	return op.OverloadPreference
+}
+
+func (op *BinOp) outParamInfo() (RoutineType, []int32, TypeList) {
+	return BuiltinRoutine, nil, nil
+}
+
+func (op *BinOp) defaultExprs() Exprs {
+	return nil
 }
 
 // AppendToMaybeNullArray appends an element to an array. If the first
@@ -343,7 +355,9 @@ func ConcatArrays(typ *types.T, left Datum, right Datum) (Datum, error) {
 }
 
 // ArrayContains return true if the haystack contains all needles.
-func ArrayContains(ctx CompareContext, haystack *DArray, needles *DArray) (*DBool, error) {
+func ArrayContains(
+	ctx context.Context, cmpCtx CompareContext, haystack *DArray, needles *DArray,
+) (*DBool, error) {
 	if !haystack.ParamTyp.Equivalent(needles.ParamTyp) {
 		return DBoolFalse, pgerror.New(pgcode.DatatypeMismatch, "cannot compare arrays with different element types")
 	}
@@ -354,7 +368,7 @@ func ArrayContains(ctx CompareContext, haystack *DArray, needles *DArray) (*DBoo
 		}
 		var found bool
 		for _, hay := range haystack.Array {
-			if cmp, err := needle.CompareError(ctx, hay); err != nil {
+			if cmp, err := needle.Compare(ctx, cmpCtx, hay); err != nil {
 				return DBoolFalse, err
 			} else if cmp == 0 {
 				found = true
@@ -370,7 +384,9 @@ func ArrayContains(ctx CompareContext, haystack *DArray, needles *DArray) (*DBoo
 
 // ArrayOverlaps return true if there is even one element
 // common between the left and right arrays.
-func ArrayOverlaps(ctx CompareContext, array, other *DArray) (*DBool, error) {
+func ArrayOverlaps(
+	ctx context.Context, cmpCtx CompareContext, array, other *DArray,
+) (*DBool, error) {
 	if !array.ParamTyp.Equivalent(other.ParamTyp) {
 		return nil, pgerror.New(pgcode.DatatypeMismatch, "cannot compare arrays with different element types")
 	}
@@ -380,7 +396,7 @@ func ArrayOverlaps(ctx CompareContext, array, other *DArray) (*DBool, error) {
 			continue
 		}
 		for _, hay := range other.Array {
-			if cmp, err := needle.CompareError(ctx, hay); err != nil {
+			if cmp, err := needle.Compare(ctx, cmpCtx, hay); err != nil {
 				return DBoolFalse, err
 			} else if cmp == 0 {
 				return DBoolTrue, nil
@@ -449,7 +465,7 @@ func initNonArrayToNonArrayConcatenation() {
 	for _, t := range append([]*types.T{types.AnyTuple}, types.Scalar...) {
 		// Do not re-add String+String or String+Bytes, as they already exist
 		// and have predefined correct behavior.
-		if t != types.String && t != types.Bytes {
+		if !t.Identical(types.String) && !t.Identical(types.Bytes) {
 			addConcat(t, types.String, fromTypeToVolatility[t.Oid()])
 			addConcat(types.String, t, fromTypeToVolatility[t.Oid()])
 		}
@@ -780,6 +796,13 @@ var BinOps = map[treebin.BinaryOperatorSymbol]*BinOpOverloads{
 			EvalOp:     &PlusPGLSNDecimalOp{},
 			Volatility: volatility.Immutable,
 		},
+		{
+			LeftType:   types.PGVector,
+			RightType:  types.PGVector,
+			ReturnType: types.PGVector,
+			EvalOp:     &PlusPGVectorOp{},
+			Volatility: volatility.Immutable,
+		},
 	}},
 
 	treebin.Minus: {overloads: []*BinOp{
@@ -966,6 +989,13 @@ var BinOps = map[treebin.BinaryOperatorSymbol]*BinOpOverloads{
 			EvalOp:     &MinusPGLSNOp{},
 			Volatility: volatility.Immutable,
 		},
+		{
+			LeftType:   types.PGVector,
+			RightType:  types.PGVector,
+			ReturnType: types.PGVector,
+			EvalOp:     &MinusPGVectorOp{},
+			Volatility: volatility.Immutable,
+		},
 	}},
 
 	treebin.Mult: {overloads: []*BinOp{
@@ -1047,6 +1077,13 @@ var BinOps = map[treebin.BinaryOperatorSymbol]*BinOpOverloads{
 			RightType:  types.Decimal,
 			ReturnType: types.Interval,
 			EvalOp:     &MultIntervalDecimalOp{},
+			Volatility: volatility.Immutable,
+		},
+		{
+			LeftType:   types.PGVector,
+			RightType:  types.PGVector,
+			ReturnType: types.PGVector,
+			EvalOp:     &MultPGVectorOp{},
 			Volatility: volatility.Immutable,
 		},
 	}},
@@ -1308,12 +1345,12 @@ var BinOps = map[treebin.BinaryOperatorSymbol]*BinOpOverloads{
 
 	treebin.JSONFetchVal: {overloads: []*BinOp{
 		{
-			LeftType:          types.Jsonb,
-			RightType:         types.String,
-			ReturnType:        types.Jsonb,
-			EvalOp:            &JSONFetchValStringOp{},
-			PreferredOverload: true,
-			Volatility:        volatility.Immutable,
+			LeftType:           types.Jsonb,
+			RightType:          types.String,
+			ReturnType:         types.Jsonb,
+			EvalOp:             &JSONFetchValStringOp{},
+			OverloadPreference: OverloadPreferencePreferred,
+			Volatility:         volatility.Immutable,
 		},
 		{
 			LeftType:   types.Jsonb,
@@ -1336,12 +1373,12 @@ var BinOps = map[treebin.BinaryOperatorSymbol]*BinOpOverloads{
 
 	treebin.JSONFetchText: {overloads: []*BinOp{
 		{
-			LeftType:          types.Jsonb,
-			RightType:         types.String,
-			ReturnType:        types.String,
-			PreferredOverload: true,
-			EvalOp:            &JSONFetchTextStringOp{},
-			Volatility:        volatility.Immutable,
+			LeftType:           types.Jsonb,
+			RightType:          types.String,
+			ReturnType:         types.String,
+			OverloadPreference: OverloadPreferencePreferred,
+			EvalOp:             &JSONFetchTextStringOp{},
+			Volatility:         volatility.Immutable,
 		},
 		{
 			LeftType:   types.Jsonb,
@@ -1358,6 +1395,33 @@ var BinOps = map[treebin.BinaryOperatorSymbol]*BinOpOverloads{
 			RightType:  types.MakeArray(types.String),
 			ReturnType: types.String,
 			EvalOp:     &JSONFetchTextPathOp{},
+			Volatility: volatility.Immutable,
+		},
+	}},
+	treebin.Distance: {overloads: []*BinOp{
+		{
+			LeftType:   types.PGVector,
+			RightType:  types.PGVector,
+			ReturnType: types.Float,
+			EvalOp:     &DistanceVectorOp{},
+			Volatility: volatility.Immutable,
+		},
+	}},
+	treebin.CosDistance: {overloads: []*BinOp{
+		{
+			LeftType:   types.PGVector,
+			RightType:  types.PGVector,
+			ReturnType: types.Float,
+			EvalOp:     &CosDistanceVectorOp{},
+			Volatility: volatility.Immutable,
+		},
+	}},
+	treebin.NegInnerProduct: {overloads: []*BinOp{
+		{
+			LeftType:   types.PGVector,
+			RightType:  types.PGVector,
+			ReturnType: types.Float,
+			EvalOp:     &NegInnerProductVectorOp{},
 			Volatility: volatility.Immutable,
 		},
 	}},
@@ -1381,7 +1445,7 @@ type CmpOp struct {
 
 	Volatility volatility.V
 
-	PreferredOverload bool
+	OverloadPreference
 }
 
 func (op *CmpOp) params() TypeList {
@@ -1398,15 +1462,23 @@ func (op *CmpOp) returnType() ReturnTyper {
 	return cmpOpReturnType
 }
 
-func (op *CmpOp) preferred() bool {
-	return op.PreferredOverload
+func (op *CmpOp) preference() OverloadPreference {
+	return op.OverloadPreference
+}
+
+func (op *CmpOp) outParamInfo() (RoutineType, []int32, TypeList) {
+	return BuiltinRoutine, nil, nil
+}
+
+func (op *CmpOp) defaultExprs() Exprs {
+	return nil
 }
 
 func cmpOpFixups(
 	cmpOps map[treecmp.ComparisonOperatorSymbol]*CmpOpOverloads,
 ) map[treecmp.ComparisonOperatorSymbol]*CmpOpOverloads {
 	findVolatility := func(op treecmp.ComparisonOperatorSymbol, t *types.T) volatility.V {
-		for _, o := range cmpOps[treecmp.EQ].overloads {
+		for _, o := range cmpOps[op].overloads {
 			if o.LeftType.Equivalent(t) && o.RightType.Equivalent(t) {
 				return o.Volatility
 			}
@@ -1418,7 +1490,7 @@ func cmpOpFixups(
 	}
 
 	// Array equality comparisons.
-	for _, t := range append(types.Scalar, types.AnyEnum) {
+	for _, t := range append(types.Scalar, types.AnyEnum, types.AnyCollatedString) {
 		appendCmpOp := func(sym treecmp.ComparisonOperatorSymbol, cmpOp *CmpOp) {
 			s, ok := cmpOps[sym]
 			if !ok {
@@ -1522,6 +1594,10 @@ func makeLeFn(a, b *types.T, v volatility.V) *CmpOp {
 func makeIsFn(a, b *types.T, v volatility.V) *CmpOp {
 	return makeCmpOpOverload(treecmp.IsNotDistinctFrom, a, b, true, v)
 }
+func unpreferred(cmp *CmpOp) *CmpOp {
+	cmp.OverloadPreference = OverloadPreferenceUnpreferred
+	return cmp
+}
 
 // CmpOps contains the comparison operations indexed by operation type.
 var CmpOps = cmpOpFixups(map[treecmp.ComparisonOperatorSymbol]*CmpOpOverloads{
@@ -1546,8 +1622,13 @@ var CmpOps = cmpOpFixups(map[treecmp.ComparisonOperatorSymbol]*CmpOpOverloads{
 		makeEqFn(types.Jsonb, types.Jsonb, volatility.Immutable),
 		makeEqFn(types.Oid, types.Oid, volatility.Leakproof),
 		makeEqFn(types.PGLSN, types.PGLSN, volatility.Leakproof),
+		makeEqFn(types.PGVector, types.PGVector, volatility.Leakproof),
 		makeEqFn(types.RefCursor, types.RefCursor, volatility.Leakproof),
 		makeEqFn(types.String, types.String, volatility.Leakproof),
+		// NOTE: Using unpreferred here is a hack that avoids some "ambiguous
+		// comparison operator" errors. It is necessary because we do not follow
+		// all of Postgres's type conversion rules. See #75101.
+		unpreferred(makeEqFn(types.BPChar, types.BPChar, volatility.Leakproof)),
 		makeEqFn(types.Time, types.Time, volatility.Leakproof),
 		makeEqFn(types.TimeTZ, types.TimeTZ, volatility.Leakproof),
 		makeEqFn(types.Timestamp, types.Timestamp, volatility.Leakproof),
@@ -1606,8 +1687,13 @@ var CmpOps = cmpOpFixups(map[treecmp.ComparisonOperatorSymbol]*CmpOpOverloads{
 		makeLtFn(types.Interval, types.Interval, volatility.Leakproof),
 		makeLtFn(types.Oid, types.Oid, volatility.Leakproof),
 		makeLtFn(types.PGLSN, types.PGLSN, volatility.Leakproof),
+		makeLtFn(types.PGVector, types.PGVector, volatility.Leakproof),
 		makeLtFn(types.RefCursor, types.RefCursor, volatility.Leakproof),
 		makeLtFn(types.String, types.String, volatility.Leakproof),
+		// NOTE: Using unpreferred here is a hack that avoids some "ambiguous
+		// comparison operator" errors. It is necessary because we do not follow
+		// all of Postgres's type conversion rules. See #75101.
+		unpreferred(makeLtFn(types.BPChar, types.BPChar, volatility.Leakproof)),
 		makeLtFn(types.Time, types.Time, volatility.Leakproof),
 		makeLtFn(types.TimeTZ, types.TimeTZ, volatility.Leakproof),
 		makeLtFn(types.Timestamp, types.Timestamp, volatility.Leakproof),
@@ -1665,8 +1751,13 @@ var CmpOps = cmpOpFixups(map[treecmp.ComparisonOperatorSymbol]*CmpOpOverloads{
 		makeLeFn(types.Interval, types.Interval, volatility.Leakproof),
 		makeLeFn(types.Oid, types.Oid, volatility.Leakproof),
 		makeLeFn(types.PGLSN, types.PGLSN, volatility.Leakproof),
+		makeLeFn(types.PGVector, types.PGVector, volatility.Leakproof),
 		makeLeFn(types.RefCursor, types.RefCursor, volatility.Leakproof),
 		makeLeFn(types.String, types.String, volatility.Leakproof),
+		// NOTE: Using unpreferred here is a hack that avoids some "ambiguous
+		// comparison operator" errors. It is necessary because we do not follow
+		// all of Postgres's type conversion rules. See #75101.
+		unpreferred(makeLeFn(types.BPChar, types.BPChar, volatility.Leakproof)),
 		makeLeFn(types.Time, types.Time, volatility.Leakproof),
 		makeLeFn(types.TimeTZ, types.TimeTZ, volatility.Leakproof),
 		makeLeFn(types.Timestamp, types.Timestamp, volatility.Leakproof),
@@ -1713,8 +1804,8 @@ var CmpOps = cmpOpFixups(map[treecmp.ComparisonOperatorSymbol]*CmpOpOverloads{
 			},
 			CalledOnNullInput: true,
 			// Avoids ambiguous comparison error for NULL IS NOT DISTINCT FROM NULL.
-			PreferredOverload: true,
-			Volatility:        volatility.Leakproof,
+			OverloadPreference: OverloadPreferencePreferred,
+			Volatility:         volatility.Leakproof,
 		},
 		{
 			LeftType:  types.AnyArray,
@@ -1743,10 +1834,16 @@ var CmpOps = cmpOpFixups(map[treecmp.ComparisonOperatorSymbol]*CmpOpOverloads{
 		makeIsFn(types.Int, types.Int, volatility.Leakproof),
 		makeIsFn(types.Interval, types.Interval, volatility.Leakproof),
 		makeIsFn(types.Jsonb, types.Jsonb, volatility.Immutable),
+		makeIsFn(types.Jsonpath, types.Jsonpath, volatility.Leakproof),
 		makeIsFn(types.Oid, types.Oid, volatility.Leakproof),
 		makeIsFn(types.PGLSN, types.PGLSN, volatility.Leakproof),
+		makeIsFn(types.PGVector, types.PGVector, volatility.Leakproof),
 		makeIsFn(types.RefCursor, types.RefCursor, volatility.Leakproof),
 		makeIsFn(types.String, types.String, volatility.Leakproof),
+		// NOTE: Using unpreferred here is a hack that avoids some "ambiguous
+		// comparison operator" errors. It is necessary because we do not follow
+		// all of Postgres's type conversion rules. See #75101.
+		unpreferred(makeIsFn(types.BPChar, types.BPChar, volatility.Leakproof)),
 		makeIsFn(types.Time, types.Time, volatility.Leakproof),
 		makeIsFn(types.TimeTZ, types.TimeTZ, volatility.Leakproof),
 		makeIsFn(types.Timestamp, types.Timestamp, volatility.Leakproof),
@@ -1813,8 +1910,13 @@ var CmpOps = cmpOpFixups(map[treecmp.ComparisonOperatorSymbol]*CmpOpOverloads{
 		makeEvalTupleIn(types.Jsonb, volatility.Leakproof),
 		makeEvalTupleIn(types.Oid, volatility.Leakproof),
 		makeEvalTupleIn(types.PGLSN, volatility.Leakproof),
+		makeEvalTupleIn(types.PGVector, volatility.Leakproof),
 		makeEvalTupleIn(types.RefCursor, volatility.Leakproof),
 		makeEvalTupleIn(types.String, volatility.Leakproof),
+		// NOTE: Using unpreferred here is a hack that avoids some "ambiguous
+		// comparison operator" errors. It is necessary because we do not follow
+		// all of Postgres's type conversion rules. See #75101.
+		unpreferred(makeEvalTupleIn(types.BPChar, volatility.Leakproof)),
 		makeEvalTupleIn(types.Time, volatility.Leakproof),
 		makeEvalTupleIn(types.TimeTZ, volatility.Leakproof),
 		makeEvalTupleIn(types.Timestamp, volatility.Leakproof),
@@ -2066,6 +2168,8 @@ func (expr *FuncExpr) MaybeWrapError(err error) error {
 		return err
 	}
 	// Otherwise, wrap it with context.
+	// TODO(yuzefovich): consider removing this context in order to match
+	// postgres error messages.
 	newErr := errors.Wrapf(err, "%s()", errors.Safe(fName))
 	// Count function errors as it flows out of the system. We need to handle
 	// them this way because if we are facing a retry error, in particular those
