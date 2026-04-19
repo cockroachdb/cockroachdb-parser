@@ -234,126 +234,129 @@ var KeywordNames = []string{
 "while",
 }
 
+var keywordID = map[string]int32{
+"absolute": ABSOLUTE,
+"alias": ALIAS,
+"all": ALL,
+"and": AND,
+"array": ARRAY,
+"assert": ASSERT,
+"backward": BACKWARD,
+"begin": BEGIN,
+"by": BY,
+"call": CALL,
+"case": CASE,
+"chain": CHAIN,
+"close": CLOSE,
+"collate": COLLATE,
+"column": COLUMN,
+"column_name": COLUMN_NAME,
+"commit": COMMIT,
+"constant": CONSTANT,
+"constraint": CONSTRAINT,
+"constraint_name": CONSTRAINT_NAME,
+"continue": CONTINUE,
+"current": CURRENT,
+"cursor": CURSOR,
+"datatype": DATATYPE,
+"debug": DEBUG,
+"declare": DECLARE,
+"default": DEFAULT,
+"detail": DETAIL,
+"diagnostics": DIAGNOSTICS,
+"do": DO,
+"dump": DUMP,
+"else": ELSE,
+"elsif": ELSIF,
+"end": END,
+"end_case": END_CASE,
+"end_if": END_IF,
+"errcode": ERRCODE,
+"error": ERROR,
+"exception": EXCEPTION,
+"execute": EXECUTE,
+"exit": EXIT,
+"fetch": FETCH,
+"first": FIRST,
+"for": FOR,
+"foreach": FOREACH,
+"forward": FORWARD,
+"from": FROM,
+"get": GET,
+"hint": HINT,
+"if": IF,
+"import": IMPORT,
+"in": IN,
+"info": INFO,
+"insert": INSERT,
+"into": INTO,
+"is": IS,
+"language": LANGUAGE,
+"last": LAST,
+"log": LOG,
+"loop": LOOP,
+"merge": MERGE,
+"message": MESSAGE,
+"message_text": MESSAGE_TEXT,
+"move": MOVE,
+"next": NEXT,
+"no": NO,
+"not": NOT,
+"notice": NOTICE,
+"no_scroll": NO_SCROLL,
+"null": NULL,
+"open": OPEN,
+"option": OPTION,
+"or": OR,
+"perform": PERFORM,
+"pg_context": PG_CONTEXT,
+"pg_datatype_name": PG_DATATYPE_NAME,
+"pg_exception_context": PG_EXCEPTION_CONTEXT,
+"pg_exception_detail": PG_EXCEPTION_DETAIL,
+"pg_exception_hint": PG_EXCEPTION_HINT,
+"print_strict_params": PRINT_STRICT_PARAMS,
+"prior": PRIOR,
+"query": QUERY,
+"raise": RAISE,
+"relative": RELATIVE,
+"return": RETURN,
+"returned_sqlstate": RETURNED_SQLSTATE,
+"return_next": RETURN_NEXT,
+"return_query": RETURN_QUERY,
+"reverse": REVERSE,
+"rollback": ROLLBACK,
+"rowtype": ROWTYPE,
+"row_count": ROW_COUNT,
+"schema": SCHEMA,
+"schema_name": SCHEMA_NAME,
+"scroll": SCROLL,
+"slice": SLICE,
+"sqlstate": SQLSTATE,
+"stacked": STACKED,
+"strict": STRICT,
+"table": TABLE,
+"table_name": TABLE_NAME,
+"then": THEN,
+"to": TO,
+"type": TYPE,
+"upsert": UPSERT,
+"use_column": USE_COLUMN,
+"use_variable": USE_VARIABLE,
+"using": USING,
+"variable_conflict": VARIABLE_CONFLICT,
+"warning": WARNING,
+"when": WHEN,
+"while": WHILE,
+}
+
 // GetKeywordID returns the lex id of the SQL keyword k or IDENT if k is
 // not a keyword.
+//
+//gcassert:inline
 func GetKeywordID(k string) int32 {
-	// The previous implementation generated a map that did a string ->
-	// id lookup. Various ideas were benchmarked and the implementation below
-	// was the fastest of those, between 3% and 10% faster (at parsing, so the
-	// scanning speedup is even more) than the map implementation.
-	switch k {
-	case "absolute": return ABSOLUTE
-	case "alias": return ALIAS
-	case "all": return ALL
-	case "and": return AND
-	case "array": return ARRAY
-	case "assert": return ASSERT
-	case "backward": return BACKWARD
-	case "begin": return BEGIN
-	case "by": return BY
-	case "call": return CALL
-	case "case": return CASE
-	case "chain": return CHAIN
-	case "close": return CLOSE
-	case "collate": return COLLATE
-	case "column": return COLUMN
-	case "column_name": return COLUMN_NAME
-	case "commit": return COMMIT
-	case "constant": return CONSTANT
-	case "constraint": return CONSTRAINT
-	case "constraint_name": return CONSTRAINT_NAME
-	case "continue": return CONTINUE
-	case "current": return CURRENT
-	case "cursor": return CURSOR
-	case "datatype": return DATATYPE
-	case "debug": return DEBUG
-	case "declare": return DECLARE
-	case "default": return DEFAULT
-	case "detail": return DETAIL
-	case "diagnostics": return DIAGNOSTICS
-	case "do": return DO
-	case "dump": return DUMP
-	case "else": return ELSE
-	case "elsif": return ELSIF
-	case "end": return END
-	case "end_case": return END_CASE
-	case "end_if": return END_IF
-	case "errcode": return ERRCODE
-	case "error": return ERROR
-	case "exception": return EXCEPTION
-	case "execute": return EXECUTE
-	case "exit": return EXIT
-	case "fetch": return FETCH
-	case "first": return FIRST
-	case "for": return FOR
-	case "foreach": return FOREACH
-	case "forward": return FORWARD
-	case "from": return FROM
-	case "get": return GET
-	case "hint": return HINT
-	case "if": return IF
-	case "import": return IMPORT
-	case "in": return IN
-	case "info": return INFO
-	case "insert": return INSERT
-	case "into": return INTO
-	case "is": return IS
-	case "language": return LANGUAGE
-	case "last": return LAST
-	case "log": return LOG
-	case "loop": return LOOP
-	case "merge": return MERGE
-	case "message": return MESSAGE
-	case "message_text": return MESSAGE_TEXT
-	case "move": return MOVE
-	case "next": return NEXT
-	case "no": return NO
-	case "not": return NOT
-	case "notice": return NOTICE
-	case "no_scroll": return NO_SCROLL
-	case "null": return NULL
-	case "open": return OPEN
-	case "option": return OPTION
-	case "or": return OR
-	case "perform": return PERFORM
-	case "pg_context": return PG_CONTEXT
-	case "pg_datatype_name": return PG_DATATYPE_NAME
-	case "pg_exception_context": return PG_EXCEPTION_CONTEXT
-	case "pg_exception_detail": return PG_EXCEPTION_DETAIL
-	case "pg_exception_hint": return PG_EXCEPTION_HINT
-	case "print_strict_params": return PRINT_STRICT_PARAMS
-	case "prior": return PRIOR
-	case "query": return QUERY
-	case "raise": return RAISE
-	case "relative": return RELATIVE
-	case "return": return RETURN
-	case "returned_sqlstate": return RETURNED_SQLSTATE
-	case "return_next": return RETURN_NEXT
-	case "return_query": return RETURN_QUERY
-	case "reverse": return REVERSE
-	case "rollback": return ROLLBACK
-	case "rowtype": return ROWTYPE
-	case "row_count": return ROW_COUNT
-	case "schema": return SCHEMA
-	case "schema_name": return SCHEMA_NAME
-	case "scroll": return SCROLL
-	case "slice": return SLICE
-	case "sqlstate": return SQLSTATE
-	case "stacked": return STACKED
-	case "strict": return STRICT
-	case "table": return TABLE
-	case "table_name": return TABLE_NAME
-	case "then": return THEN
-	case "to": return TO
-	case "type": return TYPE
-	case "upsert": return UPSERT
-	case "use_column": return USE_COLUMN
-	case "use_variable": return USE_VARIABLE
-	case "using": return USING
-	case "variable_conflict": return VARIABLE_CONFLICT
-	case "warning": return WARNING
-	case "when": return WHEN
-	case "while": return WHILE
-	default: return IDENT
+	id, ok := keywordID[k]
+	if !ok {
+		return IDENT
 	}
+	return id
 }

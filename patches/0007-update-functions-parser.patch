@@ -5,7 +5,7 @@ index 4f7bc03..5b31fd0 100644
 @@ -51,6 +51,13 @@ const (
  	// as Oracle is case insensitive if object name is not quoted.
  	EncAlwaysQuoted
- 
+
 +	// EncSkipEscapeString indicates that the string should not be escaped,
 +	// and non-ASCII characters are allowed.
 +	// More specifically, it means that the tree.DString won't be wrapped
@@ -27,7 +27,7 @@ index 4f7bc03..5b31fd0 100644
 @@ -165,7 +173,13 @@ func EncodeSQLStringWithFlags(buf *bytes.Buffer, in string, flags EncodeFlags) {
  			}
  		}
- 
+
 -		if !escapedString {
 +		// If non-ASCII characters are allowed,
 +		// skip escaping and write the original UTF-8 character.
@@ -48,7 +48,7 @@ index 4f7bc03..5b31fd0 100644
 +		// quote char, so we will  write the quote char directly.
 +		stringencoding.EncodeEscapedChar(buf, in, r, ch, i, '\'', !skipEscape)
  	}
- 
+
 -	quote := !escapedString && !bareStrings
 +	quote := !escapedString && !bareStrings && !skipEscape
  	if quote {
@@ -69,7 +69,7 @@ index 05d64e1..dabff21 100644
 @@ -1364,6 +1364,19 @@ const (
  	OrderedSetAgg
  )
- 
+
 +// onlyNameFunc is the list of function who can be compiled with only the
 +// name. This is for PG compatibility, where examples such as `CURRENT_TIMESTAMP()`
 +// is not allowed, but `CURRENT_TIMESTAMP` is allowed.
@@ -89,7 +89,7 @@ index 05d64e1..dabff21 100644
 @@ -1385,41 +1398,43 @@ func (node *FuncExpr) Format(ctx *FmtCtx) {
  		ctx.FormatNode(&node.Func)
  	})
- 
+
 -	ctx.WriteByte('(')
 -	ctx.WriteString(typ)
 -	ctx.FormatNode(&node.Exprs)
@@ -168,22 +168,22 @@ index 6832c7e..df15c15 100644
 --- a/pkg/sql/sem/tree/format.go
 +++ b/pkg/sql/sem/tree/format.go
 @@ -195,6 +195,10 @@ const (
- 	// FmtSkipAsOfSystemTimeClauses prevents the formatter from printing AS OF
- 	// SYSTEM TIME clauses.
- 	FmtSkipAsOfSystemTimeClauses
-+
+ 	// FmtHideHints skips over any hints.
+ 	FmtHideHints
+
 +	// FmtFuncOnlyName instructs the formating for a function only print
 +	// its name, without printing the body of the function nor with the brackets.
 +	FmtFuncOnlyName
++
  )
- 
+
  const genericArityIndicator = "__more__"
 diff --git a/pkg/util/stringencoding/string_encoding.go b/pkg/util/stringencoding/string_encoding.go
 index fcb7fac..afa0090 100644
 --- a/pkg/util/stringencoding/string_encoding.go
 +++ b/pkg/util/stringencoding/string_encoding.go
 @@ -73,6 +73,7 @@ func init() {
- 
+
  // EncodeEscapedChar is used internally to write out a character from a larger
  // string that needs to be escaped to a buffer.
 +// If slashedQuoteChar is true, it will write a backslash before the quoteChar.

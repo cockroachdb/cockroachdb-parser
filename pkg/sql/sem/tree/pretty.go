@@ -1304,6 +1304,13 @@ func (node *CreateTable) doc(p *PrettyCfg) pretty.Doc {
 			),
 		)
 	}
+	switch node.OnCommit {
+	case CreateTableOnCommitUnset:
+	case CreateTableOnCommitPreserveRows:
+		clauses = append(clauses, pretty.Keyword("ON COMMIT PRESERVE ROWS"))
+	default:
+		panic(errors.AssertionFailedf("unexpected CreateTableOnCommitSetting: %d", node.OnCommit))
+	}
 	if node.Locality != nil {
 		clauses = append(clauses, p.Doc(node.Locality))
 	}
@@ -1341,6 +1348,16 @@ func (node *CreateView) doc(p *PrettyCfg) pretty.Doc {
 		d = pretty.ConcatSpace(
 			d,
 			p.bracket("(", p.Doc(&node.ColumnNames), ")"),
+		)
+	}
+	if node.Options != nil {
+		withClause := pretty.Keyword("WITH")
+		d = pretty.ConcatSpace(
+			d,
+			pretty.ConcatSpace(
+				withClause,
+				p.bracket("(", p.Doc(node.Options), ")"),
+			),
 		)
 	}
 	d = p.nestUnder(

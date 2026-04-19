@@ -76,47 +76,50 @@ var KeywordNames = []string{
 "with",
 }
 
+var keywordID = map[string]int32{
+"abs": ABS,
+"bigint": BIGINT,
+"boolean": BOOLEAN,
+"ceiling": CEILING,
+"date": DATE,
+"datetime": DATETIME,
+"decimal": DECIMAL,
+"double": DOUBLE,
+"exists": EXISTS,
+"false": FALSE,
+"flag": FLAG,
+"floor": FLOOR,
+"integer": INTEGER,
+"is": IS,
+"keyvalue": KEYVALUE,
+"last": LAST,
+"lax": LAX,
+"like_regex": LIKE_REGEX,
+"null": NULL,
+"number": NUMBER,
+"size": SIZE,
+"starts": STARTS,
+"strict": STRICT,
+"string": STRING,
+"time": TIME,
+"timestamp": TIMESTAMP,
+"timestamp_tz": TIMESTAMP_TZ,
+"time_tz": TIME_TZ,
+"to": TO,
+"true": TRUE,
+"type": TYPE,
+"unknown": UNKNOWN,
+"with": WITH,
+}
+
 // GetKeywordID returns the lex id of the SQL keyword k or IDENT if k is
 // not a keyword.
+//
+//gcassert:inline
 func GetKeywordID(k string) int32 {
-	// The previous implementation generated a map that did a string ->
-	// id lookup. Various ideas were benchmarked and the implementation below
-	// was the fastest of those, between 3% and 10% faster (at parsing, so the
-	// scanning speedup is even more) than the map implementation.
-	switch k {
-	case "abs": return ABS
-	case "bigint": return BIGINT
-	case "boolean": return BOOLEAN
-	case "ceiling": return CEILING
-	case "date": return DATE
-	case "datetime": return DATETIME
-	case "decimal": return DECIMAL
-	case "double": return DOUBLE
-	case "exists": return EXISTS
-	case "false": return FALSE
-	case "flag": return FLAG
-	case "floor": return FLOOR
-	case "integer": return INTEGER
-	case "is": return IS
-	case "keyvalue": return KEYVALUE
-	case "last": return LAST
-	case "lax": return LAX
-	case "like_regex": return LIKE_REGEX
-	case "null": return NULL
-	case "number": return NUMBER
-	case "size": return SIZE
-	case "starts": return STARTS
-	case "strict": return STRICT
-	case "string": return STRING
-	case "time": return TIME
-	case "timestamp": return TIMESTAMP
-	case "timestamp_tz": return TIMESTAMP_TZ
-	case "time_tz": return TIME_TZ
-	case "to": return TO
-	case "true": return TRUE
-	case "type": return TYPE
-	case "unknown": return UNKNOWN
-	case "with": return WITH
-	default: return IDENT
+	id, ok := keywordID[k]
+	if !ok {
+		return IDENT
 	}
+	return id
 }
