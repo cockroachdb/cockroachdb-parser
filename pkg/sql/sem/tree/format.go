@@ -202,6 +202,10 @@ const (
 	// FmtHideHints skips over any hints.
 	FmtHideHints
 
+	// FmtPLpgSQLParen will wrap some expressions in parenthesis when in PLpgSQL
+	// context. This should only be used in tests.
+	FmtPLpgSQLParen
+
 	// FmtFuncOnlyName instructs the formating for a function only print
 	// its name, without printing the body of the function nor with the brackets.
 	FmtFuncOnlyName
@@ -347,6 +351,11 @@ type FmtCtx struct {
 	// indexedTypeFormatter is an optional interceptor for formatting
 	// IDTypeReferences differently than normal.
 	indexedTypeFormatter func(*FmtCtx, *OIDTypeReference)
+
+	// inPLpgSQL, if set, indicates that we're formatting a node within PLpgSQL
+	// context.
+	inPLpgSQL bool
+
 	// small scratch buffer to reduce allocations.
 	scratch [64]byte
 }
@@ -408,6 +417,14 @@ func FmtLocation(loc *time.Location) FmtCtxOption {
 	}
 }
 
+// FmtInPLpgSQL modifies FmtCtx to indicate whether we're in the PLpgSQL
+// context.
+func FmtInPLpgSQL(inPLpgSQL bool) FmtCtxOption {
+	return func(ctx *FmtCtx) {
+		ctx.inPLpgSQL = inPLpgSQL
+	}
+}
+
 // NewFmtCtx creates a FmtCtx; only flags that don't require Annotations
 // can be used.
 func NewFmtCtx(f FmtFlags, opts ...FmtCtxOption) *FmtCtx {
@@ -427,14 +444,15 @@ func NewFmtCtx(f FmtFlags, opts ...FmtCtxOption) *FmtCtx {
 // original.
 func (ctx *FmtCtx) Clone() *FmtCtx {
 	newCtx := fmtCtxPool.Get().(*FmtCtx)
+	newCtx.dataConversionConfig = ctx.dataConversionConfig
+	newCtx.location = ctx.location
 	newCtx.flags = ctx.flags
 	newCtx.ann = ctx.ann
 	newCtx.indexedVarFormat = ctx.indexedVarFormat
 	newCtx.placeholderFormat = ctx.placeholderFormat
 	newCtx.tableNameFormatter = ctx.tableNameFormatter
 	newCtx.indexedTypeFormatter = ctx.indexedTypeFormatter
-	newCtx.dataConversionConfig = ctx.dataConversionConfig
-	newCtx.location = ctx.location
+	newCtx.inPLpgSQL = ctx.inPLpgSQL
 	return newCtx
 }
 
@@ -876,6 +894,35 @@ func Serialize(n NodeFormatter) string {
 // It is appropriate when printing expressions that are visible to end users.
 func SerializeForDisplay(n NodeFormatter) string {
 	return AsStringWithFlags(n, FmtParsable)
+}
+
+// FormatStatementHideConstants formats the statement using FmtHideConstants. It
+// does *not* anonymize the statement, since the result will still contain names
+// and identifiers.
+func FormatStatementHideConstants(ast Statement, optFlags ...FmtFlags) string {
+	if ast == nil {
+		return ""
+	}
+	fmtFlags := FmtHideConstants
+	for _, f := range optFlags {
+		fmtFlags |= f
+	}
+	return AsStringWithFlags(ast, fmtFlags)
+}
+
+// FormatStatementSummary formats the statement using FmtSummary and
+// FmtHideConstants. This returns a summarized version of the query. It does
+// *not* anonymize the statement, since the result will still contain names and
+// identifiers.
+func FormatStatementSummary(ast Statement, optFlags ...FmtFlags) string {
+	if ast == nil {
+		return ""
+	}
+	fmtFlags := FmtSummary | FmtHideConstants
+	for _, f := range optFlags {
+		fmtFlags |= f
+	}
+	return AsStringWithFlags(ast, fmtFlags)
 }
 
 var fmtCtxPool = sync.Pool{

@@ -168,13 +168,13 @@ index 6832c7e..df15c15 100644
 --- a/pkg/sql/sem/tree/format.go
 +++ b/pkg/sql/sem/tree/format.go
 @@ -195,6 +195,10 @@ const (
- 	// FmtHideHints skips over any hints.
- 	FmtHideHints
-
+ 	// FmtPLpgSQLParen will wrap some expressions in parenthesis when in PLpgSQL
+ 	// context. This should only be used in tests.
+ 	FmtPLpgSQLParen
++
 +	// FmtFuncOnlyName instructs the formating for a function only print
 +	// its name, without printing the body of the function nor with the brackets.
 +	FmtFuncOnlyName
-+
  )
 
  const genericArityIndicator = "__more__"

@@ -1,12 +1,13 @@
 module github.com/cockroachdb/cockroachdb-parser
 
-go 1.23.8
+go 1.24
 
 require (
 	github.com/bazelbuild/rules_go v0.46.0
 	github.com/biogo/store v0.0.0-20201120204734-aad293a2328f
 	github.com/blevesearch/snowballstem v0.9.0
 	github.com/cockroachdb/apd/v3 v3.1.0
+	github.com/cockroachdb/crlib v0.0.0-20251122031428-fe658a2dbda1
 	github.com/cockroachdb/errors v1.11.3
 	github.com/cockroachdb/gostdlib v1.19.0
 	github.com/cockroachdb/logtags v0.0.0-20241215232642-bb51bb14a506
