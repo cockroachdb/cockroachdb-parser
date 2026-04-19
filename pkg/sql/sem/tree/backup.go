@@ -40,7 +40,6 @@ type BackupOptions struct {
 	EncryptionPassphrase            Expr
 	Detached                        *DBool
 	EncryptionKMSURI                StringOrPlaceholderOptList
-	IncrementalStorage              StringOrPlaceholderOptList
 	ExecutionLocality               Expr
 	UpdatesClusterMonitoringMetrics Expr
 	Strict                          bool
@@ -120,7 +119,6 @@ type RestoreOptions struct {
 	Detached                         bool
 	SkipLocalitiesCheck              bool
 	NewDBName                        Expr
-	IncrementalStorage               StringOrPlaceholderOptList
 	AsTenant                         Expr
 	ForceTenantID                    Expr
 	SchemaOnly                       bool
@@ -130,6 +128,7 @@ type RestoreOptions struct {
 	ExperimentalOnline               bool
 	ExperimentalCopy                 bool
 	RemoveRegions                    bool
+	Grants                           bool
 }
 
 func (opts *RestoreOptions) OnlineImpl() bool {
@@ -153,6 +152,8 @@ type Restore struct {
 	// Subdir may be set by the parser when the SQL query is of the form `RESTORE
 	// ... FROM 'subdir' IN 'from'...`. Alternatively, restore_planning.go will set
 	// it for the query `RESTORE ... FROM LATEST IN 'from'...`
+	// TODO (kev-cao): Once we fully switch to using backup IDs (or LATEST) for
+	// RESTORE, come back and rename this field. (BackupToken?)
 	Subdir Expr
 }
 
@@ -280,12 +281,6 @@ func (o *BackupOptions) Format(ctx *FmtCtx) {
 		ctx.FormatURIs(o.EncryptionKMSURI)
 	}
 
-	if o.IncrementalStorage != nil {
-		maybeAddSep()
-		ctx.WriteString("incremental_location = ")
-		ctx.FormatURIs(o.IncrementalStorage)
-	}
-
 	if o.ExecutionLocality != nil {
 		maybeAddSep()
 		ctx.WriteString("execution locality = ")
@@ -340,12 +335,6 @@ func (o *BackupOptions) CombineWith(other *BackupOptions) error {
 		return errors.New("kms specified multiple times")
 	}
 
-	if o.IncrementalStorage == nil {
-		o.IncrementalStorage = other.IncrementalStorage
-	} else if other.IncrementalStorage != nil {
-		return errors.New("incremental_location option specified multiple times")
-	}
-
 	if o.ExecutionLocality == nil {
 		o.ExecutionLocality = other.ExecutionLocality
 	} else if other.ExecutionLocality != nil {
@@ -384,7 +373,6 @@ func (o BackupOptions) IsDefault() bool {
 		(o.Detached == nil || o.Detached == DBoolFalse) &&
 		cmp.Equal(o.EncryptionKMSURI, options.EncryptionKMSURI) &&
 		o.EncryptionPassphrase == options.EncryptionPassphrase &&
-		cmp.Equal(o.IncrementalStorage, options.IncrementalStorage) &&
 		o.ExecutionLocality == options.ExecutionLocality &&
 		o.IncludeAllSecondaryTenants == options.IncludeAllSecondaryTenants &&
 		o.UpdatesClusterMonitoringMetrics == options.UpdatesClusterMonitoringMetrics &&
@@ -463,12 +451,6 @@ func (o *RestoreOptions) Format(ctx *FmtCtx) {
 		ctx.FormatNode(o.NewDBName)
 	}
 
-	if o.IncrementalStorage != nil {
-		maybeAddSep()
-		ctx.WriteString("incremental_location = ")
-		ctx.FormatURIs(o.IncrementalStorage)
-	}
-
 	if o.AsTenant != nil {
 		maybeAddSep()
 		ctx.WriteString("virtual_cluster_name = ")
@@ -514,6 +496,11 @@ func (o *RestoreOptions) Format(ctx *FmtCtx) {
 	if o.RemoveRegions {
 		maybeAddSep()
 		ctx.WriteString("remove_regions")
+	}
+
+	if o.Grants {
+		maybeAddSep()
+		ctx.WriteString("grants")
 	}
 }
 
@@ -601,12 +588,6 @@ func (o *RestoreOptions) CombineWith(other *RestoreOptions) error {
 		return errors.New("new_db_name specified multiple times")
 	}
 
-	if o.IncrementalStorage == nil {
-		o.IncrementalStorage = other.IncrementalStorage
-	} else if other.IncrementalStorage != nil {
-		return errors.New("incremental_location option specified multiple times")
-	}
-
 	if o.AsTenant == nil {
 		o.AsTenant = other.AsTenant
 	} else if other.AsTenant != nil {
@@ -672,6 +653,14 @@ func (o *RestoreOptions) CombineWith(other *RestoreOptions) error {
 		o.RemoveRegions = other.RemoveRegions
 	}
 
+	if o.Grants {
+		if other.Grants {
+			return errors.New("grants specified multiple times")
+		}
+	} else {
+		o.Grants = other.Grants
+	}
+
 	return nil
 }
 
@@ -689,7 +678,6 @@ func (o RestoreOptions) IsDefault() bool {
 		o.Detached == options.Detached &&
 		o.SkipLocalitiesCheck == options.SkipLocalitiesCheck &&
 		o.NewDBName == options.NewDBName &&
-		cmp.Equal(o.IncrementalStorage, options.IncrementalStorage) &&
 		o.AsTenant == options.AsTenant &&
 		o.ForceTenantID == options.ForceTenantID &&
 		o.SchemaOnly == options.SchemaOnly &&
@@ -698,7 +686,8 @@ func (o RestoreOptions) IsDefault() bool {
 		o.ExecutionLocality == options.ExecutionLocality &&
 		o.ExperimentalOnline == options.ExperimentalOnline &&
 		o.ExperimentalCopy == options.ExperimentalCopy &&
-		o.RemoveRegions == options.RemoveRegions
+		o.RemoveRegions == options.RemoveRegions &&
+		o.Grants == options.Grants
 }
 
 // BackupTargetList represents a list of targets.

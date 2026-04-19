@@ -30,6 +30,7 @@ import (
 	"github.com/cockroachdb/cockroachdb-parser/pkg/sql/colexecerror"
 	"github.com/cockroachdb/cockroachdb-parser/pkg/sql/colexecop"
 	"github.com/cockroachdb/cockroachdb-parser/pkg/sql/execinfra/execreleasable"
+	"github.com/cockroachdb/cockroachdb-parser/pkg/sql/execinfrapb"
 	"github.com/cockroachdb/cockroachdb-parser/pkg/sql/sem/tree"
 )
 

@@ -1367,6 +1367,9 @@ const (
 	OrderedSetAgg
 )
 
+// onlyNameFunc is the list of function who can be compiled with only the
+// name. This is for PG compatibility, where examples such as `CURRENT_TIMESTAMP()`
+// is not allowed, but `CURRENT_TIMESTAMP` is allowed.
 var onlyNameFunc = map[string]bool{
 	"current_timestamp": true,
 }

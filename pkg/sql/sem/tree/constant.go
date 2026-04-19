@@ -634,6 +634,8 @@ func (expr *StrVal) ResolveAsType(
 		fallthrough
 	case types.StringFamily:
 		switch typ.Oid() {
+		case oid.T_aclitem:
+			return NewDACLItem(expr.s)
 		case oid.T_name:
 			expr.resString = DString(expr.s)
 			return NewDNameFromDString(&expr.resString), nil

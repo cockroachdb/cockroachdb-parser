@@ -54,6 +54,7 @@ var (
 // instead of a method so that other packages can iterate over the map directly.
 // Note that additional elements for the array Oid types are added in init().
 var OidToType = map[oid.Oid]*T{
+	oid.T_aclitem:    AclItem,
 	oid.T_anyelement: AnyElement,
 	oid.T_any:        Any,
 	oid.T_bit:        typeBit,
@@ -113,6 +114,7 @@ var OidToType = map[oid.Oid]*T{
 
 // oidToArrayOid maps scalar type Oids to their corresponding array type Oid.
 var oidToArrayOid = map[oid.Oid]oid.Oid{
+	oid.T_aclitem:      oid.T__aclitem,
 	oid.T_anyelement:   oid.T_anyarray,
 	oid.T_bit:          oid.T__bit,
 	oid.T_bool:         oid.T__bool,
