@@ -1,12 +1,15 @@
 #!/bin/sh
 
-if [ -z ${GOPATH} ]; then
-  echo "$GOPATH must be set"
+LOC=$(pwd)
+
+if [ -n "${COCKROACHDB_LOC}" ]; then
+  echo "Using COCKROACHDB_LOC=$COCKROACHDB_LOC"
+elif [ -n "${GOPATH}" ]; then
+  COCKROACHDB_LOC=$GOPATH/src/github.com/cockroachdb/cockroach
+else
+  echo "Either COCKROACHDB_LOC or GOPATH must be set"
   exit 1
 fi
-
-LOC=$(pwd)
-COCKROACHDB_LOC=$GOPATH/src/github.com/cockroachdb/cockroach
 
 echo "Generating files in-line using dev build short"
 cd $COCKROACHDB_LOC

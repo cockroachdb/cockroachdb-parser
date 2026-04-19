@@ -138,6 +138,8 @@ type SessionData struct {
 	// parallelize lookup batches under all circumstances. Enabling this will
 	// increase the speed of lookup joins when each input row might get multiple
 	// looked up rows at the cost of increased memory usage.
+	// TODO(yuzefovich): this field can be moved into the local part of
+	// SessionData when compatibility with 25.2 is no longer needed.
 	ParallelizeMultiKeyLookupJoinsEnabled bool `protobuf:"varint,19,opt,name=parallelize_multi_key_lookup_joins_enabled,json=parallelizeMultiKeyLookupJoinsEnabled,proto3" json:"parallelize_multi_key_lookup_joins_enabled,omitempty"`
 	// TrigramSimilarityThreshold configures the value that's used to compare
 	// trigram similarities to in order to evaluate the string % string overload.

@@ -25,6 +25,7 @@ import (
 	"github.com/cockroachdb/cockroachdb-parser/pkg/geo/geopb"
 	"github.com/cockroachdb/cockroachdb-parser/pkg/sql/lex"
 	"github.com/cockroachdb/cockroachdb-parser/pkg/sql/lexbase"
+	"github.com/cockroachdb/cockroachdb-parser/pkg/sql/oidext"
 	"github.com/cockroachdb/cockroachdb-parser/pkg/sql/pgrepl/lsn"
 	"github.com/cockroachdb/cockroachdb-parser/pkg/sql/pgwire/pgcode"
 	"github.com/cockroachdb/cockroachdb-parser/pkg/sql/pgwire/pgerror"
@@ -32,6 +33,7 @@ import (
 	"github.com/cockroachdb/cockroachdb-parser/pkg/sql/types"
 	"github.com/cockroachdb/cockroachdb-parser/pkg/util"
 	"github.com/cockroachdb/cockroachdb-parser/pkg/util/bitarray"
+	"github.com/cockroachdb/cockroachdb-parser/pkg/util/collatedstring"
 	"github.com/cockroachdb/cockroachdb-parser/pkg/util/duration"
 	"github.com/cockroachdb/cockroachdb-parser/pkg/util/encoding"
 	"github.com/cockroachdb/cockroachdb-parser/pkg/util/ipaddr"
@@ -1322,7 +1324,8 @@ type DCollatedString struct {
 	Contents string
 	Locale   string
 	// Key is the collation key.
-	Key []byte
+	Key           []byte
+	Deterministic bool
 }
 
 // CollationEnvironment stores the state needed by NewDCollatedString to
@@ -1336,7 +1339,8 @@ type collationEnvironmentCacheEntry struct {
 	// locale is interned.
 	locale string
 	// collator is an expensive factory.
-	collator *collate.Collator
+	collator      *collate.Collator
+	deterministic bool
 }
 
 func (env *CollationEnvironment) getCacheEntry(
@@ -1353,7 +1357,7 @@ func (env *CollationEnvironment) getCacheEntry(
 			return collationEnvironmentCacheEntry{}, err
 		}
 
-		entry = collationEnvironmentCacheEntry{locale, collate.New(tag)}
+		entry = collationEnvironmentCacheEntry{locale, collate.New(tag), collatedstring.IsDeterministicCollation(tag)}
 		env.cache[locale] = entry
 	}
 	return entry, nil
@@ -1372,7 +1376,7 @@ func NewDCollatedString(
 		env.buffer = &collate.Buffer{}
 	}
 	key := entry.collator.KeyFromString(env.buffer, contents)
-	d := DCollatedString{contents, entry.locale, make([]byte, len(key))}
+	d := DCollatedString{contents, entry.locale, make([]byte, len(key)), entry.deterministic}
 	copy(d.Key, key)
 	env.buffer.Reset()
 	return &d, nil
@@ -1445,7 +1449,7 @@ func (d *DCollatedString) IsMin(ctx context.Context, cmpCtx CompareContext) bool
 
 // Min implements the Datum interface.
 func (d *DCollatedString) Min(ctx context.Context, cmpCtx CompareContext) (Datum, bool) {
-	return &DCollatedString{"", d.Locale, nil}, true
+	return &DCollatedString{"", d.Locale, nil, false}, true
 }
 
 // Max implements the Datum interface.
@@ -5831,6 +5835,7 @@ func (d *DOid) Name() string {
 // Types that currently benefit from DOidWrapper are:
 // - DName => DOidWrapper(*DString, oid.T_name)
 // - DRefCursor => DOidWrapper(*DString, oid.T_refcursor)
+// - DCIText => DOIDWrapper(*DCollatedString, oidext.T_citext)
 type DOidWrapper struct {
 	Wrapped Datum
 	Oid     oid.Oid
@@ -5843,11 +5848,12 @@ func wrapWithOid(d Datum, oid oid.Oid) Datum {
 		return nil
 	case *DInt:
 	case *DString:
+	case *DCollatedString:
 	case *DArray:
 	case dNull, *DOidWrapper:
 		panic(errors.AssertionFailedf("cannot wrap %T with an Oid", v))
 	default:
-		// Currently only *DInt, *DString, *DArray are hooked up to work with
+		// Currently only *DInt, *DString, *DCollatedString, *DArray are hooked up to work with
 		// *DOidWrapper. To support another base Datum type, replace all type
 		// assertions to that type with calls to functions like AsDInt and
 		// MustBeDInt.
@@ -5940,6 +5946,14 @@ func (d *DOidWrapper) Size() uintptr {
 	return unsafe.Sizeof(*d) + d.Wrapped.Size()
 }
 
+// IsComposite implements the CompositeDatum interface.
+func (d *DOidWrapper) IsComposite() bool {
+	if cdatum, ok := d.Wrapped.(CompositeDatum); ok {
+		return cdatum.IsComposite()
+	}
+	return false
+}
+
 // AmbiguousFormat implements the Datum interface.
 func (d *Placeholder) AmbiguousFormat() bool {
 	return true
@@ -5997,6 +6011,16 @@ func NewDNameFromDString(d *DString) Datum {
 // initialized from a string.
 func NewDName(d string) Datum {
 	return NewDNameFromDString(NewDString(d))
+}
+
+// NewDCIText is a helper routine to create a *DCIText (implemented as a *DOidWrapper)
+// initialized from a string.
+func NewDCIText(contents string, env *CollationEnvironment) (Datum, error) {
+	d, err := NewDCollatedString(contents, collatedstring.CaseInsensitiveLocale, env)
+	if err != nil {
+		return nil, err
+	}
+	return wrapWithOid(d, oidext.T_citext), nil
 }
 
 // NewDRefCursorFromDString is a helper routine to create a *DRefCursor
@@ -6204,7 +6228,7 @@ var baseDatumTypeSizes = map[types.Family]struct {
 	types.FloatFamily:          {unsafe.Sizeof(DFloat(0.0)), fixedSize},
 	types.DecimalFamily:        {unsafe.Sizeof(DDecimal{}), variableSize},
 	types.StringFamily:         {unsafe.Sizeof(DString("")), variableSize},
-	types.CollatedStringFamily: {unsafe.Sizeof(DCollatedString{"", "", nil}), variableSize},
+	types.CollatedStringFamily: {unsafe.Sizeof(DCollatedString{"", "", nil, false}), variableSize},
 	types.BytesFamily:          {unsafe.Sizeof(DBytes("")), variableSize},
 	types.EncodedKeyFamily:     {unsafe.Sizeof(DBytes("")), variableSize},
 	types.DateFamily:           {unsafe.Sizeof(DDate{}), fixedSize},
@@ -6390,11 +6414,15 @@ func AdjustValueToType(typ *types.T, inVal Datum) (outVal Datum, err error) {
 	switch typ.Family() {
 	case types.StringFamily, types.CollatedStringFamily:
 		var sv string
+		var isString, isCollatedString bool
 		if v, ok := AsDString(inVal); ok {
 			sv = string(v)
+			isString = true
 		} else if v, ok := inVal.(*DCollatedString); ok {
 			sv = v.Contents
+			isCollatedString = true
 		}
+		origLen := len(sv)
 		switch typ.Oid() {
 		case oid.T_char:
 			// "char" is supposed to truncate long values.
@@ -6429,9 +6457,14 @@ func AdjustValueToType(typ *types.T, inVal Datum) (outVal Datum, err error) {
 		}
 
 		if typ.Oid() == oid.T_bpchar || typ.Oid() == oid.T_char || typ.Oid() == oid.T_varchar {
-			if _, ok := AsDString(inVal); ok {
+			if isString {
+				if len(sv) == origLen {
+					// The string wasn't modified, so we can just return the
+					// original datum.
+					return inVal, nil
+				}
 				return NewDString(sv), nil
-			} else if _, ok := inVal.(*DCollatedString); ok {
+			} else if isCollatedString {
 				return NewDCollatedString(sv, typ.Locale(), &CollationEnvironment{})
 			}
 		}

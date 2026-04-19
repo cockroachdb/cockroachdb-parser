@@ -2,6 +2,6 @@
 
 package geoproj
 
-// #cgo CPPFLAGS: -I/Users/jeremyyang/go/src/github.com/cockroachdb/cockroachdb-parser/bin/c-deps/archived_cdep_libjemalloc_macosarm/include
-// #cgo LDFLAGS: -L/Users/jeremyyang/go/src/github.com/cockroachdb/cockroachdb-parser/bin/c-deps/archived_cdep_libjemalloc_macosarm/lib -L/Users/jeremyyang/go/src/github.com/cockroachdb/cockroachdb-parser/bin/c-deps/archived_cdep_libproj_macosarm/lib
+// #cgo CPPFLAGS: -I/mnt/scratch/git/cockroach-2/bin/c-deps/archived_cdep_libjemalloc_linux/include -I/mnt/scratch/git/cockroach-2/bin/c-deps/archived_cdep_libkrb5_linux/include
+// #cgo LDFLAGS: -L/mnt/scratch/git/cockroach-2/bin/c-deps/archived_cdep_libjemalloc_linux/lib -L/mnt/scratch/git/cockroach-2/bin/c-deps/archived_cdep_libproj_linux/lib -L/mnt/scratch/git/cockroach-2/bin/c-deps/archived_cdep_libkrb5_linux/lib
 import "C"

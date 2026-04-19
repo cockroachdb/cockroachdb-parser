@@ -505,6 +505,7 @@ var (
 		// assertions.
 		types.String,
 		types.BPChar,
+		types.CIText,
 		types.AnyCollatedString,
 		types.Bytes,
 		types.Bool,
@@ -552,7 +553,7 @@ var (
 		types.VarBitArray,
 		types.AnyTuple,
 		types.AnyTupleArray,
-		// TODO(normanchenn): Reevaluate conversions for jsonpath array.
+		// TODO(#22513): Reevaluate conversions for jsonpath array.
 	}
 	// StrValAvailBytes is the set of types convertible to byte array.
 	StrValAvailBytes = []*types.T{types.Bytes, types.Uuid, types.String, types.AnyEnum}

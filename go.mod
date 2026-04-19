@@ -11,7 +11,7 @@ require (
 	github.com/cockroachdb/gostdlib v1.19.0
 	github.com/cockroachdb/logtags v0.0.0-20241215232642-bb51bb14a506
 	github.com/cockroachdb/redact v1.1.5
-	github.com/cockroachdb/version v0.0.0-20250314144055-3860cd14adf2
+	github.com/cockroachdb/version v0.0.0-20250509181251-54dac3003410
 	github.com/dave/dst v0.27.2
 	github.com/dustin/go-humanize v1.0.0
 	github.com/gogo/protobuf v1.3.2
