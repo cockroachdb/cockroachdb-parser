@@ -151,6 +151,7 @@ var KeywordsCategories = map[string]string{
 "end": "R",
 "enum": "U",
 "enums": "U",
+"errors": "U",
 "escape": "U",
 "except": "R",
 "exclude": "U",
@@ -253,6 +254,7 @@ var KeywordsCategories = map[string]string{
 "input": "U",
 "insensitive": "U",
 "insert": "U",
+"inspect": "U",
 "instead": "U",
 "int": "C",
 "integer": "C",
@@ -483,6 +485,7 @@ var KeywordsCategories = map[string]string{
 "row": "C",
 "rows": "U",
 "rule": "U",
+"run": "U",
 "running": "U",
 "savepoint": "U",
 "scans": "U",
@@ -498,6 +501,7 @@ var KeywordsCategories = map[string]string{
 "second": "U",
 "secondary": "U",
 "security": "U",
+"security_invoker": "U",
 "select": "R",
 "sequence": "U",
 "sequences": "U",
@@ -799,6 +803,7 @@ var KeywordNames = []string{
 "end",
 "enum",
 "enums",
+"errors",
 "escape",
 "except",
 "exclude",
@@ -901,6 +906,7 @@ var KeywordNames = []string{
 "input",
 "insensitive",
 "insert",
+"inspect",
 "instead",
 "int",
 "integer",
@@ -1131,6 +1137,7 @@ var KeywordNames = []string{
 "row",
 "rows",
 "rule",
+"run",
 "running",
 "savepoint",
 "scans",
@@ -1146,6 +1153,7 @@ var KeywordNames = []string{
 "second",
 "secondary",
 "security",
+"security_invoker",
 "select",
 "sequence",
 "sequences",
@@ -1296,657 +1304,664 @@ var KeywordNames = []string{
 "zone",
 }
 
+var keywordID = map[string]int32{
+"abort": ABORT,
+"absolute": ABSOLUTE,
+"access": ACCESS,
+"action": ACTION,
+"add": ADD,
+"admin": ADMIN,
+"after": AFTER,
+"aggregate": AGGREGATE,
+"all": ALL,
+"alter": ALTER,
+"always": ALWAYS,
+"analyse": ANALYSE,
+"analyze": ANALYZE,
+"and": AND,
+"annotate_type": ANNOTATE_TYPE,
+"any": ANY,
+"array": ARRAY,
+"as": AS,
+"asc": ASC,
+"asensitive": ASENSITIVE,
+"asymmetric": ASYMMETRIC,
+"as_json": AS_JSON,
+"at": AT,
+"atomic": ATOMIC,
+"attribute": ATTRIBUTE,
+"authorization": AUTHORIZATION,
+"automatic": AUTOMATIC,
+"availability": AVAILABILITY,
+"avoid_full_scan": AVOID_FULL_SCAN,
+"backup": BACKUP,
+"backups": BACKUPS,
+"backward": BACKWARD,
+"batch": BATCH,
+"before": BEFORE,
+"begin": BEGIN,
+"between": BETWEEN,
+"bidirectional": BIDIRECTIONAL,
+"bigint": BIGINT,
+"binary": BINARY,
+"bit": BIT,
+"boolean": BOOLEAN,
+"both": BOTH,
+"box2d": BOX2D,
+"bucket_count": BUCKET_COUNT,
+"by": BY,
+"bypassrls": BYPASSRLS,
+"cache": CACHE,
+"call": CALL,
+"called": CALLED,
+"cancel": CANCEL,
+"cancelquery": CANCELQUERY,
+"capabilities": CAPABILITIES,
+"capability": CAPABILITY,
+"cascade": CASCADE,
+"case": CASE,
+"cast": CAST,
+"changefeed": CHANGEFEED,
+"char": CHAR,
+"character": CHARACTER,
+"characteristics": CHARACTERISTICS,
+"check": CHECK,
+"check_files": CHECK_FILES,
+"close": CLOSE,
+"cluster": CLUSTER,
+"clusters": CLUSTERS,
+"coalesce": COALESCE,
+"collate": COLLATE,
+"collation": COLLATION,
+"column": COLUMN,
+"columns": COLUMNS,
+"comment": COMMENT,
+"comments": COMMENTS,
+"commit": COMMIT,
+"committed": COMMITTED,
+"compact": COMPACT,
+"complete": COMPLETE,
+"completions": COMPLETIONS,
+"concurrently": CONCURRENTLY,
+"configuration": CONFIGURATION,
+"configurations": CONFIGURATIONS,
+"configure": CONFIGURE,
+"conflict": CONFLICT,
+"connection": CONNECTION,
+"connections": CONNECTIONS,
+"constraint": CONSTRAINT,
+"constraints": CONSTRAINTS,
+"controlchangefeed": CONTROLCHANGEFEED,
+"controljob": CONTROLJOB,
+"conversion": CONVERSION,
+"convert": CONVERT,
+"copy": COPY,
+"cost": COST,
+"covering": COVERING,
+"create": CREATE,
+"createdb": CREATEDB,
+"createlogin": CREATELOGIN,
+"createrole": CREATEROLE,
+"cross": CROSS,
+"csv": CSV,
+"cube": CUBE,
+"current": CURRENT,
+"current_catalog": CURRENT_CATALOG,
+"current_date": CURRENT_DATE,
+"current_role": CURRENT_ROLE,
+"current_schema": CURRENT_SCHEMA,
+"current_time": CURRENT_TIME,
+"current_timestamp": CURRENT_TIMESTAMP,
+"current_user": CURRENT_USER,
+"cursor": CURSOR,
+"cycle": CYCLE,
+"data": DATA,
+"database": DATABASE,
+"databases": DATABASES,
+"day": DAY,
+"deallocate": DEALLOCATE,
+"debug_ids": DEBUG_IDS,
+"dec": DEC,
+"decimal": DECIMAL,
+"declare": DECLARE,
+"default": DEFAULT,
+"defaults": DEFAULTS,
+"deferrable": DEFERRABLE,
+"deferred": DEFERRED,
+"definer": DEFINER,
+"delete": DELETE,
+"delimiter": DELIMITER,
+"depends": DEPENDS,
+"desc": DESC,
+"destination": DESTINATION,
+"detached": DETACHED,
+"details": DETAILS,
+"disable": DISABLE,
+"discard": DISCARD,
+"distinct": DISTINCT,
+"do": DO,
+"domain": DOMAIN,
+"double": DOUBLE,
+"drop": DROP,
+"each": EACH,
+"else": ELSE,
+"enable": ENABLE,
+"encoding": ENCODING,
+"encrypted": ENCRYPTED,
+"encryption_info_dir": ENCRYPTION_INFO_DIR,
+"encryption_passphrase": ENCRYPTION_PASSPHRASE,
+"end": END,
+"enum": ENUM,
+"enums": ENUMS,
+"errors": ERRORS,
+"escape": ESCAPE,
+"except": EXCEPT,
+"exclude": EXCLUDE,
+"excluding": EXCLUDING,
+"execute": EXECUTE,
+"execution": EXECUTION,
+"exists": EXISTS,
+"experimental": EXPERIMENTAL,
+"experimental_audit": EXPERIMENTAL_AUDIT,
+"experimental_fingerprints": EXPERIMENTAL_FINGERPRINTS,
+"experimental_relocate": EXPERIMENTAL_RELOCATE,
+"experimental_replica": EXPERIMENTAL_REPLICA,
+"expiration": EXPIRATION,
+"explain": EXPLAIN,
+"export": EXPORT,
+"extension": EXTENSION,
+"external": EXTERNAL,
+"extract": EXTRACT,
+"extract_duration": EXTRACT_DURATION,
+"extremes": EXTREMES,
+"failure": FAILURE,
+"false": FALSE,
+"family": FAMILY,
+"fetch": FETCH,
+"files": FILES,
+"filter": FILTER,
+"first": FIRST,
+"float": FLOAT,
+"following": FOLLOWING,
+"for": FOR,
+"force": FORCE,
+"force_index": FORCE_INDEX,
+"force_inverted_index": FORCE_INVERTED_INDEX,
+"force_not_null": FORCE_NOT_NULL,
+"force_null": FORCE_NULL,
+"force_quote": FORCE_QUOTE,
+"force_zigzag": FORCE_ZIGZAG,
+"foreign": FOREIGN,
+"format": FORMAT,
+"forward": FORWARD,
+"freeze": FREEZE,
+"from": FROM,
+"full": FULL,
+"function": FUNCTION,
+"functions": FUNCTIONS,
+"generated": GENERATED,
+"geography": GEOGRAPHY,
+"geometry": GEOMETRY,
+"geometrycollection": GEOMETRYCOLLECTION,
+"geometrycollectionm": GEOMETRYCOLLECTIONM,
+"geometrycollectionz": GEOMETRYCOLLECTIONZ,
+"geometrycollectionzm": GEOMETRYCOLLECTIONZM,
+"geometrym": GEOMETRYM,
+"geometryz": GEOMETRYZ,
+"geometryzm": GEOMETRYZM,
+"global": GLOBAL,
+"goal": GOAL,
+"grant": GRANT,
+"grantee": GRANTEE,
+"grants": GRANTS,
+"greatest": GREATEST,
+"group": GROUP,
+"grouping": GROUPING,
+"groups": GROUPS,
+"hash": HASH,
+"having": HAVING,
+"header": HEADER,
+"high": HIGH,
+"histogram": HISTOGRAM,
+"hold": HOLD,
+"hour": HOUR,
+"identity": IDENTITY,
+"if": IF,
+"iferror": IFERROR,
+"ifnull": IFNULL,
+"ignore_foreign_keys": IGNORE_FOREIGN_KEYS,
+"ilike": ILIKE,
+"immediate": IMMEDIATE,
+"immediately": IMMEDIATELY,
+"immutable": IMMUTABLE,
+"import": IMPORT,
+"in": IN,
+"include": INCLUDE,
+"include_all_secondary_tenants": INCLUDE_ALL_SECONDARY_TENANTS,
+"include_all_virtual_clusters": INCLUDE_ALL_VIRTUAL_CLUSTERS,
+"including": INCLUDING,
+"increment": INCREMENT,
+"incremental": INCREMENTAL,
+"incremental_location": INCREMENTAL_LOCATION,
+"index": INDEX,
+"indexes": INDEXES,
+"index_after_order_by_before_at": INDEX_AFTER_ORDER_BY_BEFORE_AT,
+"index_before_name_then_paren": INDEX_BEFORE_NAME_THEN_PAREN,
+"index_before_paren": INDEX_BEFORE_PAREN,
+"inherits": INHERITS,
+"initially": INITIALLY,
+"inject": INJECT,
+"inner": INNER,
+"inout": INOUT,
+"input": INPUT,
+"insensitive": INSENSITIVE,
+"insert": INSERT,
+"inspect": INSPECT,
+"instead": INSTEAD,
+"int": INT,
+"integer": INTEGER,
+"intersect": INTERSECT,
+"interval": INTERVAL,
+"into": INTO,
+"into_db": INTO_DB,
+"inverted": INVERTED,
+"invisible": INVISIBLE,
+"invoker": INVOKER,
+"is": IS,
+"iserror": ISERROR,
+"isnull": ISNULL,
+"isolation": ISOLATION,
+"job": JOB,
+"jobs": JOBS,
+"join": JOIN,
+"json": JSON,
+"key": KEY,
+"keys": KEYS,
+"kms": KMS,
+"kv": KV,
+"label": LABEL,
+"language": LANGUAGE,
+"last": LAST,
+"lateral": LATERAL,
+"latest": LATEST,
+"lc_collate": LC_COLLATE,
+"lc_ctype": LC_CTYPE,
+"leading": LEADING,
+"leakproof": LEAKPROOF,
+"lease": LEASE,
+"least": LEAST,
+"left": LEFT,
+"less": LESS,
+"level": LEVEL,
+"like": LIKE,
+"limit": LIMIT,
+"linestring": LINESTRING,
+"linestringm": LINESTRINGM,
+"linestringz": LINESTRINGZ,
+"linestringzm": LINESTRINGZM,
+"list": LIST,
+"local": LOCAL,
+"locality": LOCALITY,
+"localtime": LOCALTIME,
+"localtimestamp": LOCALTIMESTAMP,
+"locked": LOCKED,
+"logged": LOGGED,
+"logical": LOGICAL,
+"logically": LOGICALLY,
+"login": LOGIN,
+"lookup": LOOKUP,
+"low": LOW,
+"match": MATCH,
+"materialized": MATERIALIZED,
+"maxvalue": MAXVALUE,
+"merge": MERGE,
+"method": METHOD,
+"minute": MINUTE,
+"minvalue": MINVALUE,
+"mode": MODE,
+"modifyclustersetting": MODIFYCLUSTERSETTING,
+"month": MONTH,
+"move": MOVE,
+"multilinestring": MULTILINESTRING,
+"multilinestringm": MULTILINESTRINGM,
+"multilinestringz": MULTILINESTRINGZ,
+"multilinestringzm": MULTILINESTRINGZM,
+"multipoint": MULTIPOINT,
+"multipointm": MULTIPOINTM,
+"multipointz": MULTIPOINTZ,
+"multipointzm": MULTIPOINTZM,
+"multipolygon": MULTIPOLYGON,
+"multipolygonm": MULTIPOLYGONM,
+"multipolygonz": MULTIPOLYGONZ,
+"multipolygonzm": MULTIPOLYGONZM,
+"names": NAMES,
+"nan": NAN,
+"natural": NATURAL,
+"never": NEVER,
+"new": NEW,
+"new_db_name": NEW_DB_NAME,
+"new_kms": NEW_KMS,
+"next": NEXT,
+"no": NO,
+"nobypassrls": NOBYPASSRLS,
+"nocancelquery": NOCANCELQUERY,
+"nocontrolchangefeed": NOCONTROLCHANGEFEED,
+"nocontroljob": NOCONTROLJOB,
+"nocreatedb": NOCREATEDB,
+"nocreatelogin": NOCREATELOGIN,
+"nocreaterole": NOCREATEROLE,
+"node": NODE,
+"nologin": NOLOGIN,
+"nomodifyclustersetting": NOMODIFYCLUSTERSETTING,
+"none": NONE,
+"nonvoters": NONVOTERS,
+"noreplication": NOREPLICATION,
+"normal": NORMAL,
+"nosqllogin": NOSQLLOGIN,
+"not": NOT,
+"nothing": NOTHING,
+"nothing_after_returning": NOTHING_AFTER_RETURNING,
+"notnull": NOTNULL,
+"noviewactivity": NOVIEWACTIVITY,
+"noviewactivityredacted": NOVIEWACTIVITYREDACTED,
+"noviewclustersetting": NOVIEWCLUSTERSETTING,
+"nowait": NOWAIT,
+"no_full_scan": NO_FULL_SCAN,
+"no_index_join": NO_INDEX_JOIN,
+"no_zigzag_join": NO_ZIGZAG_JOIN,
+"null": NULL,
+"nullif": NULLIF,
+"nulls": NULLS,
+"numeric": NUMERIC,
+"of": OF,
+"off": OFF,
+"offset": OFFSET,
+"oids": OIDS,
+"old": OLD,
+"old_kms": OLD_KMS,
+"on": ON,
+"only": ONLY,
+"operator": OPERATOR,
+"opt": OPT,
+"option": OPTION,
+"options": OPTIONS,
+"or": OR,
+"order": ORDER,
+"ordinality": ORDINALITY,
+"others": OTHERS,
+"out": OUT,
+"outer": OUTER,
+"over": OVER,
+"overlaps": OVERLAPS,
+"overlay": OVERLAY,
+"owned": OWNED,
+"owner": OWNER,
+"parallel": PARALLEL,
+"parent": PARENT,
+"partial": PARTIAL,
+"partition": PARTITION,
+"partitions": PARTITIONS,
+"password": PASSWORD,
+"pause": PAUSE,
+"paused": PAUSED,
+"per": PER,
+"permissive": PERMISSIVE,
+"physical": PHYSICAL,
+"placement": PLACEMENT,
+"placing": PLACING,
+"plan": PLAN,
+"plans": PLANS,
+"point": POINT,
+"pointm": POINTM,
+"pointz": POINTZ,
+"pointzm": POINTZM,
+"policies": POLICIES,
+"policy": POLICY,
+"polygon": POLYGON,
+"polygonm": POLYGONM,
+"polygonz": POLYGONZ,
+"polygonzm": POLYGONZM,
+"position": POSITION,
+"preceding": PRECEDING,
+"precision": PRECISION,
+"prepare": PREPARE,
+"prepared": PREPARED,
+"preserve": PRESERVE,
+"primary": PRIMARY,
+"prior": PRIOR,
+"priority": PRIORITY,
+"privileges": PRIVILEGES,
+"procedure": PROCEDURE,
+"procedures": PROCEDURES,
+"provisionsrc": PROVISIONSRC,
+"public": PUBLIC,
+"publication": PUBLICATION,
+"queries": QUERIES,
+"query": QUERY,
+"quote": QUOTE,
+"range": RANGE,
+"ranges": RANGES,
+"read": READ,
+"real": REAL,
+"reason": REASON,
+"reassign": REASSIGN,
+"recurring": RECURRING,
+"recursive": RECURSIVE,
+"redact": REDACT,
+"ref": REF,
+"references": REFERENCES,
+"referencing": REFERENCING,
+"refresh": REFRESH,
+"region": REGION,
+"regional": REGIONAL,
+"regions": REGIONS,
+"reindex": REINDEX,
+"relative": RELATIVE,
+"release": RELEASE,
+"relocate": RELOCATE,
+"remove_regions": REMOVE_REGIONS,
+"rename": RENAME,
+"repeatable": REPEATABLE,
+"replace": REPLACE,
+"replicated": REPLICATED,
+"replication": REPLICATION,
+"reset": RESET,
+"restart": RESTART,
+"restore": RESTORE,
+"restrict": RESTRICT,
+"restricted": RESTRICTED,
+"restrictive": RESTRICTIVE,
+"resume": RESUME,
+"retention": RETENTION,
+"return": RETURN,
+"returning": RETURNING,
+"returns": RETURNS,
+"revision_history": REVISION_HISTORY,
+"revoke": REVOKE,
+"right": RIGHT,
+"role": ROLE,
+"roles": ROLES,
+"rollback": ROLLBACK,
+"rollup": ROLLUP,
+"routines": ROUTINES,
+"row": ROW,
+"rows": ROWS,
+"rule": RULE,
+"run": RUN,
+"running": RUNNING,
+"savepoint": SAVEPOINT,
+"scans": SCANS,
+"scatter": SCATTER,
+"schedule": SCHEDULE,
+"schedules": SCHEDULES,
+"schema": SCHEMA,
+"schemas": SCHEMAS,
+"schema_only": SCHEMA_ONLY,
+"scroll": SCROLL,
+"scrub": SCRUB,
+"search": SEARCH,
+"second": SECOND,
+"secondary": SECONDARY,
+"security": SECURITY,
+"security_invoker": SECURITY_INVOKER,
+"select": SELECT,
+"sequence": SEQUENCE,
+"sequences": SEQUENCES,
+"serializable": SERIALIZABLE,
+"server": SERVER,
+"service": SERVICE,
+"session": SESSION,
+"sessions": SESSIONS,
+"session_user": SESSION_USER,
+"set": SET,
+"setof": SETOF,
+"sets": SETS,
+"setting": SETTING,
+"settings": SETTINGS,
+"share": SHARE,
+"shared": SHARED,
+"show": SHOW,
+"similar": SIMILAR,
+"simple": SIMPLE,
+"size": SIZE,
+"skip": SKIP,
+"skip_localities_check": SKIP_LOCALITIES_CHECK,
+"skip_missing_foreign_keys": SKIP_MISSING_FOREIGN_KEYS,
+"skip_missing_sequences": SKIP_MISSING_SEQUENCES,
+"skip_missing_sequence_owners": SKIP_MISSING_SEQUENCE_OWNERS,
+"skip_missing_udfs": SKIP_MISSING_UDFS,
+"skip_missing_views": SKIP_MISSING_VIEWS,
+"smallint": SMALLINT,
+"snapshot": SNAPSHOT,
+"some": SOME,
+"source": SOURCE,
+"split": SPLIT,
+"sql": SQL,
+"sqllogin": SQLLOGIN,
+"stable": STABLE,
+"start": START,
+"state": STATE,
+"statement": STATEMENT,
+"statements": STATEMENTS,
+"statistics": STATISTICS,
+"status": STATUS,
+"stdin": STDIN,
+"stdout": STDOUT,
+"stop": STOP,
+"storage": STORAGE,
+"store": STORE,
+"stored": STORED,
+"storing": STORING,
+"straight": STRAIGHT,
+"stream": STREAM,
+"strict": STRICT,
+"string": STRING,
+"subject": SUBJECT,
+"subscription": SUBSCRIPTION,
+"substring": SUBSTRING,
+"super": SUPER,
+"support": SUPPORT,
+"survival": SURVIVAL,
+"survive": SURVIVE,
+"symmetric": SYMMETRIC,
+"syntax": SYNTAX,
+"system": SYSTEM,
+"table": TABLE,
+"tables": TABLES,
+"tablespace": TABLESPACE,
+"temp": TEMP,
+"template": TEMPLATE,
+"temporary": TEMPORARY,
+"tenant": TENANT,
+"tenants": TENANTS,
+"tenant_name": TENANT_NAME,
+"testing_relocate": TESTING_RELOCATE,
+"text": TEXT,
+"then": THEN,
+"throttling": THROTTLING,
+"ties": TIES,
+"time": TIME,
+"timestamp": TIMESTAMP,
+"timestamptz": TIMESTAMPTZ,
+"timetz": TIMETZ,
+"to": TO,
+"trace": TRACE,
+"tracing": TRACING,
+"trailing": TRAILING,
+"transaction": TRANSACTION,
+"transactions": TRANSACTIONS,
+"transfer": TRANSFER,
+"transform": TRANSFORM,
+"treat": TREAT,
+"trigger": TRIGGER,
+"triggers": TRIGGERS,
+"trim": TRIM,
+"true": TRUE,
+"truncate": TRUNCATE,
+"trusted": TRUSTED,
+"type": TYPE,
+"types": TYPES,
+"unbounded": UNBOUNDED,
+"uncommitted": UNCOMMITTED,
+"unidirectional": UNIDIRECTIONAL,
+"union": UNION,
+"unique": UNIQUE,
+"unknown": UNKNOWN,
+"unlisten": UNLISTEN,
+"unlogged": UNLOGGED,
+"unsafe_restore_incompatible_version": UNSAFE_RESTORE_INCOMPATIBLE_VERSION,
+"unset": UNSET,
+"unsplit": UNSPLIT,
+"until": UNTIL,
+"update": UPDATE,
+"updates_cluster_monitoring_metrics": UPDATES_CLUSTER_MONITORING_METRICS,
+"upsert": UPSERT,
+"use": USE,
+"user": USER,
+"users": USERS,
+"using": USING,
+"valid": VALID,
+"validate": VALIDATE,
+"value": VALUE,
+"values": VALUES,
+"varbit": VARBIT,
+"varchar": VARCHAR,
+"variables": VARIABLES,
+"variadic": VARIADIC,
+"varying": VARYING,
+"vector": VECTOR,
+"verify_backup_table_data": VERIFY_BACKUP_TABLE_DATA,
+"view": VIEW,
+"viewactivity": VIEWACTIVITY,
+"viewactivityredacted": VIEWACTIVITYREDACTED,
+"viewclustersetting": VIEWCLUSTERSETTING,
+"virtual": VIRTUAL,
+"virtual_cluster": VIRTUAL_CLUSTER,
+"virtual_cluster_name": VIRTUAL_CLUSTER_NAME,
+"visibility": VISIBILITY,
+"visible": VISIBLE,
+"volatile": VOLATILE,
+"voters": VOTERS,
+"when": WHEN,
+"where": WHERE,
+"window": WINDOW,
+"with": WITH,
+"within": WITHIN,
+"without": WITHOUT,
+"work": WORK,
+"write": WRITE,
+"year": YEAR,
+"zone": ZONE,
+}
+
 // GetKeywordID returns the lex id of the SQL keyword k or IDENT if k is
 // not a keyword.
+//
+//gcassert:inline
 func GetKeywordID(k string) int32 {
-	// The previous implementation generated a map that did a string ->
-	// id lookup. Various ideas were benchmarked and the implementation below
-	// was the fastest of those, between 3% and 10% faster (at parsing, so the
-	// scanning speedup is even more) than the map implementation.
-	switch k {
-	case "abort": return ABORT
-	case "absolute": return ABSOLUTE
-	case "access": return ACCESS
-	case "action": return ACTION
-	case "add": return ADD
-	case "admin": return ADMIN
-	case "after": return AFTER
-	case "aggregate": return AGGREGATE
-	case "all": return ALL
-	case "alter": return ALTER
-	case "always": return ALWAYS
-	case "analyse": return ANALYSE
-	case "analyze": return ANALYZE
-	case "and": return AND
-	case "annotate_type": return ANNOTATE_TYPE
-	case "any": return ANY
-	case "array": return ARRAY
-	case "as": return AS
-	case "asc": return ASC
-	case "asensitive": return ASENSITIVE
-	case "asymmetric": return ASYMMETRIC
-	case "as_json": return AS_JSON
-	case "at": return AT
-	case "atomic": return ATOMIC
-	case "attribute": return ATTRIBUTE
-	case "authorization": return AUTHORIZATION
-	case "automatic": return AUTOMATIC
-	case "availability": return AVAILABILITY
-	case "avoid_full_scan": return AVOID_FULL_SCAN
-	case "backup": return BACKUP
-	case "backups": return BACKUPS
-	case "backward": return BACKWARD
-	case "batch": return BATCH
-	case "before": return BEFORE
-	case "begin": return BEGIN
-	case "between": return BETWEEN
-	case "bidirectional": return BIDIRECTIONAL
-	case "bigint": return BIGINT
-	case "binary": return BINARY
-	case "bit": return BIT
-	case "boolean": return BOOLEAN
-	case "both": return BOTH
-	case "box2d": return BOX2D
-	case "bucket_count": return BUCKET_COUNT
-	case "by": return BY
-	case "bypassrls": return BYPASSRLS
-	case "cache": return CACHE
-	case "call": return CALL
-	case "called": return CALLED
-	case "cancel": return CANCEL
-	case "cancelquery": return CANCELQUERY
-	case "capabilities": return CAPABILITIES
-	case "capability": return CAPABILITY
-	case "cascade": return CASCADE
-	case "case": return CASE
-	case "cast": return CAST
-	case "changefeed": return CHANGEFEED
-	case "char": return CHAR
-	case "character": return CHARACTER
-	case "characteristics": return CHARACTERISTICS
-	case "check": return CHECK
-	case "check_files": return CHECK_FILES
-	case "close": return CLOSE
-	case "cluster": return CLUSTER
-	case "clusters": return CLUSTERS
-	case "coalesce": return COALESCE
-	case "collate": return COLLATE
-	case "collation": return COLLATION
-	case "column": return COLUMN
-	case "columns": return COLUMNS
-	case "comment": return COMMENT
-	case "comments": return COMMENTS
-	case "commit": return COMMIT
-	case "committed": return COMMITTED
-	case "compact": return COMPACT
-	case "complete": return COMPLETE
-	case "completions": return COMPLETIONS
-	case "concurrently": return CONCURRENTLY
-	case "configuration": return CONFIGURATION
-	case "configurations": return CONFIGURATIONS
-	case "configure": return CONFIGURE
-	case "conflict": return CONFLICT
-	case "connection": return CONNECTION
-	case "connections": return CONNECTIONS
-	case "constraint": return CONSTRAINT
-	case "constraints": return CONSTRAINTS
-	case "controlchangefeed": return CONTROLCHANGEFEED
-	case "controljob": return CONTROLJOB
-	case "conversion": return CONVERSION
-	case "convert": return CONVERT
-	case "copy": return COPY
-	case "cost": return COST
-	case "covering": return COVERING
-	case "create": return CREATE
-	case "createdb": return CREATEDB
-	case "createlogin": return CREATELOGIN
-	case "createrole": return CREATEROLE
-	case "cross": return CROSS
-	case "csv": return CSV
-	case "cube": return CUBE
-	case "current": return CURRENT
-	case "current_catalog": return CURRENT_CATALOG
-	case "current_date": return CURRENT_DATE
-	case "current_role": return CURRENT_ROLE
-	case "current_schema": return CURRENT_SCHEMA
-	case "current_time": return CURRENT_TIME
-	case "current_timestamp": return CURRENT_TIMESTAMP
-	case "current_user": return CURRENT_USER
-	case "cursor": return CURSOR
-	case "cycle": return CYCLE
-	case "data": return DATA
-	case "database": return DATABASE
-	case "databases": return DATABASES
-	case "day": return DAY
-	case "deallocate": return DEALLOCATE
-	case "debug_ids": return DEBUG_IDS
-	case "dec": return DEC
-	case "decimal": return DECIMAL
-	case "declare": return DECLARE
-	case "default": return DEFAULT
-	case "defaults": return DEFAULTS
-	case "deferrable": return DEFERRABLE
-	case "deferred": return DEFERRED
-	case "definer": return DEFINER
-	case "delete": return DELETE
-	case "delimiter": return DELIMITER
-	case "depends": return DEPENDS
-	case "desc": return DESC
-	case "destination": return DESTINATION
-	case "detached": return DETACHED
-	case "details": return DETAILS
-	case "disable": return DISABLE
-	case "discard": return DISCARD
-	case "distinct": return DISTINCT
-	case "do": return DO
-	case "domain": return DOMAIN
-	case "double": return DOUBLE
-	case "drop": return DROP
-	case "each": return EACH
-	case "else": return ELSE
-	case "enable": return ENABLE
-	case "encoding": return ENCODING
-	case "encrypted": return ENCRYPTED
-	case "encryption_info_dir": return ENCRYPTION_INFO_DIR
-	case "encryption_passphrase": return ENCRYPTION_PASSPHRASE
-	case "end": return END
-	case "enum": return ENUM
-	case "enums": return ENUMS
-	case "escape": return ESCAPE
-	case "except": return EXCEPT
-	case "exclude": return EXCLUDE
-	case "excluding": return EXCLUDING
-	case "execute": return EXECUTE
-	case "execution": return EXECUTION
-	case "exists": return EXISTS
-	case "experimental": return EXPERIMENTAL
-	case "experimental_audit": return EXPERIMENTAL_AUDIT
-	case "experimental_fingerprints": return EXPERIMENTAL_FINGERPRINTS
-	case "experimental_relocate": return EXPERIMENTAL_RELOCATE
-	case "experimental_replica": return EXPERIMENTAL_REPLICA
-	case "expiration": return EXPIRATION
-	case "explain": return EXPLAIN
-	case "export": return EXPORT
-	case "extension": return EXTENSION
-	case "external": return EXTERNAL
-	case "extract": return EXTRACT
-	case "extract_duration": return EXTRACT_DURATION
-	case "extremes": return EXTREMES
-	case "failure": return FAILURE
-	case "false": return FALSE
-	case "family": return FAMILY
-	case "fetch": return FETCH
-	case "files": return FILES
-	case "filter": return FILTER
-	case "first": return FIRST
-	case "float": return FLOAT
-	case "following": return FOLLOWING
-	case "for": return FOR
-	case "force": return FORCE
-	case "force_index": return FORCE_INDEX
-	case "force_inverted_index": return FORCE_INVERTED_INDEX
-	case "force_not_null": return FORCE_NOT_NULL
-	case "force_null": return FORCE_NULL
-	case "force_quote": return FORCE_QUOTE
-	case "force_zigzag": return FORCE_ZIGZAG
-	case "foreign": return FOREIGN
-	case "format": return FORMAT
-	case "forward": return FORWARD
-	case "freeze": return FREEZE
-	case "from": return FROM
-	case "full": return FULL
-	case "function": return FUNCTION
-	case "functions": return FUNCTIONS
-	case "generated": return GENERATED
-	case "geography": return GEOGRAPHY
-	case "geometry": return GEOMETRY
-	case "geometrycollection": return GEOMETRYCOLLECTION
-	case "geometrycollectionm": return GEOMETRYCOLLECTIONM
-	case "geometrycollectionz": return GEOMETRYCOLLECTIONZ
-	case "geometrycollectionzm": return GEOMETRYCOLLECTIONZM
-	case "geometrym": return GEOMETRYM
-	case "geometryz": return GEOMETRYZ
-	case "geometryzm": return GEOMETRYZM
-	case "global": return GLOBAL
-	case "goal": return GOAL
-	case "grant": return GRANT
-	case "grantee": return GRANTEE
-	case "grants": return GRANTS
-	case "greatest": return GREATEST
-	case "group": return GROUP
-	case "grouping": return GROUPING
-	case "groups": return GROUPS
-	case "hash": return HASH
-	case "having": return HAVING
-	case "header": return HEADER
-	case "high": return HIGH
-	case "histogram": return HISTOGRAM
-	case "hold": return HOLD
-	case "hour": return HOUR
-	case "identity": return IDENTITY
-	case "if": return IF
-	case "iferror": return IFERROR
-	case "ifnull": return IFNULL
-	case "ignore_foreign_keys": return IGNORE_FOREIGN_KEYS
-	case "ilike": return ILIKE
-	case "immediate": return IMMEDIATE
-	case "immediately": return IMMEDIATELY
-	case "immutable": return IMMUTABLE
-	case "import": return IMPORT
-	case "in": return IN
-	case "include": return INCLUDE
-	case "include_all_secondary_tenants": return INCLUDE_ALL_SECONDARY_TENANTS
-	case "include_all_virtual_clusters": return INCLUDE_ALL_VIRTUAL_CLUSTERS
-	case "including": return INCLUDING
-	case "increment": return INCREMENT
-	case "incremental": return INCREMENTAL
-	case "incremental_location": return INCREMENTAL_LOCATION
-	case "index": return INDEX
-	case "indexes": return INDEXES
-	case "index_after_order_by_before_at": return INDEX_AFTER_ORDER_BY_BEFORE_AT
-	case "index_before_name_then_paren": return INDEX_BEFORE_NAME_THEN_PAREN
-	case "index_before_paren": return INDEX_BEFORE_PAREN
-	case "inherits": return INHERITS
-	case "initially": return INITIALLY
-	case "inject": return INJECT
-	case "inner": return INNER
-	case "inout": return INOUT
-	case "input": return INPUT
-	case "insensitive": return INSENSITIVE
-	case "insert": return INSERT
-	case "instead": return INSTEAD
-	case "int": return INT
-	case "integer": return INTEGER
-	case "intersect": return INTERSECT
-	case "interval": return INTERVAL
-	case "into": return INTO
-	case "into_db": return INTO_DB
-	case "inverted": return INVERTED
-	case "invisible": return INVISIBLE
-	case "invoker": return INVOKER
-	case "is": return IS
-	case "iserror": return ISERROR
-	case "isnull": return ISNULL
-	case "isolation": return ISOLATION
-	case "job": return JOB
-	case "jobs": return JOBS
-	case "join": return JOIN
-	case "json": return JSON
-	case "key": return KEY
-	case "keys": return KEYS
-	case "kms": return KMS
-	case "kv": return KV
-	case "label": return LABEL
-	case "language": return LANGUAGE
-	case "last": return LAST
-	case "lateral": return LATERAL
-	case "latest": return LATEST
-	case "lc_collate": return LC_COLLATE
-	case "lc_ctype": return LC_CTYPE
-	case "leading": return LEADING
-	case "leakproof": return LEAKPROOF
-	case "lease": return LEASE
-	case "least": return LEAST
-	case "left": return LEFT
-	case "less": return LESS
-	case "level": return LEVEL
-	case "like": return LIKE
-	case "limit": return LIMIT
-	case "linestring": return LINESTRING
-	case "linestringm": return LINESTRINGM
-	case "linestringz": return LINESTRINGZ
-	case "linestringzm": return LINESTRINGZM
-	case "list": return LIST
-	case "local": return LOCAL
-	case "locality": return LOCALITY
-	case "localtime": return LOCALTIME
-	case "localtimestamp": return LOCALTIMESTAMP
-	case "locked": return LOCKED
-	case "logged": return LOGGED
-	case "logical": return LOGICAL
-	case "logically": return LOGICALLY
-	case "login": return LOGIN
-	case "lookup": return LOOKUP
-	case "low": return LOW
-	case "match": return MATCH
-	case "materialized": return MATERIALIZED
-	case "maxvalue": return MAXVALUE
-	case "merge": return MERGE
-	case "method": return METHOD
-	case "minute": return MINUTE
-	case "minvalue": return MINVALUE
-	case "mode": return MODE
-	case "modifyclustersetting": return MODIFYCLUSTERSETTING
-	case "month": return MONTH
-	case "move": return MOVE
-	case "multilinestring": return MULTILINESTRING
-	case "multilinestringm": return MULTILINESTRINGM
-	case "multilinestringz": return MULTILINESTRINGZ
-	case "multilinestringzm": return MULTILINESTRINGZM
-	case "multipoint": return MULTIPOINT
-	case "multipointm": return MULTIPOINTM
-	case "multipointz": return MULTIPOINTZ
-	case "multipointzm": return MULTIPOINTZM
-	case "multipolygon": return MULTIPOLYGON
-	case "multipolygonm": return MULTIPOLYGONM
-	case "multipolygonz": return MULTIPOLYGONZ
-	case "multipolygonzm": return MULTIPOLYGONZM
-	case "names": return NAMES
-	case "nan": return NAN
-	case "natural": return NATURAL
-	case "never": return NEVER
-	case "new": return NEW
-	case "new_db_name": return NEW_DB_NAME
-	case "new_kms": return NEW_KMS
-	case "next": return NEXT
-	case "no": return NO
-	case "nobypassrls": return NOBYPASSRLS
-	case "nocancelquery": return NOCANCELQUERY
-	case "nocontrolchangefeed": return NOCONTROLCHANGEFEED
-	case "nocontroljob": return NOCONTROLJOB
-	case "nocreatedb": return NOCREATEDB
-	case "nocreatelogin": return NOCREATELOGIN
-	case "nocreaterole": return NOCREATEROLE
-	case "node": return NODE
-	case "nologin": return NOLOGIN
-	case "nomodifyclustersetting": return NOMODIFYCLUSTERSETTING
-	case "none": return NONE
-	case "nonvoters": return NONVOTERS
-	case "noreplication": return NOREPLICATION
-	case "normal": return NORMAL
-	case "nosqllogin": return NOSQLLOGIN
-	case "not": return NOT
-	case "nothing": return NOTHING
-	case "nothing_after_returning": return NOTHING_AFTER_RETURNING
-	case "notnull": return NOTNULL
-	case "noviewactivity": return NOVIEWACTIVITY
-	case "noviewactivityredacted": return NOVIEWACTIVITYREDACTED
-	case "noviewclustersetting": return NOVIEWCLUSTERSETTING
-	case "nowait": return NOWAIT
-	case "no_full_scan": return NO_FULL_SCAN
-	case "no_index_join": return NO_INDEX_JOIN
-	case "no_zigzag_join": return NO_ZIGZAG_JOIN
-	case "null": return NULL
-	case "nullif": return NULLIF
-	case "nulls": return NULLS
-	case "numeric": return NUMERIC
-	case "of": return OF
-	case "off": return OFF
-	case "offset": return OFFSET
-	case "oids": return OIDS
-	case "old": return OLD
-	case "old_kms": return OLD_KMS
-	case "on": return ON
-	case "only": return ONLY
-	case "operator": return OPERATOR
-	case "opt": return OPT
-	case "option": return OPTION
-	case "options": return OPTIONS
-	case "or": return OR
-	case "order": return ORDER
-	case "ordinality": return ORDINALITY
-	case "others": return OTHERS
-	case "out": return OUT
-	case "outer": return OUTER
-	case "over": return OVER
-	case "overlaps": return OVERLAPS
-	case "overlay": return OVERLAY
-	case "owned": return OWNED
-	case "owner": return OWNER
-	case "parallel": return PARALLEL
-	case "parent": return PARENT
-	case "partial": return PARTIAL
-	case "partition": return PARTITION
-	case "partitions": return PARTITIONS
-	case "password": return PASSWORD
-	case "pause": return PAUSE
-	case "paused": return PAUSED
-	case "per": return PER
-	case "permissive": return PERMISSIVE
-	case "physical": return PHYSICAL
-	case "placement": return PLACEMENT
-	case "placing": return PLACING
-	case "plan": return PLAN
-	case "plans": return PLANS
-	case "point": return POINT
-	case "pointm": return POINTM
-	case "pointz": return POINTZ
-	case "pointzm": return POINTZM
-	case "policies": return POLICIES
-	case "policy": return POLICY
-	case "polygon": return POLYGON
-	case "polygonm": return POLYGONM
-	case "polygonz": return POLYGONZ
-	case "polygonzm": return POLYGONZM
-	case "position": return POSITION
-	case "preceding": return PRECEDING
-	case "precision": return PRECISION
-	case "prepare": return PREPARE
-	case "prepared": return PREPARED
-	case "preserve": return PRESERVE
-	case "primary": return PRIMARY
-	case "prior": return PRIOR
-	case "priority": return PRIORITY
-	case "privileges": return PRIVILEGES
-	case "procedure": return PROCEDURE
-	case "procedures": return PROCEDURES
-	case "provisionsrc": return PROVISIONSRC
-	case "public": return PUBLIC
-	case "publication": return PUBLICATION
-	case "queries": return QUERIES
-	case "query": return QUERY
-	case "quote": return QUOTE
-	case "range": return RANGE
-	case "ranges": return RANGES
-	case "read": return READ
-	case "real": return REAL
-	case "reason": return REASON
-	case "reassign": return REASSIGN
-	case "recurring": return RECURRING
-	case "recursive": return RECURSIVE
-	case "redact": return REDACT
-	case "ref": return REF
-	case "references": return REFERENCES
-	case "referencing": return REFERENCING
-	case "refresh": return REFRESH
-	case "region": return REGION
-	case "regional": return REGIONAL
-	case "regions": return REGIONS
-	case "reindex": return REINDEX
-	case "relative": return RELATIVE
-	case "release": return RELEASE
-	case "relocate": return RELOCATE
-	case "remove_regions": return REMOVE_REGIONS
-	case "rename": return RENAME
-	case "repeatable": return REPEATABLE
-	case "replace": return REPLACE
-	case "replicated": return REPLICATED
-	case "replication": return REPLICATION
-	case "reset": return RESET
-	case "restart": return RESTART
-	case "restore": return RESTORE
-	case "restrict": return RESTRICT
-	case "restricted": return RESTRICTED
-	case "restrictive": return RESTRICTIVE
-	case "resume": return RESUME
-	case "retention": return RETENTION
-	case "return": return RETURN
-	case "returning": return RETURNING
-	case "returns": return RETURNS
-	case "revision_history": return REVISION_HISTORY
-	case "revoke": return REVOKE
-	case "right": return RIGHT
-	case "role": return ROLE
-	case "roles": return ROLES
-	case "rollback": return ROLLBACK
-	case "rollup": return ROLLUP
-	case "routines": return ROUTINES
-	case "row": return ROW
-	case "rows": return ROWS
-	case "rule": return RULE
-	case "running": return RUNNING
-	case "savepoint": return SAVEPOINT
-	case "scans": return SCANS
-	case "scatter": return SCATTER
-	case "schedule": return SCHEDULE
-	case "schedules": return SCHEDULES
-	case "schema": return SCHEMA
-	case "schemas": return SCHEMAS
-	case "schema_only": return SCHEMA_ONLY
-	case "scroll": return SCROLL
-	case "scrub": return SCRUB
-	case "search": return SEARCH
-	case "second": return SECOND
-	case "secondary": return SECONDARY
-	case "security": return SECURITY
-	case "select": return SELECT
-	case "sequence": return SEQUENCE
-	case "sequences": return SEQUENCES
-	case "serializable": return SERIALIZABLE
-	case "server": return SERVER
-	case "service": return SERVICE
-	case "session": return SESSION
-	case "sessions": return SESSIONS
-	case "session_user": return SESSION_USER
-	case "set": return SET
-	case "setof": return SETOF
-	case "sets": return SETS
-	case "setting": return SETTING
-	case "settings": return SETTINGS
-	case "share": return SHARE
-	case "shared": return SHARED
-	case "show": return SHOW
-	case "similar": return SIMILAR
-	case "simple": return SIMPLE
-	case "size": return SIZE
-	case "skip": return SKIP
-	case "skip_localities_check": return SKIP_LOCALITIES_CHECK
-	case "skip_missing_foreign_keys": return SKIP_MISSING_FOREIGN_KEYS
-	case "skip_missing_sequences": return SKIP_MISSING_SEQUENCES
-	case "skip_missing_sequence_owners": return SKIP_MISSING_SEQUENCE_OWNERS
-	case "skip_missing_udfs": return SKIP_MISSING_UDFS
-	case "skip_missing_views": return SKIP_MISSING_VIEWS
-	case "smallint": return SMALLINT
-	case "snapshot": return SNAPSHOT
-	case "some": return SOME
-	case "source": return SOURCE
-	case "split": return SPLIT
-	case "sql": return SQL
-	case "sqllogin": return SQLLOGIN
-	case "stable": return STABLE
-	case "start": return START
-	case "state": return STATE
-	case "statement": return STATEMENT
-	case "statements": return STATEMENTS
-	case "statistics": return STATISTICS
-	case "status": return STATUS
-	case "stdin": return STDIN
-	case "stdout": return STDOUT
-	case "stop": return STOP
-	case "storage": return STORAGE
-	case "store": return STORE
-	case "stored": return STORED
-	case "storing": return STORING
-	case "straight": return STRAIGHT
-	case "stream": return STREAM
-	case "strict": return STRICT
-	case "string": return STRING
-	case "subject": return SUBJECT
-	case "subscription": return SUBSCRIPTION
-	case "substring": return SUBSTRING
-	case "super": return SUPER
-	case "support": return SUPPORT
-	case "survival": return SURVIVAL
-	case "survive": return SURVIVE
-	case "symmetric": return SYMMETRIC
-	case "syntax": return SYNTAX
-	case "system": return SYSTEM
-	case "table": return TABLE
-	case "tables": return TABLES
-	case "tablespace": return TABLESPACE
-	case "temp": return TEMP
-	case "template": return TEMPLATE
-	case "temporary": return TEMPORARY
-	case "tenant": return TENANT
-	case "tenants": return TENANTS
-	case "tenant_name": return TENANT_NAME
-	case "testing_relocate": return TESTING_RELOCATE
-	case "text": return TEXT
-	case "then": return THEN
-	case "throttling": return THROTTLING
-	case "ties": return TIES
-	case "time": return TIME
-	case "timestamp": return TIMESTAMP
-	case "timestamptz": return TIMESTAMPTZ
-	case "timetz": return TIMETZ
-	case "to": return TO
-	case "trace": return TRACE
-	case "tracing": return TRACING
-	case "trailing": return TRAILING
-	case "transaction": return TRANSACTION
-	case "transactions": return TRANSACTIONS
-	case "transfer": return TRANSFER
-	case "transform": return TRANSFORM
-	case "treat": return TREAT
-	case "trigger": return TRIGGER
-	case "triggers": return TRIGGERS
-	case "trim": return TRIM
-	case "true": return TRUE
-	case "truncate": return TRUNCATE
-	case "trusted": return TRUSTED
-	case "type": return TYPE
-	case "types": return TYPES
-	case "unbounded": return UNBOUNDED
-	case "uncommitted": return UNCOMMITTED
-	case "unidirectional": return UNIDIRECTIONAL
-	case "union": return UNION
-	case "unique": return UNIQUE
-	case "unknown": return UNKNOWN
-	case "unlisten": return UNLISTEN
-	case "unlogged": return UNLOGGED
-	case "unsafe_restore_incompatible_version": return UNSAFE_RESTORE_INCOMPATIBLE_VERSION
-	case "unset": return UNSET
-	case "unsplit": return UNSPLIT
-	case "until": return UNTIL
-	case "update": return UPDATE
-	case "updates_cluster_monitoring_metrics": return UPDATES_CLUSTER_MONITORING_METRICS
-	case "upsert": return UPSERT
-	case "use": return USE
-	case "user": return USER
-	case "users": return USERS
-	case "using": return USING
-	case "valid": return VALID
-	case "validate": return VALIDATE
-	case "value": return VALUE
-	case "values": return VALUES
-	case "varbit": return VARBIT
-	case "varchar": return VARCHAR
-	case "variables": return VARIABLES
-	case "variadic": return VARIADIC
-	case "varying": return VARYING
-	case "vector": return VECTOR
-	case "verify_backup_table_data": return VERIFY_BACKUP_TABLE_DATA
-	case "view": return VIEW
-	case "viewactivity": return VIEWACTIVITY
-	case "viewactivityredacted": return VIEWACTIVITYREDACTED
-	case "viewclustersetting": return VIEWCLUSTERSETTING
-	case "virtual": return VIRTUAL
-	case "virtual_cluster": return VIRTUAL_CLUSTER
-	case "virtual_cluster_name": return VIRTUAL_CLUSTER_NAME
-	case "visibility": return VISIBILITY
-	case "visible": return VISIBLE
-	case "volatile": return VOLATILE
-	case "voters": return VOTERS
-	case "when": return WHEN
-	case "where": return WHERE
-	case "window": return WINDOW
-	case "with": return WITH
-	case "within": return WITHIN
-	case "without": return WITHOUT
-	case "work": return WORK
-	case "write": return WRITE
-	case "year": return YEAR
-	case "zone": return ZONE
-	default: return IDENT
+	id, ok := keywordID[k]
+	if !ok {
+		return IDENT
 	}
+	return id
 }

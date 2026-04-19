@@ -12,7 +12,6 @@ import (
 
 	"github.com/cockroachdb/cockroachdb-parser/pkg/build"
 	"github.com/cockroachdb/cockroachdb-parser/pkg/sql/parser"
-	"github.com/cockroachdb/cockroachdb-parser/pkg/sql/parser/statements"
 	"github.com/cockroachdb/cockroachdb-parser/pkg/sql/scanner"
 	"github.com/cockroachdb/cockroachdb-parser/pkg/sql/sem/plpgsqltree"
 	"github.com/cockroachdb/cockroachdb-parser/pkg/sql/sem/tree"
@@ -21,7 +20,7 @@ import (
 	"github.com/cockroachdb/redact"
 )
 
-//line plpgsql-gen.y:20
+//line plpgsql-gen.y:19
 func setErr(plpgsqllex plpgsqlLexer, err error) int {
 	plpgsqllex.(*lexer).setErr(err)
 	return 1
@@ -177,11 +176,7 @@ func (u *plpgsqlSymUnion) cursorScrollOption() tree.CursorScrollOption {
 }
 
 func (u *plpgsqlSymUnion) sqlStatement() tree.Statement {
-	return u.val.(statements.Statement[tree.Statement]).AST
-}
-
-func (u *plpgsqlSymUnion) numAnnotations() tree.AnnotationIdx {
-	return u.val.(statements.Statement[tree.Statement]).NumAnnotations
+	return u.val.(tree.Statement)
 }
 
 func (u *plpgsqlSymUnion) variables() []plpgsqltree.Variable {
@@ -200,7 +195,7 @@ func (u *plpgsqlSymUnion) doBlockOption() tree.DoBlockOption {
 	return u.val.(tree.DoBlockOption)
 }
 
-//line plpgsql-gen.y:338
+//line plpgsql-gen.y:333
 type plpgsqlSymType struct {
 	yys   int
 	id    int32
@@ -489,7 +484,7 @@ const plpgsqlEofCode = 1
 const plpgsqlErrCode = 2
 const plpgsqlInitialStackSize = 16
 
-//line plpgsql-gen.y:1756
+//line plpgsql-gen.y:1747
 
 //line yacctab:1
 var plpgsqlExca = [...]int16{
@@ -1262,13 +1257,13 @@ plpgsqldefault:
 
 	case 1:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-2 : plpgsqlpt+1]
-//line plpgsql-gen.y:409
+//line plpgsql-gen.y:404
 		{
 			plpgsqllex.(*lexer).SetStmt(plpgsqlDollar[1].union.statement())
 		}
 	case 4:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-7 : plpgsqlpt+1]
-//line plpgsql-gen.y:418
+//line plpgsql-gen.y:413
 		{
 			blockLabel, blockEndLabel := plpgsqlDollar[1].str, plpgsqlDollar[7].str
 			if err := checkLoopLabels(blockLabel, blockEndLabel); err != nil {
@@ -1283,42 +1278,42 @@ plpgsqldefault:
 		}
 	case 5:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-2 : plpgsqlpt+1]
-//line plpgsql-gen.y:433
+//line plpgsql-gen.y:428
 		{
 			plpgsqlVAL.union.val = plpgsqlDollar[2].union.statements()
 		}
 	case 6:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-0 : plpgsqlpt+1]
-//line plpgsql-gen.y:437
+//line plpgsql-gen.y:432
 		{
 
 			plpgsqlVAL.union.val = []plpgsqltree.Statement(nil)
 		}
 	case 7:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-1 : plpgsqlpt+1]
-//line plpgsql-gen.y:444
+//line plpgsql-gen.y:439
 		{
 			plpgsqlVAL.union.val = plpgsqlDollar[1].union.statements()
 		}
 	case 8:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-0 : plpgsqlpt+1]
-//line plpgsql-gen.y:448
+//line plpgsql-gen.y:443
 		{
 			plpgsqlVAL.union.val = []plpgsqltree.Statement{}
 		}
 	case 9:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-1 : plpgsqlpt+1]
-//line plpgsql-gen.y:453
+//line plpgsql-gen.y:448
 		{
 		}
 	case 10:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-0 : plpgsqlpt+1]
-//line plpgsql-gen.y:454
+//line plpgsql-gen.y:449
 		{
 		}
 	case 11:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-3 : plpgsqlpt+1]
-//line plpgsql-gen.y:458
+//line plpgsql-gen.y:453
 		{
 			decs := plpgsqlDollar[1].union.statements()
 			dec := plpgsqlDollar[3].union.statement()
@@ -1326,14 +1321,14 @@ plpgsqldefault:
 		}
 	case 12:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-1 : plpgsqlpt+1]
-//line plpgsql-gen.y:464
+//line plpgsql-gen.y:459
 		{
 			dec := plpgsqlDollar[1].union.statement()
 			plpgsqlVAL.union.val = []plpgsqltree.Statement{dec}
 		}
 	case 13:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-6 : plpgsqlpt+1]
-//line plpgsql-gen.y:471
+//line plpgsql-gen.y:466
 		{
 			plpgsqlVAL.union.val = &plpgsqltree.Declaration{
 				Var:      plpgsqltree.Variable(plpgsqlDollar[1].str),
@@ -1346,43 +1341,41 @@ plpgsqldefault:
 		}
 	case 14:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-5 : plpgsqlpt+1]
-//line plpgsql-gen.y:482
+//line plpgsql-gen.y:477
 		{
 			return unimplemented(plpgsqllex, "alias for")
 		}
 	case 15:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-6 : plpgsqlpt+1]
-//line plpgsql-gen.y:486
+//line plpgsql-gen.y:481
 		{
-			ann := tree.MakeAnnotations(plpgsqlDollar[6].union.numAnnotations())
 			plpgsqlVAL.union.val = &plpgsqltree.CursorDeclaration{
-				Name:        plpgsqltree.Variable(plpgsqlDollar[1].str),
-				Scroll:      plpgsqlDollar[2].union.cursorScrollOption(),
-				Query:       plpgsqlDollar[6].union.sqlStatement(),
-				Annotations: &ann,
+				Name:   plpgsqltree.Variable(plpgsqlDollar[1].str),
+				Scroll: plpgsqlDollar[2].union.cursorScrollOption(),
+				Query:  plpgsqlDollar[6].union.sqlStatement(),
 			}
 		}
 	case 16:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-0 : plpgsqlpt+1]
-//line plpgsql-gen.y:498
+//line plpgsql-gen.y:491
 		{
 			plpgsqlVAL.union.val = tree.UnspecifiedScroll
 		}
 	case 17:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-2 : plpgsqlpt+1]
-//line plpgsql-gen.y:502
+//line plpgsql-gen.y:495
 		{
 			plpgsqlVAL.union.val = tree.NoScroll
 		}
 	case 18:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-1 : plpgsqlpt+1]
-//line plpgsql-gen.y:506
+//line plpgsql-gen.y:499
 		{
 			plpgsqlVAL.union.val = tree.Scroll
 		}
 	case 19:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-2 : plpgsqlpt+1]
-//line plpgsql-gen.y:512
+//line plpgsql-gen.y:505
 		{
 			stmts, err := parser.Parse(plpgsqlDollar[1].str)
 			if err != nil {
@@ -1391,59 +1384,59 @@ plpgsqldefault:
 			if len(stmts) != 1 {
 				return setErr(plpgsqllex, errors.New("expected exactly one SQL statement for cursor"))
 			}
-			plpgsqlVAL.union.val = stmts[0]
+			plpgsqlVAL.union.val = stmts[0].AST
 		}
 	case 20:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-1 : plpgsqlpt+1]
-//line plpgsql-gen.y:525
+//line plpgsql-gen.y:518
 		{
 			return unimplemented(plpgsqllex, "cursor arguments")
 		}
 	case 21:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-0 : plpgsqlpt+1]
-//line plpgsql-gen.y:529
+//line plpgsql-gen.y:522
 		{
 		}
 	case 22:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-1 : plpgsqlpt+1]
-//line plpgsql-gen.y:534
+//line plpgsql-gen.y:527
 		{
 		}
 	case 23:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-3 : plpgsqlpt+1]
-//line plpgsql-gen.y:537
+//line plpgsql-gen.y:530
 		{
 		}
 	case 24:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-2 : plpgsqlpt+1]
-//line plpgsql-gen.y:542
+//line plpgsql-gen.y:535
 		{
 		}
 	case 27:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-1 : plpgsqlpt+1]
-//line plpgsql-gen.y:551
+//line plpgsql-gen.y:544
 		{
 		}
 	case 28:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-1 : plpgsqlpt+1]
-//line plpgsql-gen.y:554
+//line plpgsql-gen.y:547
 		{
 		}
 	case 31:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-0 : plpgsqlpt+1]
-//line plpgsql-gen.y:563
+//line plpgsql-gen.y:556
 		{
 			plpgsqlVAL.union.val = false
 		}
 	case 32:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-1 : plpgsqlpt+1]
-//line plpgsql-gen.y:567
+//line plpgsql-gen.y:560
 		{
 			plpgsqlVAL.union.val = true
 		}
 	case 33:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-0 : plpgsqlpt+1]
-//line plpgsql-gen.y:573
+//line plpgsql-gen.y:566
 		{
 
 			sqlStr, _, err := plpgsqllex.(*lexer).ReadSqlExpr(
@@ -1474,43 +1467,43 @@ plpgsqldefault:
 		}
 	case 34:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-0 : plpgsqlpt+1]
-//line plpgsql-gen.y:606
+//line plpgsql-gen.y:599
 		{
 			plpgsqlVAL.str = ""
 		}
 	case 35:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-2 : plpgsqlpt+1]
-//line plpgsql-gen.y:610
+//line plpgsql-gen.y:603
 		{
 			plpgsqlVAL.str = plpgsqlDollar[2].str
 		}
 	case 36:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-2 : plpgsqlpt+1]
-//line plpgsql-gen.y:614
+//line plpgsql-gen.y:607
 		{
 			plpgsqlVAL.str = plpgsqlDollar[2].str
 		}
 	case 37:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-0 : plpgsqlpt+1]
-//line plpgsql-gen.y:620
+//line plpgsql-gen.y:613
 		{
 			plpgsqlVAL.union.val = false
 		}
 	case 38:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-2 : plpgsqlpt+1]
-//line plpgsql-gen.y:624
+//line plpgsql-gen.y:617
 		{
 			plpgsqlVAL.union.val = true
 		}
 	case 39:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-1 : plpgsqlpt+1]
-//line plpgsql-gen.y:630
+//line plpgsql-gen.y:623
 		{
 			plpgsqlVAL.union.val = (plpgsqltree.Expr)(nil)
 		}
 	case 40:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-2 : plpgsqlpt+1]
-//line plpgsql-gen.y:634
+//line plpgsql-gen.y:627
 		{
 			expr, err := plpgsqllex.(*lexer).ParseExpr(plpgsqlDollar[1].str)
 			if err != nil {
@@ -1520,7 +1513,7 @@ plpgsqldefault:
 		}
 	case 41:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-1 : plpgsqlpt+1]
-//line plpgsql-gen.y:644
+//line plpgsql-gen.y:637
 		{
 			sqlStr, _, err := plpgsqllex.(*lexer).ReadSqlExpr(';')
 			if err != nil {
@@ -1530,7 +1523,7 @@ plpgsqldefault:
 		}
 	case 42:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-1 : plpgsqlpt+1]
-//line plpgsql-gen.y:652
+//line plpgsql-gen.y:645
 		{
 			sqlStr, _, err := plpgsqllex.(*lexer).ReadSqlExpr(';')
 			if err != nil {
@@ -1540,13 +1533,13 @@ plpgsqldefault:
 		}
 	case 45:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-0 : plpgsqlpt+1]
-//line plpgsql-gen.y:671
+//line plpgsql-gen.y:664
 		{
 			plpgsqlVAL.union.val = []plpgsqltree.Statement{}
 		}
 	case 46:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-2 : plpgsqlpt+1]
-//line plpgsql-gen.y:675
+//line plpgsql-gen.y:668
 		{
 			stmts := plpgsqlDollar[1].union.statements()
 			stmts = append(stmts, plpgsqlDollar[2].union.statement())
@@ -1554,165 +1547,165 @@ plpgsqldefault:
 		}
 	case 47:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-2 : plpgsqlpt+1]
-//line plpgsql-gen.y:683
+//line plpgsql-gen.y:676
 		{
 			plpgsqlVAL.union.val = plpgsqlDollar[1].union.block()
 		}
 	case 48:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-1 : plpgsqlpt+1]
-//line plpgsql-gen.y:687
+//line plpgsql-gen.y:680
 		{
 			plpgsqlVAL.union.val = plpgsqlDollar[1].union.statement()
 		}
 	case 49:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-1 : plpgsqlpt+1]
-//line plpgsql-gen.y:691
+//line plpgsql-gen.y:684
 		{
 			plpgsqlVAL.union.val = plpgsqlDollar[1].union.statement()
 		}
 	case 50:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-1 : plpgsqlpt+1]
-//line plpgsql-gen.y:695
+//line plpgsql-gen.y:688
 		{
 			plpgsqlVAL.union.val = plpgsqlDollar[1].union.statement()
 		}
 	case 51:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-1 : plpgsqlpt+1]
-//line plpgsql-gen.y:699
+//line plpgsql-gen.y:692
 		{
 			plpgsqlVAL.union.val = plpgsqlDollar[1].union.statement()
 		}
 	case 52:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-1 : plpgsqlpt+1]
-//line plpgsql-gen.y:703
+//line plpgsql-gen.y:696
 		{
 			plpgsqlVAL.union.val = plpgsqlDollar[1].union.statement()
 		}
 	case 53:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-1 : plpgsqlpt+1]
-//line plpgsql-gen.y:707
+//line plpgsql-gen.y:700
 		{
 		}
 	case 54:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-1 : plpgsqlpt+1]
-//line plpgsql-gen.y:709
+//line plpgsql-gen.y:702
 		{
 		}
 	case 55:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-1 : plpgsqlpt+1]
-//line plpgsql-gen.y:711
+//line plpgsql-gen.y:704
 		{
 			plpgsqlVAL.union.val = plpgsqlDollar[1].union.statement()
 		}
 	case 56:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-1 : plpgsqlpt+1]
-//line plpgsql-gen.y:715
+//line plpgsql-gen.y:708
 		{
 			plpgsqlVAL.union.val = plpgsqlDollar[1].union.statement()
 		}
 	case 57:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-1 : plpgsqlpt+1]
-//line plpgsql-gen.y:719
+//line plpgsql-gen.y:712
 		{
 			plpgsqlVAL.union.val = plpgsqlDollar[1].union.statement()
 		}
 	case 58:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-1 : plpgsqlpt+1]
-//line plpgsql-gen.y:723
+//line plpgsql-gen.y:716
 		{
 			plpgsqlVAL.union.val = plpgsqlDollar[1].union.statement()
 		}
 	case 59:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-1 : plpgsqlpt+1]
-//line plpgsql-gen.y:727
+//line plpgsql-gen.y:720
 		{
 			plpgsqlVAL.union.val = plpgsqlDollar[1].union.statement()
 		}
 	case 60:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-1 : plpgsqlpt+1]
-//line plpgsql-gen.y:731
+//line plpgsql-gen.y:724
 		{
 			plpgsqlVAL.union.val = plpgsqlDollar[1].union.statement()
 		}
 	case 61:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-1 : plpgsqlpt+1]
-//line plpgsql-gen.y:735
+//line plpgsql-gen.y:728
 		{
 			plpgsqlVAL.union.val = plpgsqlDollar[1].union.statement()
 		}
 	case 62:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-1 : plpgsqlpt+1]
-//line plpgsql-gen.y:739
+//line plpgsql-gen.y:732
 		{
 		}
 	case 63:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-1 : plpgsqlpt+1]
-//line plpgsql-gen.y:741
+//line plpgsql-gen.y:734
 		{
 			plpgsqlVAL.union.val = plpgsqlDollar[1].union.statement()
 		}
 	case 64:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-1 : plpgsqlpt+1]
-//line plpgsql-gen.y:745
+//line plpgsql-gen.y:738
 		{
 			plpgsqlVAL.union.val = plpgsqlDollar[1].union.statement()
 		}
 	case 65:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-1 : plpgsqlpt+1]
-//line plpgsql-gen.y:749
+//line plpgsql-gen.y:742
 		{
 		}
 	case 66:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-1 : plpgsqlpt+1]
-//line plpgsql-gen.y:751
+//line plpgsql-gen.y:744
 		{
 			plpgsqlVAL.union.val = plpgsqlDollar[1].union.statement()
 		}
 	case 67:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-1 : plpgsqlpt+1]
-//line plpgsql-gen.y:755
+//line plpgsql-gen.y:748
 		{
 			plpgsqlVAL.union.val = plpgsqlDollar[1].union.statement()
 		}
 	case 68:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-1 : plpgsqlpt+1]
-//line plpgsql-gen.y:759
+//line plpgsql-gen.y:752
 		{
 			plpgsqlVAL.union.val = plpgsqlDollar[1].union.statement()
 		}
 	case 69:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-1 : plpgsqlpt+1]
-//line plpgsql-gen.y:763
+//line plpgsql-gen.y:756
 		{
 			plpgsqlVAL.union.val = plpgsqlDollar[1].union.statement()
 		}
 	case 70:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-1 : plpgsqlpt+1]
-//line plpgsql-gen.y:767
+//line plpgsql-gen.y:760
 		{
 			plpgsqlVAL.union.val = plpgsqlDollar[1].union.statement()
 		}
 	case 71:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-1 : plpgsqlpt+1]
-//line plpgsql-gen.y:771
+//line plpgsql-gen.y:764
 		{
 			plpgsqlVAL.union.val = plpgsqlDollar[1].union.statement()
 		}
 	case 72:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-1 : plpgsqlpt+1]
-//line plpgsql-gen.y:775
+//line plpgsql-gen.y:768
 		{
 			plpgsqlVAL.union.val = plpgsqlDollar[1].union.statement()
 		}
 	case 73:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-3 : plpgsqlpt+1]
-//line plpgsql-gen.y:781
+//line plpgsql-gen.y:774
 		{
 			return unimplemented(plpgsqllex, "perform")
 		}
 	case 74:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-3 : plpgsqlpt+1]
-//line plpgsql-gen.y:787
+//line plpgsql-gen.y:780
 		{
 			expr, err := plpgsqllex.(*lexer).ParseExpr(plpgsqlDollar[2].str)
 			if err != nil {
@@ -1730,7 +1723,7 @@ plpgsqldefault:
 		}
 	case 75:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-3 : plpgsqlpt+1]
-//line plpgsql-gen.y:806
+//line plpgsql-gen.y:799
 		{
 			doBlock, err := makeDoStmt(plpgsqlDollar[2].union.doBlockOptions())
 			if err != nil {
@@ -1740,25 +1733,25 @@ plpgsqldefault:
 		}
 	case 76:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-1 : plpgsqlpt+1]
-//line plpgsql-gen.y:817
+//line plpgsql-gen.y:810
 		{
 			plpgsqlVAL.union.val = tree.DoBlockOptions{plpgsqlDollar[1].union.doBlockOption()}
 		}
 	case 77:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-2 : plpgsqlpt+1]
-//line plpgsql-gen.y:821
+//line plpgsql-gen.y:814
 		{
 			plpgsqlVAL.union.val = append(plpgsqlDollar[1].union.doBlockOptions(), plpgsqlDollar[2].union.doBlockOption())
 		}
 	case 78:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-1 : plpgsqlpt+1]
-//line plpgsql-gen.y:828
+//line plpgsql-gen.y:821
 		{
 			plpgsqlVAL.union.val = tree.RoutineBodyStr(plpgsqlDollar[1].str)
 		}
 	case 79:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-2 : plpgsqlpt+1]
-//line plpgsql-gen.y:832
+//line plpgsql-gen.y:825
 		{
 			lang, err := tree.AsRoutineLanguage(plpgsqlDollar[2].str)
 			if err != nil {
@@ -1768,7 +1761,7 @@ plpgsqldefault:
 		}
 	case 80:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-4 : plpgsqlpt+1]
-//line plpgsql-gen.y:842
+//line plpgsql-gen.y:835
 		{
 			expr, err := plpgsqllex.(*lexer).ParseExpr(plpgsqlDollar[3].str)
 			if err != nil {
@@ -1781,7 +1774,7 @@ plpgsqldefault:
 		}
 	case 81:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-6 : plpgsqlpt+1]
-//line plpgsql-gen.y:853
+//line plpgsql-gen.y:846
 		{
 
 			expr, err := plpgsqllex.(*lexer).ParseExpr(plpgsqlDollar[5].str)
@@ -1796,7 +1789,7 @@ plpgsqldefault:
 		}
 	case 82:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-5 : plpgsqlpt+1]
-//line plpgsql-gen.y:868
+//line plpgsql-gen.y:861
 		{
 			plpgsqlVAL.union.val = &plpgsqltree.GetDiagnostics{
 				IsStacked: plpgsqlDollar[2].union.bool(),
@@ -1806,37 +1799,37 @@ plpgsqldefault:
 		}
 	case 83:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-0 : plpgsqlpt+1]
-//line plpgsql-gen.y:878
+//line plpgsql-gen.y:871
 		{
 			plpgsqlVAL.union.val = false
 		}
 	case 84:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-1 : plpgsqlpt+1]
-//line plpgsql-gen.y:882
+//line plpgsql-gen.y:875
 		{
 			plpgsqlVAL.union.val = false
 		}
 	case 85:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-1 : plpgsqlpt+1]
-//line plpgsql-gen.y:886
+//line plpgsql-gen.y:879
 		{
 			plpgsqlVAL.union.val = true
 		}
 	case 86:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-3 : plpgsqlpt+1]
-//line plpgsql-gen.y:892
+//line plpgsql-gen.y:885
 		{
 			plpgsqlVAL.union.val = append(plpgsqlDollar[1].union.getDiagnosticsItemList(), plpgsqlDollar[3].union.getDiagnosticsItem())
 		}
 	case 87:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-1 : plpgsqlpt+1]
-//line plpgsql-gen.y:896
+//line plpgsql-gen.y:889
 		{
 			plpgsqlVAL.union.val = plpgsqltree.GetDiagnosticsItemList{plpgsqlDollar[1].union.getDiagnosticsItem()}
 		}
 	case 88:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-3 : plpgsqlpt+1]
-//line plpgsql-gen.y:902
+//line plpgsql-gen.y:895
 		{
 			plpgsqlVAL.union.val = &plpgsqltree.GetDiagnosticsItem{
 				Kind:       plpgsqlDollar[3].union.getDiagnosticsKind(),
@@ -1845,7 +1838,7 @@ plpgsqldefault:
 		}
 	case 89:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-1 : plpgsqlpt+1]
-//line plpgsql-gen.y:911
+//line plpgsql-gen.y:904
 		{
 			switch plpgsqlDollar[1].str {
 			case "row_count":
@@ -1879,12 +1872,12 @@ plpgsqldefault:
 		}
 	case 90:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-1 : plpgsqlpt+1]
-//line plpgsql-gen.y:947
+//line plpgsql-gen.y:940
 		{
 		}
 	case 91:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-9 : plpgsqlpt+1]
-//line plpgsql-gen.y:952
+//line plpgsql-gen.y:945
 		{
 			cond, err := plpgsqllex.(*lexer).ParseExpr(plpgsqlDollar[2].str)
 			if err != nil {
@@ -1899,13 +1892,13 @@ plpgsqldefault:
 		}
 	case 92:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-0 : plpgsqlpt+1]
-//line plpgsql-gen.y:967
+//line plpgsql-gen.y:960
 		{
 			plpgsqlVAL.union.val = []plpgsqltree.ElseIf{}
 		}
 	case 93:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-5 : plpgsqlpt+1]
-//line plpgsql-gen.y:971
+//line plpgsql-gen.y:964
 		{
 			cond, err := plpgsqllex.(*lexer).ParseExpr(plpgsqlDollar[3].str)
 			if err != nil {
@@ -1919,19 +1912,19 @@ plpgsqldefault:
 		}
 	case 94:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-0 : plpgsqlpt+1]
-//line plpgsql-gen.y:985
+//line plpgsql-gen.y:978
 		{
 			plpgsqlVAL.union.val = []plpgsqltree.Statement{}
 		}
 	case 95:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-2 : plpgsqlpt+1]
-//line plpgsql-gen.y:989
+//line plpgsql-gen.y:982
 		{
 			plpgsqlVAL.union.val = plpgsqlDollar[2].union.statements()
 		}
 	case 96:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-7 : plpgsqlpt+1]
-//line plpgsql-gen.y:995
+//line plpgsql-gen.y:988
 		{
 			expr := &plpgsqltree.Case{
 				TestExpr:     plpgsqlDollar[2].str,
@@ -1945,7 +1938,7 @@ plpgsqldefault:
 		}
 	case 97:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-0 : plpgsqlpt+1]
-//line plpgsql-gen.y:1009
+//line plpgsql-gen.y:1002
 		{
 			if plpgsqllex.(*lexer).Peek().id != WHEN {
 				sqlStr, _, err := plpgsqllex.(*lexer).ReadSqlExpr(WHEN)
@@ -1959,7 +1952,7 @@ plpgsqldefault:
 		}
 	case 98:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-2 : plpgsqlpt+1]
-//line plpgsql-gen.y:1023
+//line plpgsql-gen.y:1016
 		{
 			stmts := plpgsqlDollar[1].union.caseWhens()
 			stmts = append(stmts, plpgsqlDollar[2].union.caseWhen())
@@ -1967,7 +1960,7 @@ plpgsqldefault:
 		}
 	case 99:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-1 : plpgsqlpt+1]
-//line plpgsql-gen.y:1029
+//line plpgsql-gen.y:1022
 		{
 			stmts := []*plpgsqltree.CaseWhen{}
 			stmts = append(stmts, plpgsqlDollar[1].union.caseWhen())
@@ -1975,7 +1968,7 @@ plpgsqldefault:
 		}
 	case 100:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-4 : plpgsqlpt+1]
-//line plpgsql-gen.y:1037
+//line plpgsql-gen.y:1030
 		{
 			expr := &plpgsqltree.CaseWhen{
 				Expr:  plpgsqlDollar[2].str,
@@ -1985,19 +1978,19 @@ plpgsqldefault:
 		}
 	case 101:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-0 : plpgsqlpt+1]
-//line plpgsql-gen.y:1047
+//line plpgsql-gen.y:1040
 		{
 			plpgsqlVAL.union.val = nil
 		}
 	case 102:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-2 : plpgsqlpt+1]
-//line plpgsql-gen.y:1051
+//line plpgsql-gen.y:1044
 		{
 			plpgsqlVAL.union.val = plpgsqlDollar[2].union.statements()
 		}
 	case 103:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-5 : plpgsqlpt+1]
-//line plpgsql-gen.y:1057
+//line plpgsql-gen.y:1050
 		{
 			loopLabel, loopEndLabel := plpgsqlDollar[1].str, plpgsqlDollar[4].str
 			if err := checkLoopLabels(loopLabel, loopEndLabel); err != nil {
@@ -2010,7 +2003,7 @@ plpgsqldefault:
 		}
 	case 104:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-7 : plpgsqlpt+1]
-//line plpgsql-gen.y:1070
+//line plpgsql-gen.y:1063
 		{
 			loopLabel, loopEndLabel := plpgsqlDollar[1].str, plpgsqlDollar[6].str
 			if err := checkLoopLabels(loopLabel, loopEndLabel); err != nil {
@@ -2028,7 +2021,7 @@ plpgsqldefault:
 		}
 	case 105:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-8 : plpgsqlpt+1]
-//line plpgsql-gen.y:1088
+//line plpgsql-gen.y:1081
 		{
 			loopLabel, loopEndLabel := plpgsqlDollar[1].str, plpgsqlDollar[7].str
 			if err := checkLoopLabels(loopLabel, loopEndLabel); err != nil {
@@ -2043,7 +2036,7 @@ plpgsqldefault:
 		}
 	case 106:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-0 : plpgsqlpt+1]
-//line plpgsql-gen.y:1103
+//line plpgsql-gen.y:1096
 		{
 			foundToken, err := plpgsqllex.(*lexer).findFirstOccurrence(DOT_DOT, LOOP)
 			if err != nil {
@@ -2065,7 +2058,7 @@ plpgsqldefault:
 		}
 	case 107:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-0 : plpgsqlpt+1]
-//line plpgsql-gen.y:1125
+//line plpgsql-gen.y:1118
 		{
 			target, err := plpgsqllex.(*lexer).ReadTarget()
 			if err != nil {
@@ -2075,23 +2068,23 @@ plpgsqldefault:
 		}
 	case 108:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-2 : plpgsqlpt+1]
-//line plpgsql-gen.y:1135
+//line plpgsql-gen.y:1128
 		{
 			return unimplemented(plpgsqllex, "for each loop")
 		}
 	case 109:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-0 : plpgsqlpt+1]
-//line plpgsql-gen.y:1141
+//line plpgsql-gen.y:1134
 		{
 		}
 	case 110:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-2 : plpgsqlpt+1]
-//line plpgsql-gen.y:1144
+//line plpgsql-gen.y:1137
 		{
 		}
 	case 111:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-3 : plpgsqlpt+1]
-//line plpgsql-gen.y:1149
+//line plpgsql-gen.y:1142
 		{
 			plpgsqlVAL.union.val = &plpgsqltree.Exit{
 				Label:     plpgsqlDollar[2].str,
@@ -2100,7 +2093,7 @@ plpgsqldefault:
 		}
 	case 112:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-3 : plpgsqlpt+1]
-//line plpgsql-gen.y:1158
+//line plpgsql-gen.y:1151
 		{
 			plpgsqlVAL.union.val = &plpgsqltree.Continue{
 				Label:     plpgsqlDollar[2].str,
@@ -2109,25 +2102,25 @@ plpgsqldefault:
 		}
 	case 113:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-3 : plpgsqlpt+1]
-//line plpgsql-gen.y:1167
+//line plpgsql-gen.y:1160
 		{
 			plpgsqlVAL.union.val = &plpgsqltree.Return{Expr: plpgsqlDollar[2].union.expr()}
 		}
 	case 114:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-4 : plpgsqlpt+1]
-//line plpgsql-gen.y:1171
+//line plpgsql-gen.y:1164
 		{
 			plpgsqlVAL.union.val = &plpgsqltree.ReturnNext{Expr: plpgsqlDollar[3].union.expr()}
 		}
 	case 115:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-4 : plpgsqlpt+1]
-//line plpgsql-gen.y:1175
+//line plpgsql-gen.y:1168
 		{
 			plpgsqlVAL.union.val = plpgsqlDollar[3].union.statement()
 		}
 	case 116:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-0 : plpgsqlpt+1]
-//line plpgsql-gen.y:1181
+//line plpgsql-gen.y:1174
 		{
 			retExpr, err := plpgsqllex.(*lexer).ParseReturnExpr()
 			if err != nil {
@@ -2137,7 +2130,7 @@ plpgsqldefault:
 		}
 	case 117:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-0 : plpgsqlpt+1]
-//line plpgsql-gen.y:1191
+//line plpgsql-gen.y:1184
 		{
 			if plpgsqllex.(*lexer).peekForExecute() {
 
@@ -2152,13 +2145,13 @@ plpgsqldefault:
 		}
 	case 118:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-2 : plpgsqlpt+1]
-//line plpgsql-gen.y:1208
+//line plpgsql-gen.y:1201
 		{
 			return unimplemented(plpgsqllex, "empty RAISE statement")
 		}
 	case 119:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-6 : plpgsqlpt+1]
-//line plpgsql-gen.y:1212
+//line plpgsql-gen.y:1205
 		{
 			plpgsqlVAL.union.val = &plpgsqltree.Raise{
 				LogLevel: plpgsqlDollar[2].str,
@@ -2169,7 +2162,7 @@ plpgsqldefault:
 		}
 	case 120:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-5 : plpgsqlpt+1]
-//line plpgsql-gen.y:1221
+//line plpgsql-gen.y:1214
 		{
 			plpgsqlVAL.union.val = &plpgsqltree.Raise{
 				LogLevel: plpgsqlDollar[2].str,
@@ -2179,7 +2172,7 @@ plpgsqldefault:
 		}
 	case 121:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-6 : plpgsqlpt+1]
-//line plpgsql-gen.y:1229
+//line plpgsql-gen.y:1222
 		{
 			plpgsqlVAL.union.val = &plpgsqltree.Raise{
 				LogLevel: plpgsqlDollar[2].str,
@@ -2189,7 +2182,7 @@ plpgsqldefault:
 		}
 	case 122:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-5 : plpgsqlpt+1]
-//line plpgsql-gen.y:1237
+//line plpgsql-gen.y:1230
 		{
 			plpgsqlVAL.union.val = &plpgsqltree.Raise{
 				LogLevel: plpgsqlDollar[2].str,
@@ -2198,39 +2191,39 @@ plpgsqldefault:
 		}
 	case 129:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-0 : plpgsqlpt+1]
-//line plpgsql-gen.y:1253
+//line plpgsql-gen.y:1246
 		{
 			plpgsqlVAL.str = ""
 		}
 	case 130:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-2 : plpgsqlpt+1]
-//line plpgsql-gen.y:1260
+//line plpgsql-gen.y:1253
 		{
 			plpgsqlVAL.union.val = plpgsqlDollar[2].union.raiseOptions()
 		}
 	case 131:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-0 : plpgsqlpt+1]
-//line plpgsql-gen.y:1264
+//line plpgsql-gen.y:1257
 		{
 			plpgsqlVAL.union.val = []plpgsqltree.RaiseOption{}
 		}
 	case 132:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-3 : plpgsqlpt+1]
-//line plpgsql-gen.y:1271
+//line plpgsql-gen.y:1264
 		{
 			option := plpgsqlDollar[3].union.raiseOption()
 			plpgsqlVAL.union.val = append(plpgsqlDollar[1].union.raiseOptions(), *option)
 		}
 	case 133:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-1 : plpgsqlpt+1]
-//line plpgsql-gen.y:1276
+//line plpgsql-gen.y:1269
 		{
 			option := plpgsqlDollar[1].union.raiseOption()
 			plpgsqlVAL.union.val = []plpgsqltree.RaiseOption{*option}
 		}
 	case 134:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-2 : plpgsqlpt+1]
-//line plpgsql-gen.y:1284
+//line plpgsql-gen.y:1277
 		{
 
 			sqlStr, _, err := plpgsqllex.(*lexer).ReadSqlExpr(',', ';')
@@ -2248,31 +2241,31 @@ plpgsqldefault:
 		}
 	case 144:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-1 : plpgsqlpt+1]
-//line plpgsql-gen.y:1315
+//line plpgsql-gen.y:1308
 		{
 			plpgsqlVAL.union.val = plpgsqlDollar[1].union.exprs()
 		}
 	case 145:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-0 : plpgsqlpt+1]
-//line plpgsql-gen.y:1319
+//line plpgsql-gen.y:1312
 		{
 			plpgsqlVAL.union.val = []plpgsqltree.Expr{}
 		}
 	case 146:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-1 : plpgsqlpt+1]
-//line plpgsql-gen.y:1326
+//line plpgsql-gen.y:1319
 		{
 			plpgsqlVAL.union.val = []plpgsqltree.Expr{plpgsqlDollar[1].union.expr()}
 		}
 	case 147:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-2 : plpgsqlpt+1]
-//line plpgsql-gen.y:1330
+//line plpgsql-gen.y:1323
 		{
 			plpgsqlVAL.union.val = append(plpgsqlDollar[1].union.exprs(), plpgsqlDollar[2].union.expr())
 		}
 	case 148:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-1 : plpgsqlpt+1]
-//line plpgsql-gen.y:1336
+//line plpgsql-gen.y:1329
 		{
 
 			sqlStr, _, err := plpgsqllex.(*lexer).ReadSqlExpr(',', ';', USING)
@@ -2287,13 +2280,13 @@ plpgsqldefault:
 		}
 	case 149:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-3 : plpgsqlpt+1]
-//line plpgsql-gen.y:1351
+//line plpgsql-gen.y:1344
 		{
 			plpgsqlVAL.union.val = &plpgsqltree.Assert{}
 		}
 	case 150:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-0 : plpgsqlpt+1]
-//line plpgsql-gen.y:1357
+//line plpgsql-gen.y:1350
 		{
 			_, terminator, err := plpgsqllex.(*lexer).ReadSqlExpr(',', ';')
 			if err != nil {
@@ -2308,13 +2301,13 @@ plpgsqldefault:
 		}
 	case 151:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-3 : plpgsqlpt+1]
-//line plpgsql-gen.y:1372
+//line plpgsql-gen.y:1365
 		{
 			plpgsqlVAL.union.val = plpgsqlDollar[1].union.statements()
 		}
 	case 152:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-1 : plpgsqlpt+1]
-//line plpgsql-gen.y:1378
+//line plpgsql-gen.y:1371
 		{
 			stmt, err := plpgsqllex.(*lexer).MakeExecSqlStmt()
 			if err != nil {
@@ -2324,7 +2317,7 @@ plpgsqldefault:
 		}
 	case 158:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-1 : plpgsqlpt+1]
-//line plpgsql-gen.y:1396
+//line plpgsql-gen.y:1389
 		{
 			stmt, err := plpgsqllex.(*lexer).MakeDynamicExecuteStmt()
 			if err != nil {
@@ -2334,19 +2327,19 @@ plpgsqldefault:
 		}
 	case 159:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-3 : plpgsqlpt+1]
-//line plpgsql-gen.y:1406
+//line plpgsql-gen.y:1399
 		{
 			plpgsqlVAL.union.val = &plpgsqltree.Open{CurVar: plpgsqltree.Variable(plpgsqlDollar[2].str)}
 		}
 	case 160:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-5 : plpgsqlpt+1]
-//line plpgsql-gen.y:1410
+//line plpgsql-gen.y:1403
 		{
 			return unimplemented(plpgsqllex, "cursor for execute")
 		}
 	case 161:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-6 : plpgsqlpt+1]
-//line plpgsql-gen.y:1414
+//line plpgsql-gen.y:1407
 		{
 			stmts, err := parser.Parse(plpgsqlDollar[5].str)
 			if err != nil {
@@ -2355,17 +2348,15 @@ plpgsqldefault:
 			if len(stmts) != 1 {
 				return setErr(plpgsqllex, errors.New("expected exactly one SQL statement for cursor"))
 			}
-			ann := tree.MakeAnnotations(stmts[0].NumAnnotations)
 			plpgsqlVAL.union.val = &plpgsqltree.Open{
-				CurVar:      plpgsqltree.Variable(plpgsqlDollar[2].str),
-				Scroll:      plpgsqlDollar[3].union.cursorScrollOption(),
-				Query:       stmts[0].AST,
-				Annotations: &ann,
+				CurVar: plpgsqltree.Variable(plpgsqlDollar[2].str),
+				Scroll: plpgsqlDollar[3].union.cursorScrollOption(),
+				Query:  stmts[0].AST,
 			}
 		}
 	case 162:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-1 : plpgsqlpt+1]
-//line plpgsql-gen.y:1433
+//line plpgsql-gen.y:1424
 		{
 			fetch, err := plpgsqllex.(*lexer).MakeFetchOrMoveStmt(false)
 			if err != nil {
@@ -2375,7 +2366,7 @@ plpgsqldefault:
 		}
 	case 163:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-1 : plpgsqlpt+1]
-//line plpgsql-gen.y:1443
+//line plpgsql-gen.y:1434
 		{
 			move, err := plpgsqllex.(*lexer).MakeFetchOrMoveStmt(true)
 			if err != nil {
@@ -2385,75 +2376,75 @@ plpgsqldefault:
 		}
 	case 164:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-3 : plpgsqlpt+1]
-//line plpgsql-gen.y:1453
+//line plpgsql-gen.y:1444
 		{
 			plpgsqlVAL.union.val = &plpgsqltree.Close{CurVar: plpgsqltree.Variable(plpgsqlDollar[2].str)}
 		}
 	case 165:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-2 : plpgsqlpt+1]
-//line plpgsql-gen.y:1459
+//line plpgsql-gen.y:1450
 		{
 			plpgsqlVAL.union.val = &plpgsqltree.Null{}
 		}
 	case 166:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-3 : plpgsqlpt+1]
-//line plpgsql-gen.y:1465
+//line plpgsql-gen.y:1456
 		{
 			plpgsqlVAL.union.val = &plpgsqltree.TransactionControl{Chain: plpgsqlDollar[2].union.bool()}
 		}
 	case 167:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-3 : plpgsqlpt+1]
-//line plpgsql-gen.y:1471
+//line plpgsql-gen.y:1462
 		{
 			plpgsqlVAL.union.val = &plpgsqltree.TransactionControl{Chain: plpgsqlDollar[2].union.bool(), Rollback: true}
 		}
 	case 168:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-2 : plpgsqlpt+1]
-//line plpgsql-gen.y:1478
+//line plpgsql-gen.y:1469
 		{
 			plpgsqlVAL.union.val = true
 		}
 	case 169:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-3 : plpgsqlpt+1]
-//line plpgsql-gen.y:1482
+//line plpgsql-gen.y:1473
 		{
 			plpgsqlVAL.union.val = false
 		}
 	case 170:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-0 : plpgsqlpt+1]
-//line plpgsql-gen.y:1486
+//line plpgsql-gen.y:1477
 		{
 			plpgsqlVAL.union.val = false
 		}
 	case 171:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-0 : plpgsqlpt+1]
-//line plpgsql-gen.y:1491
+//line plpgsql-gen.y:1482
 		{
 			plpgsqlVAL.union.val = []plpgsqltree.Exception(nil)
 		}
 	case 172:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-2 : plpgsqlpt+1]
-//line plpgsql-gen.y:1495
+//line plpgsql-gen.y:1486
 		{
 			plpgsqlVAL.union.val = plpgsqlDollar[2].union.exceptions()
 		}
 	case 173:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-2 : plpgsqlpt+1]
-//line plpgsql-gen.y:1501
+//line plpgsql-gen.y:1492
 		{
 			e := plpgsqlDollar[2].union.exception()
 			plpgsqlVAL.union.val = append(plpgsqlDollar[1].union.exceptions(), *e)
 		}
 	case 174:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-1 : plpgsqlpt+1]
-//line plpgsql-gen.y:1506
+//line plpgsql-gen.y:1497
 		{
 			e := plpgsqlDollar[1].union.exception()
 			plpgsqlVAL.union.val = []plpgsqltree.Exception{*e}
 		}
 	case 175:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-4 : plpgsqlpt+1]
-//line plpgsql-gen.y:1513
+//line plpgsql-gen.y:1504
 		{
 			plpgsqlVAL.union.val = &plpgsqltree.Exception{
 				Conditions: plpgsqlDollar[2].union.conditions(),
@@ -2462,33 +2453,33 @@ plpgsqldefault:
 		}
 	case 176:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-3 : plpgsqlpt+1]
-//line plpgsql-gen.y:1522
+//line plpgsql-gen.y:1513
 		{
 			c := plpgsqlDollar[3].union.condition()
 			plpgsqlVAL.union.val = append(plpgsqlDollar[1].union.conditions(), *c)
 		}
 	case 177:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-1 : plpgsqlpt+1]
-//line plpgsql-gen.y:1527
+//line plpgsql-gen.y:1518
 		{
 			c := plpgsqlDollar[1].union.condition()
 			plpgsqlVAL.union.val = []plpgsqltree.Condition{*c}
 		}
 	case 178:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-1 : plpgsqlpt+1]
-//line plpgsql-gen.y:1534
+//line plpgsql-gen.y:1525
 		{
 			plpgsqlVAL.union.val = &plpgsqltree.Condition{SqlErrName: plpgsqlDollar[1].str}
 		}
 	case 179:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-2 : plpgsqlpt+1]
-//line plpgsql-gen.y:1538
+//line plpgsql-gen.y:1529
 		{
 			plpgsqlVAL.union.val = &plpgsqltree.Condition{SqlErrState: plpgsqlDollar[2].str}
 		}
 	case 180:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-0 : plpgsqlpt+1]
-//line plpgsql-gen.y:1544
+//line plpgsql-gen.y:1535
 		{
 			sqlStr, _, err := plpgsqllex.(*lexer).ReadSqlExpr(';')
 			if err != nil {
@@ -2498,7 +2489,7 @@ plpgsqldefault:
 		}
 	case 181:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-0 : plpgsqlpt+1]
-//line plpgsql-gen.y:1554
+//line plpgsql-gen.y:1545
 		{
 			sqlStr, _, err := plpgsqllex.(*lexer).ReadSqlStatement(';')
 			if err != nil {
@@ -2508,7 +2499,7 @@ plpgsqldefault:
 		}
 	case 182:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-0 : plpgsqlpt+1]
-//line plpgsql-gen.y:1564
+//line plpgsql-gen.y:1555
 		{
 			sqlStr, _, err := plpgsqllex.(*lexer).ReadSqlExpr(THEN)
 			if err != nil {
@@ -2518,7 +2509,7 @@ plpgsqldefault:
 		}
 	case 183:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-0 : plpgsqlpt+1]
-//line plpgsql-gen.y:1574
+//line plpgsql-gen.y:1565
 		{
 			sqlStr, _, err := plpgsqllex.(*lexer).ReadSqlExpr(LOOP)
 			if err != nil {
@@ -2528,7 +2519,7 @@ plpgsqldefault:
 		}
 	case 184:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-0 : plpgsqlpt+1]
-//line plpgsql-gen.y:1584
+//line plpgsql-gen.y:1575
 		{
 			sqlStr, _, err := plpgsqllex.(*lexer).ReadSqlExpr(')')
 			if err != nil {
@@ -2538,48 +2529,48 @@ plpgsqldefault:
 		}
 	case 185:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-0 : plpgsqlpt+1]
-//line plpgsql-gen.y:1594
+//line plpgsql-gen.y:1585
 		{
 			plpgsqlVAL.str = ""
 		}
 	case 186:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-3 : plpgsqlpt+1]
-//line plpgsql-gen.y:1598
+//line plpgsql-gen.y:1589
 		{
 			plpgsqlVAL.str = plpgsqlDollar[2].str
 		}
 	case 187:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-0 : plpgsqlpt+1]
-//line plpgsql-gen.y:1604
+//line plpgsql-gen.y:1595
 		{
 			plpgsqlVAL.str = ""
 		}
 	case 188:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-3 : plpgsqlpt+1]
-//line plpgsql-gen.y:1608
+//line plpgsql-gen.y:1599
 		{
 			plpgsqlVAL.str = plpgsqlDollar[2].str
 		}
 	case 189:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-0 : plpgsqlpt+1]
-//line plpgsql-gen.y:1614
+//line plpgsql-gen.y:1605
 		{
 			plpgsqlVAL.str = ""
 		}
 	case 190:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-1 : plpgsqlpt+1]
-//line plpgsql-gen.y:1618
+//line plpgsql-gen.y:1609
 		{
 			plpgsqlVAL.str = plpgsqlDollar[1].str
 		}
 	case 191:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-1 : plpgsqlpt+1]
-//line plpgsql-gen.y:1624
+//line plpgsql-gen.y:1615
 		{
 		}
 	case 192:
 		plpgsqlDollar = plpgsqlS[plpgsqlpt-3 : plpgsqlpt+1]
-//line plpgsql-gen.y:1626
+//line plpgsql-gen.y:1617
 		{
 			expr, err := plpgsqllex.(*lexer).ParseExpr(plpgsqlDollar[2].str)
 			if err != nil {
