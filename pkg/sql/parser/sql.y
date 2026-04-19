@@ -929,6 +929,9 @@ func (u *sqlSymUnion) beginTransaction() *tree.BeginTransaction {
 func (u *sqlSymUnion) showFingerprintOptions() *tree.ShowFingerprintOptions {
     return u.val.(*tree.ShowFingerprintOptions)
 }
+func (u *sqlSymUnion) showHintsOptions() *tree.ShowHintsOptions {
+    return u.val.(*tree.ShowHintsOptions)
+}
 func (u *sqlSymUnion) logicalReplicationResources() tree.LogicalReplicationResources {
     return u.val.(tree.LogicalReplicationResources)
 }
@@ -965,12 +968,12 @@ func (u *sqlSymUnion) doBlockOptions() tree.DoBlockOptions {
 func (u *sqlSymUnion) doBlockOption() tree.DoBlockOption {
     return u.val.(tree.DoBlockOption)
 }
-func (u *sqlSymUnion) changefeedFilterOption() *tree.ChangefeedFilterOption {
-    if filterOption, ok := u.val.(*tree.ChangefeedFilterOption); ok {
-        return filterOption
-    }
-    return nil
-} 
+func (u *sqlSymUnion) changefeedFilterOption() tree.ChangefeedFilterOption {
+    return u.val.(tree.ChangefeedFilterOption)
+}
+func (u *sqlSymUnion) filterType() tree.FilterType {
+    return u.val.(tree.FilterType)
+}
 
 %}
 
@@ -1020,7 +1023,7 @@ func (u *sqlSymUnion) changefeedFilterOption() *tree.ChangefeedFilterOption {
 %token <str> EXPIRATION EXPLAIN EXPORT EXTENSION EXTERNAL EXTRACT EXTRACT_DURATION EXTREMES
 
 %token <str> FAILURE FALSE FAMILY FETCH FETCHVAL FETCHTEXT FETCHVAL_PATH FETCHTEXT_PATH
-%token <str> FILES FILTER
+%token <str> FILES FILTER FINGERPRINTS
 %token <str> FIRST FIRST_CONTAINED_BY FIRST_CONTAINS FLOAT FLOAT4 FLOAT8 FLOORDIV FOLLOWING FOR FORCE FORCE_INDEX
 %token <str> FORCE_INVERTED_INDEX FORCE_NOT_NULL FORCE_NULL FORCE_QUOTE FORCE_ZIGZAG
 %token <str> FOREIGN FORMAT FORWARD FREEZE FROM FULL FUNCTION FUNCTIONS
@@ -1029,7 +1032,7 @@ func (u *sqlSymUnion) changefeedFilterOption() *tree.ChangefeedFilterOption {
 %token <str> GEOMETRYCOLLECTION GEOMETRYCOLLECTIONM GEOMETRYCOLLECTIONZ GEOMETRYCOLLECTIONZM
 %token <str> GLOBAL GOAL GRANT GRANTEE GRANTS GREATEST GROUP GROUPING GROUPS
 
-%token <str> HAVING HASH HEADER HIGH HISTOGRAM HOLD HOUR
+%token <str> HAVING HASH HEADER HIGH HINTS HISTOGRAM HOLD HOUR
 
 %token <str> IDENTITY
 %token <str> IF IFERROR IFNULL IGNORE_FOREIGN_KEYS ILIKE IMMEDIATE IMMEDIATELY IMMUTABLE IMPORT IN INCLUDE
@@ -1074,7 +1077,7 @@ func (u *sqlSymUnion) changefeedFilterOption() *tree.ChangefeedFilterOption {
 %token <str> RANGE RANGES READ REAL REASON REASSIGN RECURSIVE RECURRING REDACT REF REFERENCES REFERENCING REFRESH
 %token <str> REGCLASS REGION REGIONAL REGIONS REGNAMESPACE REGPROC REGPROCEDURE REGROLE REGTYPE REINDEX
 %token <str> RELATIVE RELOCATE REMOVE_PATH REMOVE_REGIONS RENAME REPEATABLE REPLACE REPLICATED REPLICATION
-%token <str> RELEASE RESET RESTART RESTORE RESTRICT RESTRICTED RESTRICTIVE RESUME RETENTION RETURNING RETURN RETURNS REVISION_HISTORY
+%token <str> RELEASE RESET RESOLVED RESTART RESTORE RESTRICT RESTRICTED RESTRICTIVE RESUME RETENTION RETURNING RETURN RETURNS REVISION_HISTORY
 %token <str> REVOKE RIGHT ROLE ROLES ROLLBACK ROLLUP ROUTINES ROW ROWS RSHIFT RULE RUN RUNNING
 
 %token <str> SAVEPOINT SCANS SCATTER SCHEDULE SCHEDULES SCROLL SCHEMA SCHEMA_ONLY SCHEMAS SCRUB
@@ -1099,7 +1102,7 @@ func (u *sqlSymUnion) changefeedFilterOption() *tree.ChangefeedFilterOption {
 %token <str> VIEWCLUSTERSETTING VIRTUAL VISIBLE INVISIBLE VISIBILITY VOLATILE VOTERS
 %token <str> VIRTUAL_CLUSTER_NAME VIRTUAL_CLUSTER
 
-%token <str> WHEN WHERE WINDOW WITH WITHIN WITHOUT WORK WRITE
+%token <str> WATCHED_TABLES WHEN WHERE WINDOW WITH WITHIN WITHOUT WORK WRITE
 
 %token <str> YEAR
 
@@ -1127,6 +1130,7 @@ func (u *sqlSymUnion) changefeedFilterOption() *tree.ChangefeedFilterOption {
 %token NOT_LA NULLS_LA WITH_LA AS_LA GENERATED_ALWAYS GENERATED_BY_DEFAULT RESET_ALL ROLE_ALL
 %token USER_ALL ON_LA TENANT_ALL CLUSTER_ALL SET_TRACING CREATE_CHANGEFEED_FOR_DATABASE FOR_TABLE
 %token FOR_JOB
+%token EXECUTE_SCHEDULE EXECUTE_SCHEDULES
 
 %union {
   id    int32
@@ -1364,6 +1368,7 @@ func (u *sqlSymUnion) changefeedFilterOption() *tree.ChangefeedFilterOption {
 %type <tree.Statement> reset_stmt reset_session_stmt reset_csetting_stmt
 %type <tree.Statement> resume_stmt resume_jobs_stmt resume_schedules_stmt resume_all_jobs_stmt
 %type <tree.Statement> drop_schedule_stmt
+%type <tree.Statement> execute_schedules_stmt
 %type <tree.Statement> restore_stmt
 %type <tree.StringOrPlaceholderOptList> string_or_placeholder_opt_list
 %type <tree.Statement> revoke_stmt
@@ -1403,6 +1408,8 @@ func (u *sqlSymUnion) changefeedFilterOption() *tree.ChangefeedFilterOption {
 %type <tree.Statement> show_enums_stmt
 %type <tree.Statement> show_external_connections_stmt
 %type <tree.Statement> show_fingerprints_stmt opt_with_show_fingerprints_options fingerprint_options_list fingerprint_options
+%type <tree.Statement> show_statement_hints_stmt opt_with_show_hints_options show_hints_options_list show_hints_options
+%type <bool> experimental_or_not_fingerprints
 %type <tree.Statement> show_functions_stmt
 %type <tree.Statement> show_procedures_stmt
 %type <tree.Statement> show_grants_stmt
@@ -1610,7 +1617,8 @@ func (u *sqlSymUnion) changefeedFilterOption() *tree.ChangefeedFilterOption {
 %type <tree.ReturningClause> returning_clause
 %type <tree.TableExprs> opt_using_clause
 %type <tree.RefreshDataOption> opt_clear_data
-%type <*tree.ChangefeedFilterOption> db_level_changefeed_filter_option
+%type <tree.ChangefeedFilterOption> db_level_changefeed_filter_option optional_db_level_changefeed_filter_option
+%type <tree.FilterType> include_or_exclude
 
 %type <tree.BatchParam> batch_param
 %type <[]tree.BatchParam> batch_param_list
@@ -3210,7 +3218,7 @@ identity_option_elem:
   | SET INCREMENT signed_iconst64    { x := $3.int64()
                                   $$.val = tree.SequenceOption{Name: tree.SeqOptIncrement, IntVal: &x} }
   | SET INCREMENT BY signed_iconst64 { x := $4.int64()
-                                  $$.val = tree.SequenceOption{Name: tree.SeqOptIncrement, IntVal: &x, OptionalWord: true} }
+                                  $$.val = tree.SequenceOption{Name: tree.SeqOptIncrement, IntVal: &x} }
   | SET MINVALUE signed_iconst64     { x := $3.int64()
                                   $$.val = tree.SequenceOption{Name: tree.SeqOptMinValue, IntVal: &x} }
   | SET NO MINVALUE                  { $$.val = tree.SequenceOption{Name: tree.SeqOptMinValue} }
@@ -3220,12 +3228,12 @@ identity_option_elem:
   | SET START signed_iconst64        { x := $3.int64()
                                   $$.val = tree.SequenceOption{Name: tree.SeqOptStart, IntVal: &x} }
   | SET START WITH signed_iconst64   { x := $4.int64()
-                                  $$.val = tree.SequenceOption{Name: tree.SeqOptStart, IntVal: &x, OptionalWord: true} }
+                                  $$.val = tree.SequenceOption{Name: tree.SeqOptStart, IntVal: &x} }
   | RESTART                      { $$.val = tree.SequenceOption{Name: tree.SeqOptRestart} }
   | RESTART signed_iconst64      { x := $2.int64()
                                   $$.val = tree.SequenceOption{Name: tree.SeqOptRestart, IntVal: &x} }
   | RESTART WITH signed_iconst64 { x := $3.int64()
-                                  $$.val = tree.SequenceOption{Name: tree.SeqOptRestart, IntVal: &x, OptionalWord: true} }
+                                  $$.val = tree.SequenceOption{Name: tree.SeqOptRestart, IntVal: &x} }
   | SET sequence_option_elem error                      { return setErr(sqllex, errors.Newf("sequence option \"%s\" not supported here", $2.seqOpt().Name)) }
 
 identity_option_list:
@@ -3598,6 +3606,10 @@ backup_options:
 | UPDATES_CLUSTER_MONITORING_METRICS '=' a_expr
   {
     $$.val = &tree.BackupOptions{UpdatesClusterMonitoringMetrics: $3.expr()}
+  }
+| STRICT STORAGE LOCALITY
+  {
+    $$.val = &tree.BackupOptions{Strict: true}
   }
 
 include_all_clusters:
@@ -6276,7 +6288,7 @@ create_changefeed_stmt:
       Level: tree.ChangefeedLevelTable,
     }
   }
-| CREATE_CHANGEFEED_FOR_DATABASE CHANGEFEED FOR DATABASE database_name db_level_changefeed_filter_option opt_changefeed_sink opt_with_options
+| CREATE_CHANGEFEED_FOR_DATABASE CHANGEFEED FOR DATABASE database_name optional_db_level_changefeed_filter_option opt_changefeed_sink opt_with_options
   {
     $$.val = &tree.CreateChangefeed{
       DatabaseTarget: tree.ChangefeedDatabaseTarget($5),
@@ -6507,20 +6519,25 @@ opt_using_clause:
     $$.val = tree.TableExprs{}
   }
 
+optional_db_level_changefeed_filter_option:
+  db_level_changefeed_filter_option
+  {
+    $$.val = $1.changefeedFilterOption()
+  }
+| /* EMPTY */
+  {
+    $$.val = tree.ChangefeedFilterOption{}
+  }
+
 db_level_changefeed_filter_option:
   EXCLUDE TABLES table_name_list
   {
-    $$.val = &tree.ChangefeedFilterOption{Tables: $3.tableNames(), FilterType: tree.ExcludeFilter}
+    $$.val = tree.ChangefeedFilterOption{Tables: $3.tableNames(), FilterType: tree.ExcludeFilter}
   }
 | INCLUDE TABLES table_name_list
   {
-    $$.val = &tree.ChangefeedFilterOption{Tables: $3.tableNames(), FilterType: tree.IncludeFilter}
+    $$.val = tree.ChangefeedFilterOption{Tables: $3.tableNames(), FilterType: tree.IncludeFilter}
   }
-| /* EMPTY */ 
-  {
-    $$.val = nil
-  }
-
 
 // %Help: DISCARD - reset the session to its initial state
 // %Category: Cfg
@@ -6927,6 +6944,7 @@ preparable_stmt:
 | drop_stmt      // help texts in sub-rule
 | explain_stmt   // EXTEND WITH HELP: EXPLAIN
 | import_stmt    // EXTEND WITH HELP: IMPORT
+| execute_schedules_stmt // EXTEND WITH HELP: EXECUTE SCHEDULES
 | insert_stmt    // EXTEND WITH HELP: INSERT
 | inspect_stmt   // EXTEND WITH HELP: INSPECT
 | pause_stmt     // help texts in sub-rule
@@ -7046,6 +7064,31 @@ alter_changefeed_cmd:
     $$.val = &tree.AlterChangefeedUnsetOptions{
       Options: $2.nameList(),
     }
+  }
+| SET db_level_changefeed_filter_option
+  {
+    $$.val = &tree.AlterChangefeedSetFilterOption{
+      ChangefeedFilterOption: $2.changefeedFilterOption(),
+    }
+  }
+| UNSET include_or_exclude TABLES
+  {
+    $$.val = &tree.AlterChangefeedUnsetFilterOption{
+      ChangefeedFilterOption: tree.ChangefeedFilterOption{
+        FilterType: $2.filterType(),
+        Tables:     tree.TableNames{},
+      },
+    }
+  }
+
+include_or_exclude:
+  INCLUDE
+  {
+    $$.val = tree.IncludeFilter
+  }
+  | EXCLUDE
+  {
+    $$.val = tree.ExcludeFilter
   }
 
 // %Help: ALTER BACKUP - alter an existing backup's encryption keys
@@ -7942,6 +7985,18 @@ inspect_option:
   {
     $$.val = &tree.InspectOptionIndex{IndexNames: $3.newTableIndexNames()}
   }
+| DETACHED
+  {
+    $$.val = &tree.InspectOptionDetached{Detached: *tree.MakeDBool(true)}
+  }
+| DETACHED '=' TRUE
+  {
+    $$.val = &tree.InspectOptionDetached{Detached: *tree.MakeDBool(true)}
+  }
+| DETACHED '=' FALSE
+  {
+    $$.val = &tree.InspectOptionDetached{Detached: *tree.MakeDBool(false)}
+  }
 
 // %Help: SHOW INSPECT ERRORS - list errors recorded by one INSPECT run
 // %Category: Misc
@@ -7952,7 +8007,7 @@ inspect_option:
 //   [WITH DETAILS]
 //
 // When table is specified errors will be filtered to that table. When job is
-// not set results from the most recent, completed job with errors is reported on. 
+// not set results from the most recent, completed job with errors is reported on.
 // %SeeAlso: INSPECT
 show_inspect_errors_stmt:
   SHOW INSPECT ERRORS opt_for_table_clause opt_for_job_clause opt_with_details
@@ -8608,6 +8663,7 @@ show_stmt:
 | SHOW error                 // SHOW HELP: SHOW
 | show_last_query_stats_stmt
 | show_full_scans_stmt
+| show_statement_hints_stmt
 | show_default_privileges_stmt // EXTEND WITH HELP: SHOW DEFAULT PRIVILEGES
 | show_completions_stmt
 | show_inspect_errors_stmt // EXTEND WITH HELP: SHOW INSPECT ERRORS
@@ -9498,6 +9554,10 @@ show_jobs_stmt:
   {
     $$.val = &tree.ShowChangefeedJobs{}
   }
+| SHOW CHANGEFEED JOBS WITH WATCHED_TABLES
+  {
+    $$.val = &tree.ShowChangefeedJobs{IncludeWatchedTables: true}
+  }
 | SHOW AUTOMATIC JOBS error // SHOW HELP: SHOW JOBS
 | SHOW JOBS error // SHOW HELP: SHOW JOBS
 | SHOW CHANGEFEED JOBS error // SHOW HELP: SHOW JOBS
@@ -9524,6 +9584,13 @@ show_jobs_stmt:
   {
     $$.val = &tree.ShowChangefeedJobs{Jobs: $4.slct()}
   }
+| SHOW CHANGEFEED JOBS select_stmt WITH WATCHED_TABLES
+  {
+    $$.val = &tree.ShowChangefeedJobs{
+      Jobs: $4.slct(),
+      IncludeWatchedTables: true,
+    }
+  }
 | SHOW JOBS select_stmt error // SHOW HELP: SHOW JOBS
 | SHOW JOB a_expr
   {
@@ -9548,6 +9615,15 @@ show_jobs_stmt:
       Jobs: &tree.Select{
         Select: &tree.ValuesClause{Rows: []tree.Exprs{tree.Exprs{$4.expr()}}},
       },
+    }
+  }
+| SHOW CHANGEFEED JOB a_expr WITH WATCHED_TABLES
+  {
+    $$.val = &tree.ShowChangefeedJobs{
+      Jobs: &tree.Select{
+        Select: &tree.ValuesClause{Rows: []tree.Exprs{tree.Exprs{$4.expr()}}},
+      },
+      IncludeWatchedTables: true,
     }
   }
 | SHOW JOB WHEN COMPLETE a_expr
@@ -9584,13 +9660,19 @@ show_job_options:
       ExecutionDetails: true,
     }
   }
+| RESOLVED TIMESTAMP
+  {
+    $$.val = &tree.ShowJobOptions{
+      ResolvedTimestamp: true,
+    }
+  }
 
 // %Help: SHOW SCHEDULES - list periodic schedules
 // %Category: Misc
 // %Text:
 // SHOW [RUNNING | PAUSED] SCHEDULES [FOR BACKUP]
 // SHOW SCHEDULE <schedule_id>
-// %SeeAlso: PAUSE SCHEDULES, RESUME SCHEDULES, DROP SCHEDULES
+// %SeeAlso: PAUSE SCHEDULES, RESUME SCHEDULES, DROP SCHEDULES, EXECUTE SCHEDULES
 show_schedules_stmt:
   SHOW SCHEDULES opt_schedule_executor_type
   {
@@ -10046,7 +10128,7 @@ opt_show_create_format_options:
 // %Text:
 // SHOW CREATE ALL SCHEDULES
 // SHOW CREATE SCHEDULE <schedule_id>
-// %SeeAlso: SHOW SCHEDULES, PAUSE SCHEDULES, RESUME SCHEDULES, DROP SCHEDULES
+// %SeeAlso: SHOW SCHEDULES, PAUSE SCHEDULES, RESUME SCHEDULES, DROP SCHEDULES, EXECUTE SCHEDULES
 show_create_schedules_stmt:
   SHOW CREATE ALL SCHEDULES
   {
@@ -10375,15 +10457,33 @@ show_locality_stmt:
   }
 
 show_fingerprints_stmt:
-  SHOW EXPERIMENTAL_FINGERPRINTS FROM TABLE table_name opt_with_show_fingerprints_options
+  SHOW experimental_or_not_fingerprints FROM TABLE table_name opt_with_show_fingerprints_options
   {
     /* SKIP DOC */
-    $$.val = &tree.ShowFingerprints{Table: $5.unresolvedObjectName(), Options: *$6.showFingerprintOptions()}
+    $$.val = &tree.ShowFingerprints{
+                Table: $5.unresolvedObjectName(),
+                Experimental: $2.bool(),
+                Options: *$6.showFingerprintOptions(),
+             }
   }
-| SHOW EXPERIMENTAL_FINGERPRINTS FROM virtual_cluster virtual_cluster_spec opt_with_show_fingerprints_options
+| SHOW experimental_or_not_fingerprints FROM virtual_cluster virtual_cluster_spec opt_with_show_fingerprints_options
   {
     /* SKIP DOC */
-    $$.val = &tree.ShowFingerprints{TenantSpec: $5.tenantSpec(), Options: *$6.showFingerprintOptions()}
+    $$.val = &tree.ShowFingerprints{
+                TenantSpec: $5.tenantSpec(),
+                Experimental: $2.bool(),
+                Options: *$6.showFingerprintOptions(),
+             }
+  }
+
+experimental_or_not_fingerprints:
+  EXPERIMENTAL_FINGERPRINTS
+  {
+    $$.val = true
+  }
+| FINGERPRINTS
+  {
+    $$.val = false
   }
 
 opt_with_show_fingerprints_options:
@@ -10413,7 +10513,7 @@ fingerprint_options_list:
     }
   }
 
-// List of valid backup options.
+// List of valid SHOW FINGERPRINTS options.
 fingerprint_options:
   START TIMESTAMP '=' d_expr
   {
@@ -10424,7 +10524,63 @@ fingerprint_options:
     $$.val = &tree.ShowFingerprintOptions{ExcludedUserColumns: $4.stringOrPlaceholderOptList()}
   }
 
+// %Help: SHOW STATEMENT HINTS - list statement hints for a fingerprint
+// %Category: Misc
+// %Text:
+// SHOW STATEMENT HINTS FOR <string>
+// SHOW STATEMENT HINTS WITH DETAILS FOR <string>
+//
+// Shows statement hints stored in system.statement_hints for the given
+// query string (which may be a string literal, dollar-quoted string, or
+// expression). WITH DETAILS includes decoded hint-specific information.
+//
+// Examples:
+//   SHOW STATEMENT HINTS FOR 'SELECT * FROM t WHERE x = 1'
+//   SHOW STATEMENT HINTS FOR $$ SELECT * FROM t WHERE x = 'value' $$
+//   SHOW STATEMENT HINTS FOR $1
+show_statement_hints_stmt:
+  SHOW STATEMENT HINTS FOR string_or_placeholder opt_with_show_hints_options
+  {
+    $$.val = &tree.ShowStatementHints{
+      Expr: $5.expr(),
+      Options: *$6.showHintsOptions(),
+    }
+  }
+| SHOW STATEMENT HINTS error // SHOW HELP: SHOW STATEMENT HINTS
 
+opt_with_show_hints_options:
+  WITH show_hints_options_list
+  {
+    $$.val = $2.showHintsOptions()
+  }
+| WITH OPTIONS '(' show_hints_options_list ')'
+  {
+    $$.val = $4.showHintsOptions()
+  }
+| /* EMPTY */
+  {
+    $$.val = &tree.ShowHintsOptions{}
+  }
+
+show_hints_options_list:
+  // Require at least one option
+  show_hints_options
+  {
+    $$.val = $1.showHintsOptions()
+  }
+| show_hints_options_list ',' show_hints_options
+  {
+    if err := $1.showHintsOptions().CombineWith($3.showHintsOptions()); err != nil {
+      return setErr(sqllex, err)
+    }
+  }
+
+// List of valid SHOW HINTS options.
+show_hints_options:
+  DETAILS
+  {
+    $$.val = &tree.ShowHintsOptions{Details: true}
+  }
 
 show_full_scans_stmt:
   SHOW FULL TABLE SCANS
@@ -10821,7 +10977,7 @@ for_schedules_clause:
 // PAUSE SCHEDULES <selectclause>
 //   select clause: select statement returning schedule id to pause.
 // PAUSE SCHEDULE <scheduleID>
-// %SeeAlso: RESUME SCHEDULES, SHOW JOBS, CANCEL JOBS
+// %SeeAlso: RESUME SCHEDULES, EXECUTE SCHEDULES, SHOW JOBS, CANCEL JOBS
 pause_schedules_stmt:
   PAUSE SCHEDULE a_expr
   {
@@ -12022,7 +12178,7 @@ sequence_option_elem:
 | INCREMENT signed_iconst64    { x := $2.int64()
                                  $$.val = tree.SequenceOption{Name: tree.SeqOptIncrement, IntVal: &x} }
 | INCREMENT BY signed_iconst64 { x := $3.int64()
-                                 $$.val = tree.SequenceOption{Name: tree.SeqOptIncrement, IntVal: &x, OptionalWord: true} }
+                                 $$.val = tree.SequenceOption{Name: tree.SeqOptIncrement, IntVal: &x} }
 | MINVALUE signed_iconst64     { x := $2.int64()
                                  $$.val = tree.SequenceOption{Name: tree.SeqOptMinValue, IntVal: &x} }
 | NO MINVALUE                  { $$.val = tree.SequenceOption{Name: tree.SeqOptMinValue} }
@@ -12032,12 +12188,12 @@ sequence_option_elem:
 | START signed_iconst64        { x := $2.int64()
                                  $$.val = tree.SequenceOption{Name: tree.SeqOptStart, IntVal: &x} }
 | START WITH signed_iconst64   { x := $3.int64()
-                                 $$.val = tree.SequenceOption{Name: tree.SeqOptStart, IntVal: &x, OptionalWord: true} }
+                                 $$.val = tree.SequenceOption{Name: tree.SeqOptStart, IntVal: &x} }
 | RESTART                      { $$.val = tree.SequenceOption{Name: tree.SeqOptRestart} }
 | RESTART signed_iconst64      { x := $2.int64()
                                  $$.val = tree.SequenceOption{Name: tree.SeqOptRestart, IntVal: &x} }
 | RESTART WITH signed_iconst64 { x := $3.int64()
-                                 $$.val = tree.SequenceOption{Name: tree.SeqOptRestart, IntVal: &x, OptionalWord: true} }
+                                 $$.val = tree.SequenceOption{Name: tree.SeqOptRestart, IntVal: &x} }
 
 | VIRTUAL                      { $$.val = tree.SequenceOption{Name: tree.SeqOptVirtual} }
 
@@ -12549,7 +12705,7 @@ opt_composite_type_list:
   }
 
 composite_type_list:
-  name simple_typename
+  name typename
   {
     $$.val = []tree.CompositeTypeElem{
         tree.CompositeTypeElem{
@@ -12558,7 +12714,7 @@ composite_type_list:
         },
     }
   }
-| composite_type_list ',' name simple_typename
+| composite_type_list ',' name typename
   {
     $$.val = append($1.compositeTypeList(),
         tree.CompositeTypeElem{
@@ -13382,7 +13538,7 @@ resume_jobs_stmt:
 //
 // RESUME SCHEDULE <scheduleID>
 //
-// %SeeAlso: PAUSE SCHEDULES, SHOW JOBS, RESUME JOBS
+// %SeeAlso: PAUSE SCHEDULES, EXECUTE SCHEDULES, SHOW JOBS, RESUME JOBS
 resume_schedules_stmt:
   RESUME SCHEDULE a_expr
   {
@@ -13411,7 +13567,7 @@ resume_schedules_stmt:
 //
 // DROP SCHEDULE <scheduleID>
 //
-// %SeeAlso: PAUSE SCHEDULES, SHOW JOBS, CANCEL JOBS
+// %SeeAlso: PAUSE SCHEDULES, EXECUTE SCHEDULES, SHOW JOBS, CANCEL JOBS
 drop_schedule_stmt:
   DROP SCHEDULE a_expr
   {
@@ -13431,6 +13587,35 @@ drop_schedule_stmt:
     }
   }
 | DROP SCHEDULES error // SHOW HELP: DROP SCHEDULES
+
+// %Help: EXECUTE SCHEDULES - execute scheduled jobs immediately
+// %Category: Misc
+// %Text:
+// EXECUTE SCHEDULES <selectclause>
+//  selectclause: select statement returning schedule IDs to execute.
+//
+// EXECUTE SCHEDULE <scheduleID>
+//
+// %SeeAlso: PAUSE SCHEDULES, RESUME SCHEDULES, DROP SCHEDULES, SHOW JOBS
+execute_schedules_stmt:
+  EXECUTE_SCHEDULE SCHEDULE a_expr
+  {
+    $$.val = &tree.ControlSchedules{
+      Schedules: &tree.Select{
+        Select: &tree.ValuesClause{Rows: []tree.Exprs{tree.Exprs{$3.expr()}}},
+      },
+      Command: tree.ExecuteSchedule,
+    }
+  }
+| EXECUTE_SCHEDULE error // SHOW HELP: EXECUTE SCHEDULES
+| EXECUTE_SCHEDULES SCHEDULES select_stmt
+  {
+    $$.val = &tree.ControlSchedules{
+      Schedules: $3.slct(),
+      Command: tree.ExecuteSchedule,
+    }
+  }
+| EXECUTE_SCHEDULES error // SHOW HELP: EXECUTE SCHEDULES
 
 // %Help: SAVEPOINT - start a sub-transaction
 // %Category: Txn
@@ -18575,6 +18760,7 @@ unreserved_keyword:
 | FAILURE
 | FILES
 | FILTER
+| FINGERPRINTS
 | FIRST
 | FOLLOWING
 | FORMAT
@@ -18605,6 +18791,7 @@ unreserved_keyword:
 | HASH
 | HEADER
 | HIGH
+| HINTS
 | HISTOGRAM
 | HOLD
 | HOUR
@@ -18796,6 +18983,7 @@ unreserved_keyword:
 | REPLICATED
 | REPLICATION
 | RESET
+| RESOLVED
 | RESTART
 | RESTORE
 | RESTRICT
@@ -18939,6 +19127,7 @@ unreserved_keyword:
 | VISIBILITY
 | VOLATILE
 | VOTERS
+| WATCHED_TABLES
 | WITHIN
 | WITHOUT
 | WRITE
@@ -19115,6 +19304,7 @@ bare_label_keywords:
 | FALSE
 | FAMILY
 | FILES
+| FINGERPRINTS
 | FIRST
 | FLOAT
 | FOLLOWING
@@ -19152,6 +19342,7 @@ bare_label_keywords:
 | HASH
 | HEADER
 | HIGH
+| HINTS
 | HISTOGRAM
 | HOLD
 | IDENTITY
@@ -19382,6 +19573,7 @@ bare_label_keywords:
 | REPLICATED
 | REPLICATION
 | RESET
+| RESOLVED
 | RESTART
 | RESTORE
 | RESTRICT
@@ -19553,6 +19745,7 @@ bare_label_keywords:
 | VISIBILITY
 | VOLATILE
 | VOTERS
+| WATCHED_TABLES
 | WHEN
 | WORK
 | WRITE

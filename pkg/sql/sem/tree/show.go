@@ -538,16 +538,25 @@ type ShowJobOptions struct {
 	// execution. These details will provide improved observability into the
 	// execution of the job.
 	ExecutionDetails bool
+	// ResolvedTimestamp, if true, will render the resolved timestamp of the job.
+	ResolvedTimestamp bool
 }
 
 func (s *ShowJobOptions) Format(ctx *FmtCtx) {
 	if s.ExecutionDetails {
 		ctx.WriteString(" EXECUTION DETAILS")
 	}
+	if s.ResolvedTimestamp {
+		if s.ExecutionDetails {
+			ctx.WriteString(",")
+		}
+		ctx.WriteString(" RESOLVED TIMESTAMP")
+	}
 }
 
 func (s *ShowJobOptions) CombineWith(other *ShowJobOptions) error {
-	s.ExecutionDetails = other.ExecutionDetails
+	s.ExecutionDetails = s.ExecutionDetails || other.ExecutionDetails
+	s.ResolvedTimestamp = s.ResolvedTimestamp || other.ResolvedTimestamp
 	return nil
 }
 
@@ -557,6 +566,9 @@ var _ NodeFormatter = &ShowJobOptions{}
 type ShowChangefeedJobs struct {
 	// If non-nil, a select statement that provides the job ids to be shown.
 	Jobs *Select
+
+	// If true, include full table names in the output.
+	IncludeWatchedTables bool
 }
 
 // Format implements the NodeFormatter interface.
@@ -565,6 +577,9 @@ func (node *ShowChangefeedJobs) Format(ctx *FmtCtx) {
 	if node.Jobs != nil {
 		ctx.WriteString(" ")
 		ctx.FormatNode(node.Jobs)
+	}
+	if node.IncludeWatchedTables {
+		ctx.WriteString(" WITH WATCHED_TABLES")
 	}
 }
 
@@ -1151,19 +1166,25 @@ func (node *ShowRangeForRow) Format(ctx *FmtCtx) {
 
 // ShowFingerprints represents a SHOW EXPERIMENTAL_FINGERPRINTS statement.
 type ShowFingerprints struct {
-	TenantSpec *TenantSpec
-	Table      *UnresolvedObjectName
+	TenantSpec   *TenantSpec
+	Table        *UnresolvedObjectName
+	Experimental bool
 
 	Options ShowFingerprintOptions
 }
 
 // Format implements the NodeFormatter interface.
 func (node *ShowFingerprints) Format(ctx *FmtCtx) {
+	if node.Experimental {
+		ctx.WriteString("SHOW EXPERIMENTAL_FINGERPRINTS ")
+	} else {
+		ctx.WriteString("SHOW FINGERPRINTS ")
+	}
 	if node.Table != nil {
-		ctx.WriteString("SHOW EXPERIMENTAL_FINGERPRINTS FROM TABLE ")
+		ctx.WriteString("FROM TABLE ")
 		ctx.FormatNode(node.Table)
 	} else {
-		ctx.WriteString("SHOW EXPERIMENTAL_FINGERPRINTS FROM VIRTUAL CLUSTER ")
+		ctx.WriteString("FROM VIRTUAL CLUSTER ")
 		ctx.FormatNode(node.TenantSpec)
 	}
 
@@ -1232,6 +1253,54 @@ func (s *ShowFingerprintOptions) CombineWith(other *ShowFingerprintOptions) erro
 func (s ShowFingerprintOptions) IsDefault() bool {
 	options := ShowFingerprintOptions{}
 	return s.StartTimestamp == options.StartTimestamp && cmp.Equal(s.ExcludedUserColumns, options.ExcludedUserColumns)
+}
+
+var _ NodeFormatter = &ShowFingerprintOptions{}
+
+// ShowStatementHints represents a SHOW STATEMENT HINTS statement.
+type ShowStatementHints struct {
+	Expr    Expr
+	Options ShowHintsOptions
+}
+
+var _ Statement = &ShowStatementHints{}
+
+// Format implements the NodeFormatter interface.
+func (n *ShowStatementHints) Format(ctx *FmtCtx) {
+	ctx.WriteString("SHOW STATEMENT HINTS FOR ")
+	ctx.FormatNode(n.Expr)
+	if !n.Options.IsDefault() {
+		ctx.WriteString(" WITH OPTIONS (")
+		ctx.FormatNode(&n.Options)
+		ctx.WriteString(")")
+	}
+}
+
+// ShowHintsOptions describes options for the SHOW STATEMENT HINTS execution.
+type ShowHintsOptions struct {
+	Details bool
+}
+
+func (s *ShowHintsOptions) Format(ctx *FmtCtx) {
+	if s.Details {
+		ctx.WriteString("DETAILS")
+	}
+}
+
+// CombineWith merges other ShowHintsOptions into this struct.
+func (s *ShowHintsOptions) CombineWith(other *ShowHintsOptions) error {
+	if other.Details {
+		if s.Details {
+			return errors.New("DETAILS option specified multiple times")
+		}
+		s.Details = true
+	}
+	return nil
+}
+
+// IsDefault returns true if this backup options struct has default value.
+func (s ShowHintsOptions) IsDefault() bool {
+	return s == ShowHintsOptions{}
 }
 
 var _ NodeFormatter = &ShowFingerprintOptions{}
