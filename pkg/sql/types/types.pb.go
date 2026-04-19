@@ -157,7 +157,7 @@ const (
 	// for various character-based operations such as sorting, pattern matching,
 	// and builtin functions like lower and upper.
 	//
-	//   Oid      : T_text, T_varchar, T_bpchar, T_char
+	//   Oid      : T_text, T_varchar, T_bpchar, T_char, T_citext
 	//   Width    : max # characters (0 = no specified limit)
 	//   Locale   : name of locale (e.g. EN or DE)
 	//

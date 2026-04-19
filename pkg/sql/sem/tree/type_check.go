@@ -16,7 +16,6 @@ import (
 	"github.com/cockroachdb/cockroachdb-parser/pkg/sql/sem/tree/treecmp"
 	"github.com/cockroachdb/cockroachdb-parser/pkg/sql/sem/volatility"
 	"github.com/cockroachdb/cockroachdb-parser/pkg/sql/types"
-	"github.com/cockroachdb/cockroachdb-parser/pkg/util/buildutil"
 	"github.com/cockroachdb/cockroachdb-parser/pkg/util/collatedstring"
 	"github.com/cockroachdb/cockroachdb-parser/pkg/util/duration"
 	"github.com/cockroachdb/cockroachdb-parser/pkg/util/errorutil/unimplemented"
@@ -79,13 +78,6 @@ type SemaContext struct {
 	// UsePre_25_2VariadicBuiltins is set to true when we should use the pre-25.2
 	// variadic builtins behavior.
 	UsePre_25_2VariadicBuiltins bool
-
-	// TestingKnobs only has effect under buildutil.CrdbTestBuild.
-	TestingKnobs struct {
-		// DisallowAlwaysNullShortCut, if set, disables short-circuiting logic
-		// for "always NULL" case during type checking.
-		DisallowAlwaysNullShortCut bool
-	}
 }
 
 // SemaProperties is a holder for required and derived properties
@@ -2378,12 +2370,9 @@ func typeCheckComparisonOpWithSubOperator(
 		rightTyped = array
 		cmpTypeRight = retType
 
-		// Return early without looking up a CmpOp if the comparison type is types.Null
-		// (unless the short-cut is disabled in tests).
-		if !buildutil.CrdbTestBuild || semaCtx == nil || !semaCtx.TestingKnobs.DisallowAlwaysNullShortCut {
-			if leftTyped.ResolvedType().Family() == types.UnknownFamily || retType.Family() == types.UnknownFamily {
-				return leftTyped, rightTyped, nil, true /* alwaysNull */, nil
-			}
+		// Return early without looking up a CmpOp if the comparison type is types.Null.
+		if leftTyped.ResolvedType().Family() == types.UnknownFamily || retType.Family() == types.UnknownFamily {
+			return leftTyped, rightTyped, nil, true /* alwaysNull */, nil
 		}
 	} else {
 		// If the right expression is not an array constructor, we type the left
@@ -2414,10 +2403,8 @@ func typeCheckComparisonOpWithSubOperator(
 		}
 
 		rightReturn := rightTyped.ResolvedType()
-		if !buildutil.CrdbTestBuild || semaCtx == nil || !semaCtx.TestingKnobs.DisallowAlwaysNullShortCut {
-			if rightReturn.Family() == types.UnknownFamily {
-				return leftTyped, rightTyped, nil, true /* alwaysNull */, nil
-			}
+		if rightReturn.Family() == types.UnknownFamily {
+			return leftTyped, rightTyped, nil, true /* alwaysNull */, nil
 		}
 
 		switch rightReturn.Family() {
@@ -2752,10 +2739,8 @@ func typeCheckComparisonOp(
 					break
 				}
 			}
-			if !buildutil.CrdbTestBuild || semaCtx == nil || !semaCtx.TestingKnobs.DisallowAlwaysNullShortCut {
-				if noneAcceptNull {
-					return leftExpr, rightExpr, nil, true /* alwaysNull */, nil
-				}
+			if noneAcceptNull {
+				return leftExpr, rightExpr, nil, true /* alwaysNull */, nil
 			}
 		}
 	}
@@ -3797,6 +3782,8 @@ var CannotAcceptTriggerErr = pgerror.New(pgcode.FeatureNotSupported,
 // given family, which is invalid for comparison. We don't simply remove
 // the relevant comparison overloads because we rely on their existence in
 // various locations throughout the codebase.
+// TODO(yuzefovich): audit callers of this method to see whether Jsonpath family
+// should be handled in the same way as RefCursor family is.
 func checkComparison(
 	op treecmp.ComparisonOperatorSymbol, left, right *types.T, family types.Family,
 ) error {

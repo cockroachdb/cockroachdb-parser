@@ -47,7 +47,6 @@ var KeywordsCategories = map[string]string{
 "both": "R",
 "box2d": "C",
 "bucket_count": "U",
-"bundle": "U",
 "by": "U",
 "bypassrls": "U",
 "cache": "U",
@@ -302,6 +301,7 @@ var KeywordsCategories = map[string]string{
 "localtime": "R",
 "localtimestamp": "R",
 "locked": "U",
+"logged": "U",
 "logical": "U",
 "logically": "U",
 "login": "U",
@@ -316,7 +316,6 @@ var KeywordsCategories = map[string]string{
 "minvalue": "U",
 "mode": "U",
 "modifyclustersetting": "U",
-"modifysqlclustersetting": "U",
 "month": "U",
 "move": "U",
 "multilinestring": "U",
@@ -430,6 +429,7 @@ var KeywordsCategories = map[string]string{
 "privileges": "U",
 "procedure": "U",
 "procedures": "U",
+"provisionsrc": "U",
 "public": "U",
 "publication": "U",
 "queries": "U",
@@ -469,7 +469,6 @@ var KeywordsCategories = map[string]string{
 "restrictive": "U",
 "resume": "U",
 "retention": "U",
-"retry": "U",
 "return": "U",
 "returning": "R",
 "returns": "U",
@@ -629,9 +628,7 @@ var KeywordsCategories = map[string]string{
 "view": "U",
 "viewactivity": "U",
 "viewactivityredacted": "U",
-"viewclustermetadata": "U",
 "viewclustersetting": "U",
-"viewdebug": "U",
 "virtual": "C",
 "virtual_cluster": "U",
 "virtual_cluster_name": "U",
@@ -698,7 +695,6 @@ var KeywordNames = []string{
 "both",
 "box2d",
 "bucket_count",
-"bundle",
 "by",
 "bypassrls",
 "cache",
@@ -953,6 +949,7 @@ var KeywordNames = []string{
 "localtime",
 "localtimestamp",
 "locked",
+"logged",
 "logical",
 "logically",
 "login",
@@ -967,7 +964,6 @@ var KeywordNames = []string{
 "minvalue",
 "mode",
 "modifyclustersetting",
-"modifysqlclustersetting",
 "month",
 "move",
 "multilinestring",
@@ -1081,6 +1077,7 @@ var KeywordNames = []string{
 "privileges",
 "procedure",
 "procedures",
+"provisionsrc",
 "public",
 "publication",
 "queries",
@@ -1120,7 +1117,6 @@ var KeywordNames = []string{
 "restrictive",
 "resume",
 "retention",
-"retry",
 "return",
 "returning",
 "returns",
@@ -1280,9 +1276,7 @@ var KeywordNames = []string{
 "view",
 "viewactivity",
 "viewactivityredacted",
-"viewclustermetadata",
 "viewclustersetting",
-"viewdebug",
 "virtual",
 "virtual_cluster",
 "virtual_cluster_name",
@@ -1354,7 +1348,6 @@ func GetKeywordID(k string) int32 {
 	case "both": return BOTH
 	case "box2d": return BOX2D
 	case "bucket_count": return BUCKET_COUNT
-	case "bundle": return BUNDLE
 	case "by": return BY
 	case "bypassrls": return BYPASSRLS
 	case "cache": return CACHE
@@ -1609,6 +1602,7 @@ func GetKeywordID(k string) int32 {
 	case "localtime": return LOCALTIME
 	case "localtimestamp": return LOCALTIMESTAMP
 	case "locked": return LOCKED
+	case "logged": return LOGGED
 	case "logical": return LOGICAL
 	case "logically": return LOGICALLY
 	case "login": return LOGIN
@@ -1623,7 +1617,6 @@ func GetKeywordID(k string) int32 {
 	case "minvalue": return MINVALUE
 	case "mode": return MODE
 	case "modifyclustersetting": return MODIFYCLUSTERSETTING
-	case "modifysqlclustersetting": return MODIFYSQLCLUSTERSETTING
 	case "month": return MONTH
 	case "move": return MOVE
 	case "multilinestring": return MULTILINESTRING
@@ -1737,6 +1730,7 @@ func GetKeywordID(k string) int32 {
 	case "privileges": return PRIVILEGES
 	case "procedure": return PROCEDURE
 	case "procedures": return PROCEDURES
+	case "provisionsrc": return PROVISIONSRC
 	case "public": return PUBLIC
 	case "publication": return PUBLICATION
 	case "queries": return QUERIES
@@ -1776,7 +1770,6 @@ func GetKeywordID(k string) int32 {
 	case "restrictive": return RESTRICTIVE
 	case "resume": return RESUME
 	case "retention": return RETENTION
-	case "retry": return RETRY
 	case "return": return RETURN
 	case "returning": return RETURNING
 	case "returns": return RETURNS
@@ -1936,9 +1929,7 @@ func GetKeywordID(k string) int32 {
 	case "view": return VIEW
 	case "viewactivity": return VIEWACTIVITY
 	case "viewactivityredacted": return VIEWACTIVITYREDACTED
-	case "viewclustermetadata": return VIEWCLUSTERMETADATA
 	case "viewclustersetting": return VIEWCLUSTERSETTING
-	case "viewdebug": return VIEWDEBUG
 	case "virtual": return VIRTUAL
 	case "virtual_cluster": return VIRTUAL_CLUSTER
 	case "virtual_cluster_name": return VIRTUAL_CLUSTER_NAME

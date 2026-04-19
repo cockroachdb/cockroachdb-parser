@@ -114,8 +114,6 @@ type LineWidthMode int
 const (
 	// DefaultLineWidth is the line width used with the default pretty-printing configuration.
 	DefaultLineWidth = 60
-	// ConsoleLineWidth is the line width used on the frontend console.
-	ConsoleLineWidth = 108
 )
 
 // keywordWithText returns a pretty.Keyword with left and/or right
@@ -1055,7 +1053,7 @@ func (node *CastExpr) doc(p *PrettyCfg) pretty.Doc {
 			typ,
 		)
 	default:
-		if nTyp, ok := GetStaticallyKnownType(node.Type); ok && nTyp.Family() == types.CollatedStringFamily {
+		if nTyp, ok := GetStaticallyKnownType(node.Type); ok && typeDisplaysCollate(nTyp) {
 			// COLLATE clause needs to go after CAST expression, so create
 			// equivalent string type without the locale to get name of string
 			// type without the COLLATE.
@@ -1084,7 +1082,7 @@ func (node *CastExpr) doc(p *PrettyCfg) pretty.Doc {
 			),
 		)
 
-		if nTyp, ok := GetStaticallyKnownType(node.Type); ok && nTyp.Family() == types.CollatedStringFamily {
+		if nTyp, ok := GetStaticallyKnownType(node.Type); ok && typeDisplaysCollate(nTyp) {
 			ret = pretty.Fold(pretty.ConcatSpace,
 				ret,
 				pretty.Keyword("COLLATE"),
@@ -2271,25 +2269,17 @@ func (node *Import) doc(p *PrettyCfg) pretty.Doc {
 	items := make([]pretty.TableRow, 0, 5)
 	items = append(items, p.row("IMPORT", pretty.Nil))
 
-	if node.Bundle {
-		if node.Table != nil {
-			items = append(items, p.row("TABLE", p.Doc(node.Table)))
-			items = append(items, p.row("FROM", pretty.Nil))
-		}
-		items = append(items, p.row(node.FileFormat, p.Doc(&node.Files)))
-	} else if node.Into {
-		into := p.Doc(node.Table)
-		if node.IntoCols != nil {
-			into = p.nestUnder(into, p.bracket("(", p.Doc(&node.IntoCols), ")"))
-		}
-		items = append(items, p.row("INTO", into))
-		data := p.bracketKeyword(
-			"DATA", " (",
-			p.Doc(&node.Files),
-			")", "",
-		)
-		items = append(items, p.row(node.FileFormat, data))
+	into := p.Doc(node.Table)
+	if node.IntoCols != nil {
+		into = p.nestUnder(into, p.bracket("(", p.Doc(&node.IntoCols), ")"))
 	}
+	items = append(items, p.row("INTO", into))
+	data := p.bracketKeyword(
+		"DATA", " (",
+		p.Doc(&node.Files),
+		")", "",
+	)
+	items = append(items, p.row(node.FileFormat, data))
 
 	if node.Options != nil {
 		items = append(items, p.row("WITH", p.Doc(&node.Options)))
