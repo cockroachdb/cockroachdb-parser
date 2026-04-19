@@ -754,6 +754,9 @@ func (u *sqlSymUnion) showBackupDetails() tree.ShowBackupDetails {
 func (u *sqlSymUnion) showBackupOptions() *tree.ShowBackupOptions {
   return u.val.(*tree.ShowBackupOptions)
 }
+func (u *sqlSymUnion) showBackupTimeFilter() *tree.ShowBackupTimeFilter {
+  return u.val.(*tree.ShowBackupTimeFilter)
+}
 func (u *sqlSymUnion) checkExternalConnectionOptions() *tree.CheckExternalConnectionOptions {
   return u.val.(*tree.CheckExternalConnectionOptions)
 }
@@ -1002,7 +1005,7 @@ func (u *sqlSymUnion) filterType() tree.FilterType {
 %token <str> BUCKET_COUNT
 %token <str> BOOLEAN BOTH BOX2D BY BYPASSRLS
 
-%token <str> CACHE CALL CALLED CANCEL CANCELQUERY CAPABILITIES CAPABILITY CASCADE CASE CAST CBRT CHANGEFEED CHAR
+%token <str> CACHE CALL CALLED CANCEL CANCELQUERY CAPABILITIES CAPABILITY CASCADE CASE CAST CBRT CHAIN CHANGEFEED CHAR
 %token <str> CHARACTER CHARACTERISTICS CHECK CHECK_FILES CLOSE
 %token <str> CLUSTER CLUSTERS COALESCE COLLATE COLLATION COLUMN COLUMNS COMMENT COMMENTS COMMIT
 %token <str> COMMITTED COMPACT COMPLETE COMPLETIONS CONCAT CONCURRENTLY CONFIGURATION CONFIGURATIONS CONFIGURE
@@ -1012,12 +1015,12 @@ func (u *sqlSymUnion) filterType() tree.FilterType {
 %token <str> CURRENT_ROLE CURRENT_TIME CURRENT_TIMESTAMP
 %token <str> CURRENT_USER CURSOR CYCLE
 
-%token <str> DATA DATABASE DATABASES DATE DAY DEBUG_IDS DEC DECIMAL DEFAULT DEFAULTS DEFINER
+%token <str> DATA DATABASE DATABASES DATE DAY DEBUG DEBUG_IDS DEC DECIMAL DEFAULT DEFAULTS DEFINER
 %token <str> DEALLOCATE DECLARE DEFERRABLE DEFERRED DELETE DELIMITER DEPENDS DESC DESTINATION DETACHED DETAILS
 %token <str> DISABLE DISCARD DISTANCE DISTINCT DO DOMAIN DOUBLE DROP
 
-%token <str> EACH ELSE ENABLE ENCODING ENCRYPTED ENCRYPTION_INFO_DIR ENCRYPTION_PASSPHRASE END ENUM ENUMS ERRORS ESCAPE
-%token <str> EXCEPT EXCLUDE EXCLUDING EXISTS EXECUTE EXECUTION EXPERIMENTAL
+%token <str> EACH ELSE ENABLE ENCODING ENCRYPTED ENCRYPTION_PASSPHRASE END ENUM ENUMS ERRORS ESCAPE
+%token <str> EXCEPT EXCLUDE EXCLUDING EXPLICIT EXISTS EXECUTE EXECUTION EXPERIMENTAL
 %token <str> EXPERIMENTAL_FINGERPRINTS EXPERIMENTAL_REPLICA
 %token <str> EXPERIMENTAL_AUDIT EXPERIMENTAL_RELOCATE
 %token <str> EXPIRATION EXPLAIN EXPORT EXTENSION EXTERNAL EXTRACT EXTRACT_DURATION EXTREMES
@@ -1036,7 +1039,7 @@ func (u *sqlSymUnion) filterType() tree.FilterType {
 
 %token <str> IDENTITY
 %token <str> IF IFERROR IFNULL IGNORE_FOREIGN_KEYS ILIKE IMMEDIATE IMMEDIATELY IMMUTABLE IMPORT IN INCLUDE
-%token <str> INCLUDING INCLUDE_ALL_SECONDARY_TENANTS INCLUDE_ALL_VIRTUAL_CLUSTERS INCREMENT INCREMENTAL INCREMENTAL_LOCATION
+%token <str> INCLUDING INCLUDE_ALL_SECONDARY_TENANTS INCLUDE_ALL_VIRTUAL_CLUSTERS INCREMENT
 %token <str> INET INET_CONTAINED_BY_OR_EQUALS
 %token <str> INET_CONTAINS_OR_EQUALS INDEX INDEXES INHERITS INJECT INITIALLY
 %token <str> INDEX_BEFORE_PAREN INDEX_BEFORE_NAME_THEN_PAREN INDEX_AFTER_ORDER_BY_BEFORE_AT
@@ -1057,19 +1060,19 @@ func (u *sqlSymUnion) filterType() tree.FilterType {
 %token <str> MULTIPOINT MULTIPOINTM MULTIPOINTZ MULTIPOINTZM
 %token <str> MULTIPOLYGON MULTIPOLYGONM MULTIPOLYGONZ MULTIPOLYGONZM
 
-%token <str> NAN NAME NAMES NATURAL NEG_INNER_PRODUCT NEVER NEW NEW_DB_NAME NEW_KMS NEXT NO NOBYPASSRLS NOCANCELQUERY NOCONTROLCHANGEFEED
+%token <str> NAN NAME NAMES NATURAL NEG_INNER_PRODUCT NEVER NEW NEWER NEW_DB_NAME NEW_KMS NEXT NO NOBYPASSRLS NOCANCELQUERY NOCONTROLCHANGEFEED
 %token <str> NOCONTROLJOB NOCREATEDB NOCREATELOGIN NOCREATEROLE NODE NOLOGIN NOMODIFYCLUSTERSETTING NOREPLICATION
 %token <str> NOSQLLOGIN NO_INDEX_JOIN NO_ZIGZAG_JOIN NO_FULL_SCAN NONE NONVOTERS NORMAL NOT
 %token <str> NOTHING NOTHING_AFTER_RETURNING
 %token <str> NOTNULL
 %token <str> NOVIEWACTIVITY NOVIEWACTIVITYREDACTED NOVIEWCLUSTERSETTING NOWAIT NULL NULLIF NULLS NUMERIC
 
-%token <str> OF OFF OFFSET OID OIDS OIDVECTOR OLD OLD_KMS ON ONLY OPT OPTION OPTIONS OR
+%token <str> OF OFF OFFSET OID OIDS OIDVECTOR OLD OLDER OLD_KMS ON ONLY OPT OPTION OPTIONS OR
 %token <str> ORDER ORDINALITY OTHERS OUT OUTER OVER OVERLAPS OVERLAY OWNED OWNER OPERATOR
 
 %token <str> PARALLEL PARENT PARTIAL PARTITION PARTITIONS PASSWORD PAUSE PAUSED PER PERMISSIVE PHYSICAL PLACEMENT PLACING
 %token <str> PLAN PLANS POINT POINTM POINTZ POINTZM POLICIES POLICY POLYGON POLYGONM POLYGONZ POLYGONZM
-%token <str> POSITION PRECEDING PRECISION PREPARE PREPARED PRESERVE PRIMARY PRIOR PRIORITY PRIVILEGES
+%token <str> POSITION PRECEDING PRECISION PREPARE PREPARED PRESERVE PRIMARY PRIOR PRIORITY PRIVILEGES PUSH
 %token <str> PROCEDURAL PROCEDURE PROCEDURES PROVISIONSRC PUBLIC PUBLICATION
 
 %token <str> QUERIES QUERY QUOTE
@@ -1077,7 +1080,7 @@ func (u *sqlSymUnion) filterType() tree.FilterType {
 %token <str> RANGE RANGES READ REAL REASON REASSIGN RECURSIVE RECURRING REDACT REF REFERENCES REFERENCING REFRESH
 %token <str> REGCLASS REGION REGIONAL REGIONS REGNAMESPACE REGPROC REGPROCEDURE REGROLE REGTYPE REINDEX
 %token <str> RELATIVE RELOCATE REMOVE_PATH REMOVE_REGIONS RENAME REPEATABLE REPLACE REPLICATED REPLICATION
-%token <str> RELEASE RESET RESOLVED RESTART RESTORE RESTRICT RESTRICTED RESTRICTIVE RESUME RETENTION RETURNING RETURN RETURNS REVISION_HISTORY
+%token <str> RELEASE RESET RESOLVED RESTART RESTORE RESTRICT RESTRICTED RESTRICTIVE RESUME RETENTION RETURNING RETURN RETURNS REVISION REVISION_HISTORY
 %token <str> REVOKE RIGHT ROLE ROLES ROLLBACK ROLLUP ROUTINES ROW ROWS RSHIFT RULE RUN RUNNING
 
 %token <str> SAVEPOINT SCANS SCATTER SCHEDULE SCHEDULES SCROLL SCHEMA SCHEMA_ONLY SCHEMAS SCRUB
@@ -1089,7 +1092,7 @@ func (u *sqlSymUnion) filterType() tree.FilterType {
 %token <str> STABLE START STATE STATEMENT STATISTICS STATUS STDIN STDOUT STOP STRAIGHT STREAM STRICT STRING STORAGE STORE STORED STORING SUBJECT SUBSTRING SUPER
 %token <str> SUPPORT SURVIVE SURVIVAL SYMMETRIC SYNTAX SYSTEM SQRT SUBSCRIPTION STATEMENTS
 
-%token <str> TABLE TABLES TABLESPACE TEMP TEMPLATE TEMPORARY TENANT TENANT_NAME TENANTS TESTING_RELOCATE TEXT THEN
+%token <str> TABLE TABLES TABLESPACE TEMP TEMPLATE TEMPORARY TENANT TENANT_NAME TENANTS TESTING_RELOCATE TEXT THAN THEN
 %token <str> TIES TIME TIMETZ TIMESTAMP TIMESTAMPTZ TO THROTTLING TRAILING TRACE
 %token <str> TRANSACTION TRANSACTIONS TRANSFER TRANSFORM TREAT TRIGGER TRIGGERS TRIM TRUE
 %token <str> TRUNCATE TRUSTED TYPE TYPES
@@ -1234,6 +1237,7 @@ func (u *sqlSymUnion) filterType() tree.FilterType {
 %type <tree.Statement> alter_view_set_schema_stmt
 %type <tree.Statement> alter_view_owner_stmt
 %type <tree.Statement> alter_view_set_options_stmt
+%type <tree.Statement> alter_view_reset_options_stmt
 
 // ALTER SEQUENCE
 %type <tree.Statement> alter_rename_sequence_stmt
@@ -1345,6 +1349,7 @@ func (u *sqlSymUnion) filterType() tree.FilterType {
 %type <tree.Statement> drop_trigger_stmt
 %type <tree.Statement> drop_virtual_cluster_stmt
 %type <bool>           opt_immediate
+%type <bool>           opt_with_explicit_columns
 
 %type <tree.Statement> analyze_stmt
 %type <tree.Statement> explain_stmt
@@ -1469,7 +1474,7 @@ func (u *sqlSymUnion) filterType() tree.FilterType {
 %type <tree.Statement> fetch_cursor_stmt
 %type <tree.Statement> move_cursor_stmt
 %type <tree.CursorStmt> cursor_movement_specifier
-%type <bool> opt_hold opt_binary
+%type <bool> opt_hold opt_binary opt_transaction_chain
 %type <tree.CursorSensitivity> opt_sensitivity
 %type <tree.CursorScrollOption> opt_scroll
 %type <int64> opt_forward_backward forward_backward
@@ -1485,6 +1490,7 @@ func (u *sqlSymUnion) filterType() tree.FilterType {
 %type <tree.ShowBackupDetails> show_backup_details
 %type <*tree.ShowJobOptions> show_job_options show_job_options_list
 %type <*tree.ShowBackupOptions> opt_with_show_backup_options show_backup_options show_backup_options_list opt_with_show_backups_options show_backups_options show_backups_options_list
+%type <*tree.ShowBackupTimeFilter> opt_show_backups_time_filter_clause
 %type <*tree.CopyOptions> opt_with_copy_options copy_options copy_options_list copy_generic_options copy_generic_options_list
 %type <str> import_format
 %type <str> storage_parameter_key
@@ -2105,6 +2111,7 @@ alter_view_stmt:
 | alter_view_set_schema_stmt
 | alter_view_owner_stmt
 | alter_view_set_options_stmt
+| alter_view_reset_options_stmt
 // ALTER VIEW has its error help token here because the ALTER VIEW
 // prefix is spread over multiple non-terminals.
 | ALTER VIEW error // SHOW HELP: ALTER VIEW
@@ -3099,6 +3106,15 @@ alter_table_cmd:
       Stats: $3.expr(),
     }
   }
+  // ALTER TABLE <name> PUSH STATISTICS [WITH EXPLICIT COLUMNS] <json>
+| PUSH STATISTICS opt_with_explicit_columns a_expr
+  {
+    /* SKIP DOC */
+    $$.val = &tree.AlterTablePushStats{
+      Stats: $4.expr(),
+      ExplicitColumns: $3.bool(),
+    }
+  }
 | SET '(' storage_parameter_list ')'
   {
     $$.val = &tree.AlterTableSetStorageParams{
@@ -3116,6 +3132,36 @@ alter_table_cmd:
     $$.val = &tree.AlterTableSetRLSMode{
       Mode: $1.rlsTableMode(),
     }
+  }
+  // ALTER TABLE <name> ENABLE TRIGGER <trigger_name>
+| ENABLE TRIGGER name
+  {
+    $$.val = &tree.AlterTableSetTrigger{Enable: true, Scope: tree.TriggerScopeName, Name: tree.Name($3)}
+  }
+  // ALTER TABLE <name> ENABLE TRIGGER ALL
+| ENABLE TRIGGER ALL
+  {
+    $$.val = &tree.AlterTableSetTrigger{Enable: true, Scope: tree.TriggerScopeAll}
+  }
+  // ALTER TABLE <name> ENABLE TRIGGER USER
+| ENABLE TRIGGER USER
+  {
+    $$.val = &tree.AlterTableSetTrigger{Enable: true, Scope: tree.TriggerScopeUser}
+  }
+  // ALTER TABLE <name> DISABLE TRIGGER <trigger_name>
+| DISABLE TRIGGER name
+  {
+    $$.val = &tree.AlterTableSetTrigger{Enable: false, Scope: tree.TriggerScopeName, Name: tree.Name($3)}
+  }
+  // ALTER TABLE <name> DISABLE TRIGGER ALL
+| DISABLE TRIGGER ALL
+  {
+    $$.val = &tree.AlterTableSetTrigger{Enable: false, Scope: tree.TriggerScopeAll}
+  }
+  // ALTER TABLE <name> DISABLE TRIGGER USER
+| DISABLE TRIGGER USER
+  {
+    $$.val = &tree.AlterTableSetTrigger{Enable: false, Scope: tree.TriggerScopeUser}
   }
 
 audit_mode:
@@ -3137,6 +3183,18 @@ alter_index_cmd:
   {
     $$.val = &tree.AlterIndexPartitionBy{
       PartitionByIndex: $1.partitionByIndex(),
+    }
+  }
+| SET '(' storage_parameter_list ')'
+  {
+    $$.val = &tree.AlterIndexSetStorageParams{
+      StorageParams: $3.storageParams(),
+    }
+  }
+| RESET '(' storage_parameter_key_list ')'
+  {
+    $$.val = &tree.AlterIndexResetStorageParams{
+      Params: $3.storageParamKeys(),
     }
   }
 
@@ -3180,6 +3238,15 @@ opt_alter_column_using:
      $$.val = nil
   }
 
+opt_with_explicit_columns:
+  WITH EXPLICIT COLUMNS
+  {
+    $$.val = true
+  }
+| /* EMPTY */
+  {
+    $$.val = false
+  }
 
 opt_drop_behavior:
   CASCADE
@@ -3471,7 +3538,6 @@ opt_clear_data:
 //    encryption_passphrase="secret": encrypt backups
 //    kms="[kms_provider]://[kms_host]/[master_key_identifier]?[parameters]" : encrypt backups using KMS
 //    detached: execute backup job asynchronously, without waiting for its completion
-//    incremental_location: specify a different path to store the incremental backup
 //    include_all_virtual_clusters: enable backups of all virtual clusters during a cluster backup
 //
 // %SeeAlso: RESTORE, WEBDOCS/backup.html
@@ -3581,10 +3647,6 @@ backup_options:
 | KMS '=' string_or_placeholder_opt_list
   {
     $$.val = &tree.BackupOptions{EncryptionKMSURI: $3.stringOrPlaceholderOptList()}
-  }
-| INCREMENTAL_LOCATION '=' string_or_placeholder_opt_list
-  {
-    $$.val = &tree.BackupOptions{IncrementalStorage: $3.stringOrPlaceholderOptList()}
   }
 | EXECUTION LOCALITY '=' string_or_placeholder
   {
@@ -4156,10 +4218,6 @@ restore_options:
   {
     $$.val = &tree.RestoreOptions{NewDBName: $3.expr()}
   }
-| INCREMENTAL_LOCATION '=' string_or_placeholder_opt_list
-	{
-		$$.val = &tree.RestoreOptions{IncrementalStorage: $3.stringOrPlaceholderOptList()}
-	}
 | virtual_cluster_name '=' string_or_placeholder
   {
     $$.val = &tree.RestoreOptions{AsTenant: $3.expr()}
@@ -4195,6 +4253,10 @@ restore_options:
 | REMOVE_REGIONS
   {
     $$.val = &tree.RestoreOptions{RemoveRegions: true, SkipLocalitiesCheck: true}
+  }
+| GRANTS
+  {
+    $$.val = &tree.RestoreOptions{Grants: true}
   }
 
 virtual_cluster_opt:
@@ -9018,13 +9080,14 @@ show_histogram_stmt:
 // %Text: SHOW BACKUP [SCHEMAS|FILES|RANGES] <location>
 // %SeeAlso: WEBDOCS/show-backup.html
 show_backup_stmt:
-  SHOW BACKUPS IN string_or_placeholder_opt_list opt_with_show_backups_options
- {
-    $$.val = &tree.ShowBackup{
-      InCollection:    $4.stringOrPlaceholderOptList(),
-      Options: *$5.showBackupOptions(),
-    }
-  }
+  SHOW BACKUPS IN string_or_placeholder_opt_list opt_show_backups_time_filter_clause opt_with_show_backups_options
+        {
+                $$.val = &tree.ShowBackup{
+                  InCollection:    $4.stringOrPlaceholderOptList(),
+                  TimeRange: *$5.showBackupTimeFilter(),
+                  Options: *$6.showBackupOptions(),
+                }
+        }
 | SHOW BACKUP show_backup_details FROM string_or_placeholder IN string_or_placeholder_opt_list opt_with_show_backup_options
 	{
 		$$.val = &tree.ShowBackup{
@@ -9105,38 +9168,6 @@ show_backup_details:
 	$$.val = tree.BackupValidateDetails
 	}
 
-opt_with_show_backups_options:
-  WITH show_backups_options_list
-  {
-    $$.val = $2.showBackupOptions()
-  }
-| WITH OPTIONS '(' show_backups_options_list ')'
-  {
-    $$.val = $4.showBackupOptions()
-  }
-| /* EMPTY */
-  {
-    $$.val = &tree.ShowBackupOptions{}
-  }
-
-show_backups_options_list:
-  show_backups_options
-  {
-    $$.val = $1.showBackupOptions()
-  }
-| show_backups_options_list ',' show_backups_options
-  {
-    if err := $1.showBackupOptions().CombineWith($3.showBackupOptions()); err != nil {
-      return setErr(sqllex, err)
-    }
-  }
-
-show_backups_options:
- INDEX
- {
-    $$.val = &tree.ShowBackupOptions{Index: true}
- }
-
 opt_with_show_backup_options:
   WITH show_backup_options_list
   {
@@ -9186,10 +9217,6 @@ show_backup_options:
  {
  $$.val = &tree.ShowBackupOptions{DebugIDs: true}
  }
- | INCREMENTAL_LOCATION '=' string_or_placeholder_opt_list
- {
- $$.val = &tree.ShowBackupOptions{IncrementalStorage: $3.stringOrPlaceholderOptList()}
- }
  | KMS '=' string_or_placeholder_opt_list
  {
  $$.val = &tree.ShowBackupOptions{DecryptionKMSURI: $3.stringOrPlaceholderOptList()}
@@ -9202,10 +9229,65 @@ show_backup_options:
  {
  $$.val = &tree.ShowBackupOptions{Privileges: true}
  }
- | ENCRYPTION_INFO_DIR '=' string_or_placeholder
- {
- $$.val = &tree.ShowBackupOptions{EncryptionInfoDir: $3.expr()}
- }
+
+opt_show_backups_time_filter_clause:
+  NEWER THAN a_expr
+  {
+    $$.val = &tree.ShowBackupTimeFilter{NewerThan: $3.expr()}
+  }
+  | OLDER THAN a_expr
+  {
+    $$.val = &tree.ShowBackupTimeFilter{OlderThan: $3.expr()}
+  }
+  | NEWER THAN a_expr OLDER THAN a_expr
+  {
+    $$.val = &tree.ShowBackupTimeFilter{NewerThan: $3.expr(), OlderThan: $6.expr()}
+  }
+  | OLDER THAN a_expr NEWER THAN a_expr
+  {
+    $$.val = &tree.ShowBackupTimeFilter{NewerThan: $6.expr(), OlderThan: $3.expr()}
+  }
+  | /* EMPTY */
+  {
+    $$.val = &tree.ShowBackupTimeFilter{}
+  }
+
+opt_with_show_backups_options:
+  WITH show_backups_options_list
+  {
+    $$.val = $2.showBackupOptions()
+  }
+  | WITH OPTIONS '(' show_backups_options_list ')'
+  {
+    $$.val = $4.showBackupOptions()
+  }
+  | /* EMPTY */
+  {
+    $$.val = &tree.ShowBackupOptions{}
+  }
+
+show_backups_options_list:
+  show_backups_options
+  {
+    $$.val = $1.showBackupOptions()
+  }
+| show_backups_options_list ',' show_backups_options
+  {
+    if err := $1.showBackupOptions().CombineWith($3.showBackupOptions()); err != nil {
+      return setErr(sqllex, err)
+    }
+  }
+
+show_backups_options:
+  REVISION START TIME
+  {
+    $$.val = &tree.ShowBackupOptions{RevisionStartTime: true}
+  }
+| DEBUG
+  {
+    /* SKIP DOC */
+    $$.val = &tree.ShowBackupOptions{Debug: true}
+  }
 
 // %Help: SHOW CLUSTER SETTING - display cluster settings
 // %Category: Cfg
@@ -12593,23 +12675,19 @@ opt_view_with:
   }
 | WITH '(' SECURITY_INVOKER ')'
   {
-    /* SKIP DOC */
     // security_invoker without value defaults to true
     $$.val = &tree.ViewOptions{SecurityInvoker: true}
   }
 | WITH '(' SECURITY_INVOKER '=' TRUE ')'
   {
-    /* SKIP DOC */
     $$.val = &tree.ViewOptions{SecurityInvoker: true}
   }
 | WITH '(' SECURITY_INVOKER '=' FALSE ')'
   {
-    /* SKIP DOC */
     $$.val = &tree.ViewOptions{SecurityInvoker: false}
   }
 | WITH '(' SECURITY_INVOKER '=' ICONST ')'
   {
-    /* SKIP DOC */
     // Handle integer values: 1 = true, 0 = false
     val, err := $5.numVal().AsInt64()
     if err != nil {
@@ -13238,13 +13316,103 @@ alter_view_owner_stmt:
   }
 
 alter_view_set_options_stmt:
-  ALTER VIEW relation_expr SET '(' SECURITY_INVOKER '=' var_value ')'
+  ALTER VIEW relation_expr SET '(' SECURITY_INVOKER '=' TRUE ')'
   {
-    return unimplemented(sqllex, "ALTER VIEW ... SET (security_invoker = ...) is not yet implemented.")
+    $$.val = &tree.AlterViewSetOptions{
+      Name: $3.unresolvedObjectName(),
+      IfExists: false,
+      Options: &tree.ViewOptions{SecurityInvoker: true},
+    }
   }
-| ALTER VIEW IF EXISTS relation_expr SET '(' SECURITY_INVOKER '=' var_value ')'
+| ALTER VIEW relation_expr SET '(' SECURITY_INVOKER '=' FALSE ')'
   {
-    return unimplemented(sqllex, "ALTER VIEW ... IF EXISTS SET (security_invoker = ...) is not yet implemented.")
+    $$.val = &tree.AlterViewSetOptions{
+      Name: $3.unresolvedObjectName(),
+      IfExists: false,
+      Options: &tree.ViewOptions{SecurityInvoker: false},
+    }
+  }
+| ALTER VIEW relation_expr SET '(' SECURITY_INVOKER '=' ICONST ')'
+  {
+    val, err := $8.numVal().AsInt64()
+    if err != nil { return setErr(sqllex, err) }
+    var si bool
+    if val == 1 {
+      si = true
+    } else if val == 0 {
+      si = false
+    } else {
+      return setErr(sqllex, errors.New("security_invoker accepts only true/false or 1/0"))
+    }
+    $$.val = &tree.AlterViewSetOptions{
+      Name: $3.unresolvedObjectName(),
+      IfExists: false,
+      Options: &tree.ViewOptions{SecurityInvoker: si},
+    }
+  }
+| ALTER VIEW relation_expr SET '(' SECURITY_INVOKER ')'
+  {
+    $$.val = &tree.AlterViewSetOptions{
+      Name: $3.unresolvedObjectName(),
+      IfExists: false,
+      Options: &tree.ViewOptions{SecurityInvoker: true},
+    }
+  }
+| ALTER VIEW IF EXISTS relation_expr SET '(' SECURITY_INVOKER '=' TRUE ')'
+  {
+    $$.val = &tree.AlterViewSetOptions{
+      Name: $5.unresolvedObjectName(),
+      IfExists: true,
+      Options: &tree.ViewOptions{SecurityInvoker: true},
+    }
+  }
+| ALTER VIEW IF EXISTS relation_expr SET '(' SECURITY_INVOKER '=' FALSE ')'
+  {
+    $$.val = &tree.AlterViewSetOptions{
+      Name: $5.unresolvedObjectName(),
+      IfExists: true,
+      Options: &tree.ViewOptions{SecurityInvoker: false},
+    }
+  }
+| ALTER VIEW IF EXISTS relation_expr SET '(' SECURITY_INVOKER '=' ICONST ')'
+  {
+    val, err := $10.numVal().AsInt64()
+    if err != nil { return setErr(sqllex, err) }
+    var si bool
+    if val == 1 {
+      si = true
+    } else if val == 0 {
+      si = false
+    } else {
+      return setErr(sqllex, errors.New("security_invoker accepts only true/false or 1/0"))
+    }
+    $$.val = &tree.AlterViewSetOptions{
+      Name: $5.unresolvedObjectName(),
+      IfExists: true,
+      Options: &tree.ViewOptions{SecurityInvoker: si},
+    }
+  }
+| ALTER VIEW IF EXISTS relation_expr SET '(' SECURITY_INVOKER ')'
+  {
+    $$.val = &tree.AlterViewSetOptions{
+      Name: $5.unresolvedObjectName(),
+      IfExists: true,
+      Options: &tree.ViewOptions{SecurityInvoker: true},
+    }
+  }
+alter_view_reset_options_stmt:
+  ALTER VIEW relation_expr RESET '(' SECURITY_INVOKER ')'
+  {
+    $$.val = &tree.AlterViewResetOptions{
+      Name: $3.unresolvedObjectName(),
+    }
+  }
+| ALTER VIEW IF EXISTS relation_expr RESET '(' SECURITY_INVOKER ')'
+  {
+    $$.val = &tree.AlterViewResetOptions{
+      Name: $5.unresolvedObjectName(),
+      IfExists: true,
+    }
   }
 
 alter_sequence_set_schema_stmt:
@@ -13641,7 +13809,7 @@ transaction_stmt:
 // %Help: BEGIN - start a transaction
 // %Category: Txn
 // %Text:
-// BEGIN [TRANSACTION] [ <txnparameter> [[,] ...] ]
+// BEGIN [TRANSACTION | WORK] [ <txnparameter> [[,] ...] ]
 // START TRANSACTION [ <txnparameter> [[,] ...] ]
 //
 // Transaction parameters:
@@ -13661,37 +13829,32 @@ begin_stmt:
 // %Help: COMMIT - commit the current transaction
 // %Category: Txn
 // %Text:
-// COMMIT [TRANSACTION]
-// END [TRANSACTION]
+// COMMIT [TRANSACTION | WORK] [AND [NO] CHAIN]
+// END [TRANSACTION | WORK] [AND [NO] CHAIN]
 // %SeeAlso: BEGIN, ROLLBACK, WEBDOCS/commit-transaction.html
 commit_stmt:
-  COMMIT opt_transaction
+  COMMIT opt_transaction opt_transaction_chain
   {
-    $$.val = &tree.CommitTransaction{}
+    $$.val = &tree.CommitTransaction{Chain: $3.bool()}
   }
 | COMMIT error // SHOW HELP: COMMIT
 
 abort_stmt:
-  ABORT opt_abort_mod
+  ABORT opt_transaction opt_transaction_chain
   {
-    $$.val = &tree.RollbackTransaction{}
+    $$.val = &tree.RollbackTransaction{Chain: $3.bool()}
   }
-
-opt_abort_mod:
-  TRANSACTION {}
-| WORK        {}
-| /* EMPTY */ {}
 
 // %Help: ROLLBACK - abort the current (sub-)transaction
 // %Category: Txn
 // %Text:
-// ROLLBACK [TRANSACTION]
-// ROLLBACK [TRANSACTION] TO [SAVEPOINT] <savepoint name>
+// ROLLBACK [TRANSACTION | WORK] [AND [NO] CHAIN]
+// ROLLBACK [TRANSACTION | WORK] TO [SAVEPOINT] <savepoint name>
 // %SeeAlso: BEGIN, COMMIT, SAVEPOINT, WEBDOCS/rollback-transaction.html
 rollback_stmt:
-  ROLLBACK opt_transaction
+  ROLLBACK opt_transaction opt_transaction_chain
   {
-     $$.val = &tree.RollbackTransaction{}
+     $$.val = &tree.RollbackTransaction{Chain: $3.bool()}
   }
 | ROLLBACK opt_transaction TO savepoint_name
   {
@@ -13714,16 +13877,31 @@ legacy_begin_stmt:
 | BEGIN error // SHOW HELP: BEGIN
 
 legacy_end_stmt:
-  END opt_transaction
+  END opt_transaction opt_transaction_chain
   {
-    $$.val = &tree.CommitTransaction{}
+    $$.val = &tree.CommitTransaction{Chain: $3.bool()}
   }
 | END error // SHOW HELP: COMMIT
 
 
 opt_transaction:
   TRANSACTION {}
+| WORK        {}
 | /* EMPTY */ {}
+
+opt_transaction_chain:
+  AND CHAIN
+  {
+    $$.val = true
+  }
+| AND NO CHAIN
+  {
+    $$.val = false
+  }
+| /* EMPTY */
+  {
+    $$.val = false
+  }
 
 savepoint_name:
   SAVEPOINT name
@@ -16018,9 +16196,6 @@ character_with_length:
       return 1
     }
     $$.val = types.MakeScalar(types.StringFamily, colTyp.Oid(), colTyp.Precision(), n, colTyp.Locale())
-    // TODO(rafi): Once compatibility with 25.3 is no longer needed, remove
-    // VisibleType.
-    $$.val.(*types.T).InternalType.VisibleType = colTyp.InternalType.VisibleType
   }
 
 character_without_length:
@@ -18676,6 +18851,7 @@ unreserved_keyword:
 | CAPABILITIES
 | CAPABILITY
 | CASCADE
+| CHAIN
 | CHANGEFEED
 | CHECK_FILES
 | CLOSE
@@ -18716,6 +18892,7 @@ unreserved_keyword:
 | DATABASES
 | DAY
 | DEALLOCATE
+| DEBUG
 | DEBUG_IDS
 | DECLARE
 | DELETE
@@ -18737,13 +18914,13 @@ unreserved_keyword:
 | ENCODING
 | ENCRYPTED
 | ENCRYPTION_PASSPHRASE
-| ENCRYPTION_INFO_DIR
 | ENUM
 | ENUMS
 | ERRORS
 | ESCAPE
 | EXCLUDE
 | EXCLUDING
+| EXPLICIT
 | EXECUTE
 | EXECUTION
 | EXPERIMENTAL
@@ -18805,8 +18982,6 @@ unreserved_keyword:
 | INCLUDE_ALL_SECONDARY_TENANTS
 | INCLUDE_ALL_VIRTUAL_CLUSTERS
 | INCREMENT
-| INCREMENTAL
-| INCREMENTAL_LOCATION
 | INDEX
 | INDEXES
 | INHERITS
@@ -18858,7 +19033,10 @@ unreserved_keyword:
 | METHOD
 | MINUTE
 | MINVALUE
+| MODE
 | MODIFYCLUSTERSETTING
+| MONTH
+| MOVE
 | MULTILINESTRING
 | MULTILINESTRINGM
 | MULTILINESTRINGZ
@@ -18871,13 +19049,11 @@ unreserved_keyword:
 | MULTIPOLYGONM
 | MULTIPOLYGONZ
 | MULTIPOLYGONZM
-| MODE
-| MONTH
-| MOVE
 | NAMES
 | NAN
 | NEVER
 | NEW
+| NEWER
 | NEW_DB_NAME
 | NEW_KMS
 | NEXT
@@ -18911,6 +19087,7 @@ unreserved_keyword:
 | OFF
 | OIDS
 | OLD
+| OLDER
 | OLD_KMS
 | OPERATOR
 | OPT
@@ -18950,6 +19127,7 @@ unreserved_keyword:
 | PRIOR
 | PRIORITY
 | PRIVILEGES
+| PUSH
 | PROCEDURE
 | PROCEDURES
 | PROVISIONSRC
@@ -18993,6 +19171,7 @@ unreserved_keyword:
 | RETENTION
 | RETURN
 | RETURNS
+| REVISION
 | REVISION_HISTORY
 | REVOKE
 | ROLE
@@ -19082,6 +19261,7 @@ unreserved_keyword:
 | TENANTS
 | TESTING_RELOCATE
 | TEXT
+| THAN
 | TIES
 | TRACE
 | TRACING
@@ -19193,6 +19373,7 @@ bare_label_keywords:
 | CASCADE
 | CASE
 | CAST
+| CHAIN
 | CHANGEFEED
 | CHARACTERISTICS
 | CHECK
@@ -19247,6 +19428,7 @@ bare_label_keywords:
 | DATABASE
 | DATABASES
 | DEALLOCATE
+| DEBUG
 | DEBUG_IDS
 | DEC
 | DECIMAL
@@ -19275,7 +19457,6 @@ bare_label_keywords:
 | ENABLE
 | ENCODING
 | ENCRYPTED
-| ENCRYPTION_INFO_DIR
 | ENCRYPTION_PASSPHRASE
 | END
 | ENUM
@@ -19284,6 +19465,7 @@ bare_label_keywords:
 | ESCAPE
 | EXCLUDE
 | EXCLUDING
+| EXPLICIT
 | EXECUTE
 | EXECUTION
 | EXISTS
@@ -19361,8 +19543,6 @@ bare_label_keywords:
 | INCLUDE_ALL_VIRTUAL_CLUSTERS
 | INCLUDING
 | INCREMENT
-| INCREMENTAL
-| INCREMENTAL_LOCATION
 | INDEX
 | INDEXES
 | INDEX_AFTER_ORDER_BY_BEFORE_AT
@@ -19453,6 +19633,7 @@ bare_label_keywords:
 | NATURAL
 | NEVER
 | NEW
+| NEWER
 | NEW_DB_NAME
 | NEW_KMS
 | NEXT
@@ -19490,6 +19671,7 @@ bare_label_keywords:
 | OFF
 | OIDS
 | OLD
+| OLDER
 | OLD_KMS
 | ONLY
 | OPERATOR
@@ -19538,6 +19720,7 @@ bare_label_keywords:
 | PRIOR
 | PRIORITY
 | PRIVILEGES
+| PUSH
 | PROCEDURE
 | PROCEDURES
 | PROVISIONSRC
@@ -19583,6 +19766,7 @@ bare_label_keywords:
 | RETENTION
 | RETURN
 | RETURNS
+| REVISION
 | REVISION_HISTORY
 | REVOKE
 | RIGHT
@@ -19683,6 +19867,7 @@ bare_label_keywords:
 | TENANT_NAME
 | TESTING_RELOCATE
 | TEXT
+| THAN
 | THEN
 | THROTTLING
 | TIES

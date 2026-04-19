@@ -38,6 +38,7 @@ import (
 	"github.com/cockroachdb/cockroachdb-parser/pkg/sql/colexec/execgen"
 	"github.com/cockroachdb/cockroachdb-parser/pkg/sql/colexecop"
 	"github.com/cockroachdb/cockroachdb-parser/pkg/sql/colexecerror"
+	"github.com/cockroachdb/cockroachdb-parser/pkg/sql/execinfrapb"
 	"github.com/cockroachdb/cockroachdb-parser/pkg/sql/sem/tree"
 	"github.com/cockroachdb/cockroachdb-parser/pkg/sql/types"
 	"github.com/cockroachdb/cockroachdb-parser/pkg/util/duration"

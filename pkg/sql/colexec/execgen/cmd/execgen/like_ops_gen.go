@@ -37,6 +37,7 @@ import (
 	"regexp"
 
 	"github.com/cockroachdb/cockroachdb-parser/pkg/col/coldata"
+	"github.com/cockroachdb/cockroachdb-parser/pkg/sql/execinfrapb"
 )
 
 {{range .}}

@@ -40,6 +40,7 @@ const (
 // OIDs in this block are not extensions of postgres, but are not supported in
 // github.com/lib/pq/oid. See postgres/src/include/catalog/pg_type.dat for oids.
 const (
+	T_aclitem   = oid.Oid(1033)
 	T_jsonpath  = oid.Oid(4072)
 	T__jsonpath = oid.Oid(4073)
 )
