@@ -73,7 +73,7 @@ func SeemsOfficial() bool {
 }
 
 func parseCockroachVersion(versionTxt string) *version.Version {
-	txt := strings.TrimSuffix(versionTxt, "\n")
+	txt := strings.TrimSpace(versionTxt)
 	v, err := version.Parse(txt)
 	if err != nil {
 		panic(fmt.Errorf("could not parse version.txt: %w", err))
