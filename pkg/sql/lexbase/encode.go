@@ -23,7 +23,7 @@ import (
 )
 
 // EncodeFlags influence the formatting of strings and identifiers.
-type EncodeFlags int
+type EncodeFlags int64
 
 // HasFlags tests whether the given flags are set.
 func (f EncodeFlags) HasFlags(subset EncodeFlags) bool {

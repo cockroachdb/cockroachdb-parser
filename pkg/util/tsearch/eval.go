@@ -168,9 +168,9 @@ func (e *tsEvaluator) evalFollowedBy(
 		if lExhausted && rExhausted {
 			break
 		}
-		var lPos, rPos int
+		var lPos, rPos int64
 		if !lExhausted {
-			lPos = int(lPositions.positions[lIdx].position) + lOffset
+			lPos = int64(lPositions.positions[lIdx].position) + int64(lOffset)
 		} else {
 			// Quit unless we're outputting all of the RHS, which we will if we have
 			// a negative match on the LHS.
@@ -180,7 +180,7 @@ func (e *tsEvaluator) evalFollowedBy(
 			lPos = math.MaxInt64
 		}
 		if !rExhausted {
-			rPos = int(rPositions.positions[rIdx].position) + rOffset
+			rPos = int64(rPositions.positions[rIdx].position) + int64(rOffset)
 		} else {
 			// Quit unless we're outputting all of the LHS, which we will if we have
 			// a negative match on the RHS.
